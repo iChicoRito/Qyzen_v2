@@ -2,12 +2,27 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Score extends Model
 {
     protected $table = 'tbl_scores';
+
+    // D2: admin all / educator ownership / student own scores only.
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->hasRole('admin')) {
+            return $query;
+        }
+
+        if ($user->hasRole('educator')) {
+            return $query->where('educator_id', $user->id);
+        }
+
+        return $query->where('student_id', $user->id);
+    }
 
     protected $fillable = [
         'student_id', 'educator_id', 'assessment_id', 'subject_id', 'section_id',

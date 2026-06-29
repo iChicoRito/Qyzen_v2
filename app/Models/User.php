@@ -44,6 +44,28 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * D1: mirror of has_role() — does the user hold this active role?
+     */
+    public function hasRole(string $name): bool
+    {
+        return $this->roles()->where('is_active', true)->where('name', $name)->exists();
+    }
+
+    /**
+     * D1: mirror of user_has_permission() — roles -> role_permissions -> permissions,
+     * active roles + active permissions only, matched by permission_string.
+     */
+    public function hasPermission(string $permissionString): bool
+    {
+        return $this->roles()
+            ->where('tbl_roles.is_active', true)
+            ->whereHas('permissions', fn ($q) => $q
+                ->where('tbl_permissions.is_active', true)
+                ->where('permission_string', $permissionString))
+            ->exists();
+    }
+
+    /**
      * Primary role for routing: admin > educator > student, falling back to user_type.
      * (Source: fetchAuthContext / getPrimaryRole.)
      */

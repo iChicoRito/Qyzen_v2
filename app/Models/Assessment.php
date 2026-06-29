@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,6 +10,27 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Assessment extends Model
 {
     protected $table = 'tbl_assessments';
+
+    // D2: admin all / educator ownership / student enrollment (active tbl_enrolled
+    // matching educator+subject). NOTE: no admin RLS policy on assessments in source,
+    // but admin retains full app-layer access per the admin Policy.
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->hasRole('admin')) {
+            return $query;
+        }
+
+        if ($user->hasRole('educator')) {
+            return $query->where('educator_id', $user->id);
+        }
+
+        return $query->whereExists(fn ($q) => $q->selectRaw('1')
+            ->from('tbl_enrolled')
+            ->whereColumn('tbl_enrolled.educator_id', 'tbl_assessments.educator_id')
+            ->whereColumn('tbl_enrolled.subject_id', 'tbl_assessments.subject_id')
+            ->where('tbl_enrolled.student_id', $user->id)
+            ->where('tbl_enrolled.is_active', true));
+    }
 
     protected $fillable = [
         'educator_id', 'subject_id', 'section_id', 'assessment_code', 'time_limit',

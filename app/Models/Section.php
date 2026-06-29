@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -10,6 +11,27 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Section extends Model
 {
     protected $table = 'tbl_sections';
+
+    // D2: admin all / educator ownership (perm 'sections:view' gated at Policy) /
+    // student enrollment via a subject in this section.
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->hasRole('admin')) {
+            return $query;
+        }
+
+        if ($user->hasRole('educator')) {
+            return $query->where('educator_id', $user->id);
+        }
+
+        return $query->whereExists(fn ($q) => $q->selectRaw('1')
+            ->from('tbl_enrolled')
+            ->join('tbl_subjects', 'tbl_subjects.id', '=', 'tbl_enrolled.subject_id')
+            ->whereColumn('tbl_enrolled.educator_id', 'tbl_sections.educator_id')
+            ->whereColumn('tbl_subjects.sections_id', 'tbl_sections.id')
+            ->where('tbl_enrolled.student_id', $user->id)
+            ->where('tbl_enrolled.is_active', true));
+    }
 
     protected $fillable = ['educator_id', 'academic_term_id', 'section_name', 'is_active'];
 

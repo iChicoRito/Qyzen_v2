@@ -16,12 +16,13 @@ Route::get('/oauth/{provider}/callback', [OAuthController::class, 'callback'])->
 Route::get('/dashboard', fn () => redirect(Auth::user()->dashboardPath()))
     ->middleware(['auth', 'verified'])->name('dashboard.redirect');
 
-// Placeholder role dashboards (real pages land in Stages F/G/H). Role middleware = Stage D.
+// Placeholder role dashboards (real pages land in Stages F/G/H), now behind the
+// D4 role middleware: auth + verified + role:{role}.
 foreach (['admin', 'educator', 'student'] as $role) {
     Route::get("/{$role}/dashboard", fn () => view('dummy', [
         'role' => $role,
         'navItems' => [['label' => 'Dashboard', 'url' => '#']],
-    ]))->middleware(['auth', 'verified'])->name("{$role}.dashboard");
+    ]))->middleware(['auth', 'verified', "role:{$role}"])->name("{$role}.dashboard");
 }
 
 // ponytail: temporary layout-check route for Phase 0 (A4); remove once real role routes land

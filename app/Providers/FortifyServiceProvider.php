@@ -1,0 +1,58 @@
+<?php
+
+namespace App\Providers;
+
+use App\Actions\Fortify\CreateNewUser;
+use App\Actions\Fortify\ResetUserPassword;
+use App\Actions\Fortify\UpdateUserPassword;
+use App\Actions\Fortify\UpdateUserProfileInformation;
+use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
+use Laravel\Fortify\Fortify;
+
+class FortifyServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        //
+    }
+
+    public function boot(): void
+    {
+        Fortify::createUsersUsing(CreateNewUser::class);
+        Fortify::updateUserProfileInformationUsing(UpdateUserProfileInformation::class);
+        Fortify::updateUserPasswordsUsing(UpdateUserPassword::class);
+        Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
+
+        // C2: bind identity by lowercased email; block inactive and password-less
+        // (imported, not-yet-reset) accounts at the credential check.
+        Fortify::authenticateUsing(function (Request $request) {
+            $user = User::where('email', Str::lower((string) $request->email))->first();
+
+            if ($user && $user->is_active && $user->password && Hash::check($request->password, $user->password)) {
+                return $user;
+            }
+
+            return null;
+        });
+
+        // C1: Blade views built from the Tabler template/*.html auth pages.
+        Fortify::loginView(fn () => view('auth.login'));
+        Fortify::registerView(fn () => view('auth.register'));
+        Fortify::requestPasswordResetLinkView(fn () => view('auth.forgot-password'));
+        Fortify::resetPasswordView(fn (Request $request) => view('auth.reset-password', ['request' => $request]));
+        Fortify::verifyEmailView(fn () => view('auth.verify-email'));
+
+        // C4: non-enumerating reset request is Fortify default; rate-limit per email+IP.
+        RateLimiter::for('login', function (Request $request) {
+            $key = Str::transliterate(Str::lower((string) $request->input(Fortify::username())).'|'.$request->ip());
+
+            return Limit::perMinute(5)->by($key);
+        });
+    }
+}

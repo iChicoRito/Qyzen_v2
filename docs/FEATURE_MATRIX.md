@@ -239,7 +239,7 @@ Read-only. Summary cards (total/pending/completed assessments, average score), p
 | Role | Modules | Write actions | Notable gaps / stubs |
 |------|---------|---------------|----------------------|
 | **Admin** | 6 (dashboard, users, roles, permissions, year, term) | user CRUD, role/perm/year/term CRUD | ✅ all source 🚧 STUBs (edit user, edit permission, view/edit year & term) finished in Laravel Stage F |
-| **Educator** | 10 | full CRUD on sections/subjects/enrollment/assessments/quizzes/materials, grant retake, exports, chat | monitoring is view-only; quizzes have no reorder |
+| **Educator** | 10 | full CRUD on sections/subjects/enrollment/assessments/quizzes/materials, grant retake, exports, chat | ✅ built in Laravel Stage G (ownership-gated). Chat + monitoring built request/response (live transport deferred to Stage I); monitoring view-only; quizzes have no reorder |
 | **Student** | 7 + profile | take/submit quiz, autosave, retake, send chat, download materials, edit profile | cannot create chats; students can't edit own name |
 
 > **Migration note:** the 🚧 STUB rows are the only places where "what the UI shows" ≠ "what works." A faithful Laravel rewrite should either finish them or drop them deliberately — not silently reproduce a dead button.

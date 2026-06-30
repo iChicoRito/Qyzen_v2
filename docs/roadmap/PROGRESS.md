@@ -4,7 +4,7 @@
 > `BUILD_ORDER_STEP_BY_STEP.md` (Stages A–J) and `IMPLEMENTATION_ROADMAP_LARAVEL.md`
 > (Phases 0–9). This file records **what is done and verified** vs **what's next**.
 >
-> Last updated: 2026-06-30 (Stage F complete).
+> Last updated: 2026-06-30 (Stage G complete).
 
 ## Stage ↔ Phase map
 
@@ -16,8 +16,8 @@
 | **D** | **3** | **Authorization core ⚠ the gate** | ✅ done — gate green |
 | E | 4 | Data import | ⬜ not started |
 | F | 5 | Admin features | ✅ done — first real UI |
-| G | 6 | Educator features | ⬅ **NEXT** |
-| H | 7 | Student / quiz engine ⚠ | ⬜ |
+| G | 6 | Educator features | ✅ done — ownership-gated |
+| H | 7 | Student / quiz engine ⚠ | ⬅ **NEXT** |
 | I | 8 | Real-time (deferred) | ⬜ |
 | J | 9 | Hardening + cutover | ⬜ |
 
@@ -86,19 +86,38 @@ so admin list queries skip `visibleTo`; every route still carries a Policy.
 - **F8 Academic Term (view/edit were 🚧 STUB → finished)** — create/view/edit/delete; composite uniqueness `(term_name, semester, academic_year_id)`; semester enum is `'1st Semester'|'2nd Semester'` (the matrix abbreviated it).
 - **Tests:** `tests/Feature/Admin/AdminFeaturesTest.php` — 12 tests / 44 assertions (authz gate: non-admin bounced; per-module CRUD; user_id format; role permission-replace; permission dup-reject; year cascade; term composite-unique). **Full suite 22/22 green** (incl. the Stage D `AuthorizationMatrixTest` gate). `migrate:fresh` clean on MySQL; `view:cache` compiles all admin Blade.
 
+### Stage G / Phase 6 — Educator features (ownership-gated)
+Same pattern as F, but **`educator_id`-ownership gated** — every list query carries `visibleTo($educator)`
+(a forgotten scope is a cross-tenant leak; admin skipped it, educators must not). 11 controllers under
+`app/Http/Controllers/Educator/`, route group `role:educator` + `educator.` names, shell
+`resources/views/educator/layout.blade.php`.
+
+- **Foundations:** educator route group (54 routes); 3 new policies `Enrolled/LearningMaterial/GroupChatPolicy` + `QuizPolicy` (all auto-discovered); **`NotificationService`** — the write-path companion to the existing `NotificationAuthorizer` (authorizes via `canEmit` then inserts; best-effort, never blocks the feature action).
+- **G1 Dashboard** — `visibleTo`-scoped counts (sections/subjects/assessments) + top students.
+- **G2 Sections** — CRUD; section↔term M:N (`->sync()` replaces links); name-per-term-per-educator uniqueness via the existing `SectionService::nameTakenForTerms` (B12). Delete cascades `tbl_sections_term`.
+- **G3 Subjects** — one row per section (Cartesian); list groups by `code::name`; edit replaces the whole group (delete row_ids → recreate); case-insensitive code+name uniqueness per section.
+- **G4 Enrollment** — single (studentIds × subjectIds → one row/pair, `firstOrCreate` dedupe) + bulk xlsx (`EnrollmentsImport`, in-file + DB dedupe) + template; fires `enrollment_created/updated/deleted` to **students only** (deleted verified by subject ownership).
+- **G5 Assessments** — CRUD + schedule/options; **status `inactive→active` is the publish trigger** → `assessment_created` to enrolled students; otherwise `assessment_updated`; delete → `assessment_deleted` + FK-cascade to quizzes. Unique `(code, subject, section, term)`.
+- **G6 Quizzes** — MC (choices A–D + correct key) / identification; bulk xlsx upload (single bundled `quiz_uploaded`); delete-one + delete-all-for-assessment. **`correct_answer` stays `$hidden` — never serialized to a student.**
+- **G7 Scores + retake** — scores **read-only** (educators never edit raw scores); attempt-detail page loads `correct_answer` **server-side** (educator view, never a student page); grant retake writes `tbl_student_assessment_retakes` + `retake_updated` notification.
+- **G8 Export** — single-assessment xlsx (`ScoresExport`) + **bulk zip** `TERM/SUBJECT/SECTION.xlsx` via `ScoreExportService` (`ZipArchive`, `ext-zip` enabled; temp dir streamed then cleaned). method = all/term/semester.
+- **G9 Materials** — upload to the `local` disk; list (grouped subject+section) / edit metadata (soft `is_active`, leaves the object) / delete (removes object + row); download via a **signed temporary route** (`URL::temporarySignedRoute`, 60s) with an access re-check — ports the source's Supabase 60s signed URLs. `learning_material_uploaded` to enrolled students.
+- **G10 Group chats** — request/response (live delivery deferred to I): create per subject+section / list / delete / send message / mark-read (`updateOrCreate` on open). Students can't create.
+- **G11 Monitoring** — request/response, view-only + manual refresh (page reload): per active assessment, counts enrolled/online(60s-stale)/answering/finished from `tbl_student_presence` + `tbl_scores`.
+- **Tests:** `tests/Feature/Educator/EducatorFeaturesTest.php` — 8 tests / 34 assertions, focused on the **ownership gate** (educator A 403 on B's data; scope hides cross-tenant rows), name-per-term uniqueness scoped per educator, one-row-per-section, publish-on-activate notification, and `correct_answer` hidden. **Full suite 30/30 green.** `migrate:fresh` clean; all educator Blade compiles.
+
 ---
 
 ## What's next
 
-**Stage G / Phase 6 — Educator features** (G1–G11): dashboard, sections, subjects, enrollment
-(+ notifications), assessments, quizzes, scores review + grant retake, score export (xlsx/zip),
-materials, group chats (request/response), realtime monitoring. Same pattern as F, but educator
-data is **`educator_id`-ownership gated** — every list query MUST carry the `visibleTo` scope
-(unlike admin). Policies for Section/Subject/Assessment/Score already exist (Stage D); add the
-remaining educator-resource policies as their modules land.
+**Stage H / Phase 7 — Student features + quiz engine** ⚠ (H1–H11): dashboard, assessment list
+(availability + can-take), take-quiz session load, autosave draft, anti-cheat, **H6 server-side
+grading** (the non-negotiable invariant — `correct_answer` loaded server-only, compared, `is_passed`
+≥75%, never sent to the client), result/review (gated correct-answer display), scores history,
+materials, chats, and shared profile (self-service lock). The `NotificationService` + `visibleTo`
+scopes + `correct_answer` `$hidden` guard built in F/G carry straight into H.
 
-**Stage E / Phase 4 (data import)** can still run in parallel — export live PG data, transform
-types, load preserving `id`+`user_id`, force-reset passwords, verify counts.
+**Stage E / Phase 4 (data import)** can still run in parallel.
 
 ---
 
@@ -111,10 +130,11 @@ types, load preserving `id`+`user_id`, force-reset passwords, verify counts.
 
 ```bash
 php artisan migrate:fresh   # rebuild all 21 tbl_* tables (MySQL qyzen_v2)
-php artisan test            # full suite (SQLite :memory:), 22 tests; AuthorizationMatrixTest is the D gate
+php artisan test            # full suite (SQLite :memory:), 30 tests; AuthorizationMatrixTest is the D gate
 php artisan test --filter=AuthorizationMatrixTest
-php artisan test --filter=AdminFeaturesTest   # Stage F admin tests
-composer dev                # serve + log in as an admin to smoke the admin pages
+php artisan test --filter=AdminFeaturesTest      # Stage F admin tests
+php artisan test --filter=EducatorFeaturesTest   # Stage G educator tests (ownership gate)
+composer dev                # serve + log in as an admin/educator to smoke the pages
 ```
 
 ## Commit trail (main)

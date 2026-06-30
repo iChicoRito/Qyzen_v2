@@ -25,3 +25,6 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Metronic uncompiled template source (only dist/ is served)
+/public/metronic/src

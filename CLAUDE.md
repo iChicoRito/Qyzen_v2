@@ -38,14 +38,14 @@ Stages so far: **A (foundation) and Phase 0 are complete** — Laravel runs on M
 - Timestamps store **UTC** (`APP_TIMEZONE=UTC`); jsonb columns become `json` with Eloquent `$casts => 'array'`.
 - **Don't reproduce dead buttons.** Actions tagged 🚧 STUB in `FEATURE_MATRIX.md` were never wired — finish or drop them deliberately, never silently reproduce.
 
-## Frontend: Tabler template
+## Frontend: Metronic template
 
-The UI uses the **Tabler** admin template (Bootstrap-based, not Tailwind for app UI — though Tailwind is wired via Vite, the real styling comes from Tabler).
+The UI uses the **Metronic** admin template (Bootstrap 5-based, not Tailwind for app UI — though Tailwind is wired via Vite, the real styling comes from Metronic).
 
-- **Compiled Tabler assets** live in `public/tabler/{css,js,img,libs}`. Reference them from Blade with `{{ asset('tabler/css/tabler.min.css') }}`, `{{ asset('tabler/js/tabler.min.js') }}`, etc.
-- **`template/` (repo root) holds 103 reference HTML pages** — the Tabler demo set: `dashboard.html`, `layout-vertical.html`, `sign-in.html`, `sign-up.html`, `forgot-password.html`, `datatables.html`, `form-elements.html`, `empty.html`, error pages, and more.
+- **Compiled Metronic assets** live in `public/metronic/dist/assets/{css,js,media,plugins}`. The core bundles are `assets/plugins/global/plugins.bundle.{css,js}`, `assets/css/style.bundle.css`, and `assets/js/scripts.bundle.js`. Reference them from Blade with `{{ asset('metronic/dist/assets/css/style.bundle.css') }}` etc.
+- **`public/metronic/dist/` also holds ~206 reference HTML demo pages** — `index.html` (dashboard), `dashboards/*.html`, `apps/user-management/{users,roles}/*.html`, auth pages, datatables, forms, error pages, and more. (`public/metronic/src/` is the uncompiled source — use `dist/` for reference.)
 
-**When building any layout or view, copy the real markup from the matching `template/*.html` file** rather than hand-writing Tabler structure from memory — the class names and component nesting must match for the CSS/JS to work. The template files reference assets as `../public/tabler/...`; translate that to `{{ asset('tabler/...') }}` in Blade. The base layout is `resources/views/layouts/app.blade.php`; build it (and the role sidebars/headers) from `layout-vertical.html` + `dashboard.html`.
+**When building any layout or view, copy the real markup from the matching `public/metronic/dist/**/*.html` file** rather than hand-writing Metronic structure from memory — the `data-kt-*` attributes, `kt_app_*` IDs, and `app-*` class nesting must match for the bundled JS/CSS to initialize. Demo pages reference assets relative as `assets/...`; translate that to `{{ asset('metronic/dist/assets/...') }}` in Blade. The base layout is `resources/views/layouts/app.blade.php` — its shell (`#kt_app_root` → header → `#kt_app_wrapper` → `#kt_app_sidebar` + `#kt_app_main`) is built from `index.html`; for feature pages prefer a simpler matching demo (e.g. `apps/user-management/users/list.html` for the admin user table).
 
 ## Commands
 
@@ -71,7 +71,7 @@ npm run dev      # vite dev server
 npm run build    # production build (needed before @vite-using pages render in browser)
 ```
 
-Environment: Windows, PHP 8.4 + `pdo_mysql`, Laragon/XAMPP MySQL (`root`, no password, db `qyzen_v2`). No `mysql` CLI on PATH — use `php artisan` or PDO for DB checks. Tabler is plain static CSS/JS served from `public/`, so app pages render without an asset build; only views that explicitly use `@vite` need `npm run build`/`dev` (the base layout does not).
+Environment: Windows, PHP 8.4 + `pdo_mysql`, Laragon/XAMPP MySQL (`root`, no password, db `qyzen_v2`). No `mysql` CLI on PATH — use `php artisan` or PDO for DB checks. Metronic is plain static CSS/JS served from `public/`, so app pages render without an asset build; only views that explicitly use `@vite` need `npm run build`/`dev` (the base layout does not).
 
 ## Security invariants to preserve (from the source system)
 

@@ -19,7 +19,7 @@ Read-only. Summary cards (total/active users, educators, students), assessment-s
 | Create single user | userId (format `YYYY-NNNNN` student / `YYYY-NNNN` educator), name, email, status, userType, roleNames (≥1). Sends verification email. |
 | Bulk create students (xlsx) | Template download; chunked 100/request; per-row success/failure report; download failed rows to retry. |
 | View user | In-row modal. |
-| **Edit user** | **🚧 STUB** — modal renders + validates but `handleSubmit` is a `setTimeout(400)` placeholder; no API call. |
+| Edit user | ✅ **Resolved in Laravel (Stage F4)** — was a 🚧 STUB in the source (`setTimeout(400)` placeholder). Now real: `UpdateUserRequest` + `UserService::update`. |
 | Resend verification | Only when `isEmailVerified=false` **and** `hasAuthUser=true`. |
 | Delete user | Hard delete (auth account + profile) via `DELETE /api/users/[userId]`. |
 | List / filter / sort | Faceted filters (status, userType), sortable, paginated. |
@@ -38,7 +38,7 @@ Read-only. Summary cards (total/active users, educators, students), assessment-s
 |--------|-------|
 | Create permissions (bulk) | Repeater form; `permission_string` auto-computed `resource:action` (read-only). |
 | View permission | In-row modal. |
-| **Edit permission** | **🚧 STUB** — menu item present, not wired. |
+| Edit permission | ✅ **Resolved in Laravel (Stage F6)** — was a 🚧 STUB in the source. Now real: `UpdatePermissionRequest`; `permission_string` recomputed server-side. |
 | Delete permission | Hard delete by `permission_string`. |
 | List | Sortable / filterable. |
 
@@ -46,7 +46,7 @@ Read-only. Summary cards (total/active users, educators, students), assessment-s
 | Action | Notes |
 |--------|-------|
 | Create academic year | Format `YYYY - YYYY`, status. |
-| **View / Edit year** | **🚧 STUB** — menu items present, not wired. |
+| View / Edit year | ✅ **Resolved in Laravel (Stage F7)** — were 🚧 STUBs in the source. Now real view + edit. |
 | Delete year | **Cascades**: deletes child `tbl_academic_term` rows first, then the year. |
 | List | Ordered year DESC. |
 
@@ -54,7 +54,7 @@ Read-only. Summary cards (total/active users, educators, students), assessment-s
 | Action | Notes |
 |--------|-------|
 | Create term | termName (e.g. "Prelim"), semester (1st/2nd), academicYear (dropdown — requires ≥1 year to exist), status. |
-| **View / Edit term** | **🚧 STUB** — menu items present, not wired. |
+| View / Edit term | ✅ **Resolved in Laravel (Stage F8)** — were 🚧 STUBs in the source. Now real view + edit. |
 | Delete term | Hard delete by composite key (term_name, semester, academic_year_id). |
 | List | Joined to year; ordered id DESC. |
 
@@ -238,7 +238,7 @@ Read-only. Summary cards (total/pending/completed assessments, average score), p
 
 | Role | Modules | Write actions | Notable gaps / stubs |
 |------|---------|---------------|----------------------|
-| **Admin** | 6 (dashboard, users, roles, permissions, year, term) | user CRUD-ish, role/perm/year/term create+delete | **Edit user, edit permission, view/edit year, view/edit term are 🚧 STUBS** |
+| **Admin** | 6 (dashboard, users, roles, permissions, year, term) | user CRUD, role/perm/year/term CRUD | ✅ all source 🚧 STUBs (edit user, edit permission, view/edit year & term) finished in Laravel Stage F |
 | **Educator** | 10 | full CRUD on sections/subjects/enrollment/assessments/quizzes/materials, grant retake, exports, chat | monitoring is view-only; quizzes have no reorder |
 | **Student** | 7 + profile | take/submit quiz, autosave, retake, send chat, download materials, edit profile | cannot create chats; students can't edit own name |
 

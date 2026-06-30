@@ -10,7 +10,8 @@
         "laravel/fortify": "^1.36",
         "laravel/framework": "^13.8",
         "laravel/socialite": "^5.28",
-        "laravel/tinker": "^3.0"
+        "laravel/tinker": "^3.0",
+        "maatwebsite/excel": "^3.1"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -81,6 +82,9 @@
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
+        },
+        "platform": {
+            "ext-gd": "8.4"
         }
     },
     "minimum-stability": "stable",

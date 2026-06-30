@@ -1,0 +1,203 @@
+<?php
+
+namespace Tests\Feature\Admin;
+
+use App\Models\AcademicTerm;
+use App\Models\AcademicYear;
+use App\Models\Permission;
+use App\Models\Role;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
+use Tests\TestCase;
+
+// Stage F: admin feature tests. Authz gate (non-admin 403) + per-module CRUD behavior.
+// Reuses the AuthorizationMatrixTest helper patterns (makeUser, RefreshDatabase).
+class AdminFeaturesTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $admin;
+    private User $educator;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        foreach (['admin', 'educator', 'student'] as $name) {
+            Role::create(['name' => $name, 'description' => $name, 'is_active' => true]);
+        }
+
+        $this->admin = $this->makeUser('admin', 'admin');
+        $this->educator = $this->makeUser('educator', 'educator');
+    }
+
+    // ---- authz gate ----
+
+    public function test_non_admin_is_forbidden_from_admin_routes(): void
+    {
+        foreach (['admin.dashboard', 'admin.users.index', 'admin.roles.index', 'admin.permissions.index', 'admin.academic-years.index', 'admin.academic-terms.index'] as $route) {
+            $this->actingAs($this->educator)->get(route($route))
+                ->assertStatus(302); // RequireRole bounces to own dashboard
+        }
+    }
+
+    public function test_admin_can_view_dashboard_and_lists(): void
+    {
+        foreach (['admin.dashboard', 'admin.users.index', 'admin.roles.index', 'admin.permissions.index', 'admin.academic-years.index', 'admin.academic-terms.index'] as $route) {
+            $this->actingAs($this->admin)->get(route($route))->assertOk();
+        }
+    }
+
+    // ---- F2 / F4 users ----
+
+    public function test_admin_creates_user_with_roles_and_sends_verification(): void
+    {
+        Notification::fake();
+
+        $this->actingAs($this->admin)->post(route('admin.users.store'), [
+            'user_type' => 'student', 'user_id' => '2026-12345',
+            'given_name' => 'New', 'surname' => 'Student', 'email' => 'new.student@example.com',
+            'is_active' => '1', 'role_names' => ['student'],
+        ])->assertRedirect(route('admin.users.index'));
+
+        $user = User::where('user_id', '2026-12345')->firstOrFail();
+        $this->assertSame('new.student@example.com', $user->email);
+        $this->assertTrue($user->hasRole('student'));
+    }
+
+    public function test_user_id_format_is_validated_per_type(): void
+    {
+        // educator must be YYYY-NNNN (4 digits), not 5
+        $this->actingAs($this->admin)->post(route('admin.users.store'), [
+            'user_type' => 'educator', 'user_id' => '2026-12345',
+            'given_name' => 'A', 'surname' => 'B', 'email' => 'edu@example.com',
+            'is_active' => '1', 'role_names' => ['educator'],
+        ])->assertSessionHasErrors('user_id');
+    }
+
+    public function test_admin_edits_user_including_locked_columns(): void
+    {
+        $target = $this->makeUser('student', 'student');
+
+        $this->actingAs($this->admin)->put(route('admin.users.update', $target), [
+            'user_type' => 'educator', 'user_id' => '2026-9999',
+            'given_name' => 'Changed', 'surname' => 'Name', 'email' => 'changed@example.com',
+            'is_active' => '0', 'role_names' => ['educator'],
+        ])->assertRedirect(route('admin.users.index'));
+
+        $target->refresh();
+        $this->assertSame('educator', $target->user_type);
+        $this->assertSame('changed@example.com', $target->email);
+        $this->assertFalse($target->is_active);
+        $this->assertTrue($target->hasRole('educator'));
+    }
+
+    public function test_admin_deletes_user(): void
+    {
+        $target = $this->makeUser('student', 'student');
+
+        $this->actingAs($this->admin)->delete(route('admin.users.destroy', $target))
+            ->assertRedirect(route('admin.users.index'));
+
+        $this->assertNull(User::find($target->id)); // hard delete (forceDelete)
+    }
+
+    // ---- F5 roles ----
+
+    public function test_admin_creates_role_and_syncs_permissions(): void
+    {
+        $p1 = Permission::create(['name' => 'sections:view', 'resource' => 'sections', 'action' => 'view', 'permission_string' => 'sections:view', 'description' => 'x', 'module' => 'sections', 'is_active' => true]);
+        $p2 = Permission::create(['name' => 'sections:create', 'resource' => 'sections', 'action' => 'create', 'permission_string' => 'sections:create', 'description' => 'x', 'module' => 'sections', 'is_active' => true]);
+
+        $this->actingAs($this->admin)->post(route('admin.roles.store'), [
+            'name' => 'coordinator', 'description' => 'x', 'is_active' => '1', 'is_system' => '0',
+            'permission_ids' => [$p1->id, $p2->id],
+        ])->assertRedirect(route('admin.roles.index'));
+
+        $role = Role::where('name', 'coordinator')->firstOrFail();
+        $this->assertEqualsCanonicalizing([$p1->id, $p2->id], $role->permissions->pluck('id')->all());
+
+        // all-or-nothing replace on update
+        $this->actingAs($this->admin)->put(route('admin.roles.update', $role), [
+            'name' => 'coordinator', 'description' => 'x', 'is_active' => '1', 'is_system' => '0',
+            'permission_ids' => [$p1->id],
+        ])->assertRedirect();
+        $this->assertSame([$p1->id], $role->fresh()->permissions->pluck('id')->all());
+    }
+
+    public function test_role_name_pattern_is_enforced(): void
+    {
+        $this->actingAs($this->admin)->post(route('admin.roles.store'), [
+            'name' => 'Bad Name', 'is_active' => '1', 'is_system' => '0',
+        ])->assertSessionHasErrors('name');
+    }
+
+    // ---- F6 permissions ----
+
+    public function test_admin_bulk_creates_permissions_with_computed_string(): void
+    {
+        $this->actingAs($this->admin)->post(route('admin.permissions.store'), [
+            'permissions' => [
+                ['resource' => 'quizzes', 'action' => 'view', 'is_active' => '1'],
+                ['resource' => 'quizzes', 'action' => 'create', 'is_active' => '1'],
+            ],
+        ])->assertRedirect(route('admin.permissions.index'));
+
+        $this->assertTrue(Permission::where('permission_string', 'quizzes:view')->exists());
+        $this->assertTrue(Permission::where('permission_string', 'quizzes:create')->exists());
+    }
+
+    public function test_duplicate_permission_in_batch_is_rejected(): void
+    {
+        $this->actingAs($this->admin)->post(route('admin.permissions.store'), [
+            'permissions' => [
+                ['resource' => 'quizzes', 'action' => 'view', 'is_active' => '1'],
+                ['resource' => 'quizzes', 'action' => 'view', 'is_active' => '1'],
+            ],
+        ])->assertSessionHasErrors();
+        $this->assertSame(0, Permission::count());
+    }
+
+    // ---- F7 academic year cascade ----
+
+    public function test_deleting_year_cascades_to_terms(): void
+    {
+        $year = AcademicYear::create(['year' => '2025 - 2026']);
+        AcademicTerm::create(['term_name' => 'Prelim', 'semester' => '1st Semester', 'academic_year_id' => $year->id]);
+
+        $this->actingAs($this->admin)->delete(route('admin.academic-years.destroy', $year))
+            ->assertRedirect(route('admin.academic-years.index'));
+
+        $this->assertNull(AcademicYear::find($year->id));
+        $this->assertSame(0, AcademicTerm::where('academic_year_id', $year->id)->count());
+    }
+
+    // ---- F8 academic term composite uniqueness ----
+
+    public function test_academic_term_composite_uniqueness(): void
+    {
+        $year = AcademicYear::create(['year' => '2025 - 2026']);
+        AcademicTerm::create(['term_name' => 'Prelim', 'semester' => '1st Semester', 'academic_year_id' => $year->id]);
+
+        $this->actingAs($this->admin)->post(route('admin.academic-terms.store'), [
+            'term_name' => 'Prelim', 'semester' => '1st Semester', 'academic_year_id' => $year->id, 'is_active' => '1',
+        ])->assertSessionHasErrors('term_name');
+
+        // different semester is allowed
+        $this->actingAs($this->admin)->post(route('admin.academic-terms.store'), [
+            'term_name' => 'Prelim', 'semester' => '2nd Semester', 'academic_year_id' => $year->id, 'is_active' => '1',
+        ])->assertRedirect(route('admin.academic-terms.index'));
+        $this->assertSame(2, AcademicTerm::count());
+    }
+
+    // ---- helper ----
+
+    private function makeUser(string $type, string $roleName): User
+    {
+        $user = User::factory()->create(['user_type' => $type, 'email_verified_at' => now()]);
+        $user->roles()->attach(Role::where('name', $roleName)->value('id'));
+
+        return $user;
+    }
+}

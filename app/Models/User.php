@@ -43,6 +43,12 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->belongsToMany(Role::class, 'tbl_user_roles', 'user_id', 'role_id')->withTimestamps();
     }
 
+    /** Display name from the two stored name columns. */
+    public function getNameAttribute(): string
+    {
+        return trim("{$this->given_name} {$this->surname}");
+    }
+
     /**
      * D1: mirror of has_role() — does the user hold this active role?
      */

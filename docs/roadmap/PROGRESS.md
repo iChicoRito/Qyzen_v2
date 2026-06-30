@@ -4,7 +4,7 @@
 > `BUILD_ORDER_STEP_BY_STEP.md` (Stages A–J) and `IMPLEMENTATION_ROADMAP_LARAVEL.md`
 > (Phases 0–9). This file records **what is done and verified** vs **what's next**.
 >
-> Last updated: 2026-06-30 (Stage G complete).
+> Last updated: 2026-06-30 (Stage H complete — H6 invariant verified).
 
 ## Stage ↔ Phase map
 
@@ -17,8 +17,8 @@
 | E | 4 | Data import | ⬜ not started |
 | F | 5 | Admin features | ✅ done — first real UI |
 | G | 6 | Educator features | ✅ done — ownership-gated |
-| H | 7 | Student / quiz engine ⚠ | ⬅ **NEXT** |
-| I | 8 | Real-time (deferred) | ⬜ |
+| H | 7 | Student / quiz engine ⚠ | ✅ done — H6 invariant green |
+| I | 8 | Real-time (deferred) | ⬅ **NEXT** (optional) |
 | J | 9 | Hardening + cutover | ⬜ |
 
 Critical path: `A→B→C→D ─┬→ F → G → H → I → J`, with `E` parallel after B–C. **Stage D
@@ -106,18 +106,36 @@ Same pattern as F, but **`educator_id`-ownership gated** — every list query ca
 - **G11 Monitoring** — request/response, view-only + manual refresh (page reload): per active assessment, counts enrolled/online(60s-stale)/answering/finished from `tbl_student_presence` + `tbl_scores`.
 - **Tests:** `tests/Feature/Educator/EducatorFeaturesTest.php` — 8 tests / 34 assertions, focused on the **ownership gate** (educator A 403 on B's data; scope hides cross-tenant rows), name-per-term uniqueness scoped per educator, one-row-per-section, publish-on-activate notification, and `correct_answer` hidden. **Full suite 30/30 green.** `migrate:fresh` clean; all educator Blade compiles.
 
+### Stage H / Phase 7 — Student features + quiz engine ⚠ (core invariant green)
+Enrollment-gated; quiz actions add schedule + attempt gates. Route group `role:student` + `student.`
+names; shell `resources/views/student/layout.blade.php`. Profile is a shared group (all roles).
+
+- **Two services carry the engine:** `AssessmentAvailabilityService` (badge Upcoming/Available/Reopened/Expired/Schedule-issue + can-take = `firstAttempt OR (effectiveRetakes>0 AND remaining>0)`, where `effective = (allow_retake?retake_count:0) + granted extra`); **`QuizGradingService`** — the H6 heart.
+- **H1 Dashboard** — own-data counts (pending/completed/avg) + recent results.
+- **H2 Assessment list** — enrolled-only (`Assessment::visibleTo`), availability badge + attempts-left + Start gate; details page with attempt history.
+- **H3 Take-quiz load** — server re-checks eligibility; questions selected as `id/question/quiz_type/choices` **only** (no `correct_answer`); shuffles if `is_shuffle`; restores an `in_progress` draft.
+- **H4 Autosave** — debounced ~800ms `fetch` → `take-quiz/{a}/draft` → `QuizGradingService::saveDraft` (`status=in_progress`); JSON response carries no answers.
+- **H5 Anti-cheat** — vanilla JS detectors (tab-hidden / window-blur / paste-blocked / context-menu-blocked) each `warning_attempts++` + autosave; **force-submit at `cheating_attempts` limit or timer zero**.
+- **H6 ⚠ Server-side grading** — `QuizGradingService::grade` loads `correct_answer` **inside the service only**, compares, `is_passed = score/total ≥ 0.75`, writes the Score (`passed`/`failed`), emits `quiz_submitted` to the assessment's educator. Eligibility re-validated server-side on submit (client gate not trusted). **`correct_answer` is never serialized to the client** — `$hidden` on the model + explicit column selection + a test asserting the take-quiz HTML contains neither `correct_answer` nor the identification answer.
+- **H7 Result/review** — gated correct-answer display: a question's correct answer is shown **only if `allow_review=true` OR the student got it right**; otherwise null. Attempt-history switcher.
+- **H8 Scores history** — own scores only (`ScorePolicy` + `student_id` guard), filter/sort/paginate, pass/fail summary.
+- **H9 Materials** — enrollment-gated list + download (`LearningMaterial::visibleTo`, active-only for students).
+- **H10 Chats** — request/response: view/send/mark-read; **students cannot create** (no store/destroy routes); access gated by `GroupChatPolicy` (enrollment in the chat's subject).
+- **H11 Profile (shared)** — `UpdateProfileRequest` enforces the self-service lock: `user_id`/`user_type`/`is_active` never editable; **name read-only for students** (rule dropped from the request for students), editable for educators/admins; email/picture/cover editable by all; password change (`current_password` + `Password::min(8)->mixedCase->numbers->symbols`, hashed via cast); Google link reuses the Stage C Socialite route.
+- **Tests:** `tests/Feature/Student/StudentFeaturesTest.php` — 9 tests / 22 assertions. **The H6 gate: take-quiz HTML contains no `correct_answer` and no identification answer; model hides it in JSON.** Plus server-side grading (3/4 = 75% passes, 1/4 fails), educator notified on submit, review-display gate hides answers when review off + wrong, own-scores-only (403 on another student's score), enrollment gating. **Full suite 39/39 green.** `migrate:fresh` clean; all Blade compiles.
+
 ---
 
 ## What's next
 
-**Stage H / Phase 7 — Student features + quiz engine** ⚠ (H1–H11): dashboard, assessment list
-(availability + can-take), take-quiz session load, autosave draft, anti-cheat, **H6 server-side
-grading** (the non-negotiable invariant — `correct_answer` loaded server-only, compared, `is_passed`
-≥75%, never sent to the client), result/review (gated correct-answer display), scores history,
-materials, chats, and shared profile (self-service lock). The `NotificationService` + `visibleTo`
-scopes + `correct_answer` `$hidden` guard built in F/G carry straight into H.
+**Stage I / Phase 8 — Real-time (deferred, optional)** (I1–I6): pick transport per feature
+(Reverb/WebSockets vs polling); presence heartbeat (~25s upsert, 60s-stale online); group-chat live
+delivery; educator monitoring live updates; notification-bell live unread; dashboard live-refresh.
+All of these features already work **request/response** today (chat, monitoring, dashboards, notifications
+are built) — Stage I only upgrades the transport. After I (or skipping it), **Stage J** is hardening
++ cutover.
 
-**Stage E / Phase 4 (data import)** can still run in parallel.
+**Stage E / Phase 4 (data import)** can still run in parallel — it's the remaining non-UI gap before a real cutover.
 
 ---
 
@@ -130,11 +148,12 @@ scopes + `correct_answer` `$hidden` guard built in F/G carry straight into H.
 
 ```bash
 php artisan migrate:fresh   # rebuild all 21 tbl_* tables (MySQL qyzen_v2)
-php artisan test            # full suite (SQLite :memory:), 30 tests; AuthorizationMatrixTest is the D gate
+php artisan test            # full suite (SQLite :memory:), 39 tests; AuthorizationMatrixTest is the D gate
 php artisan test --filter=AuthorizationMatrixTest
 php artisan test --filter=AdminFeaturesTest      # Stage F admin tests
 php artisan test --filter=EducatorFeaturesTest   # Stage G educator tests (ownership gate)
-composer dev                # serve + log in as an admin/educator to smoke the pages
+php artisan test --filter=StudentFeaturesTest    # Stage H student tests (incl. H6 correct_answer gate)
+composer dev                # serve + log in as admin/educator/student to smoke the pages
 ```
 
 ## Commit trail (main)

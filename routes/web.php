@@ -17,6 +17,12 @@ use App\Http\Controllers\Educator\QuizController;
 use App\Http\Controllers\Educator\ScoreController;
 use App\Http\Controllers\Educator\SectionController;
 use App\Http\Controllers\Educator\SubjectController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Student\ChatController as StudentChatController;
+use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
+use App\Http\Controllers\Student\MaterialController as StudentMaterialController;
+use App\Http\Controllers\Student\QuizController as StudentQuizController;
+use App\Http\Controllers\Student\ScoreController as StudentScoreController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -32,12 +38,39 @@ Route::get('/oauth/{provider}/callback', [OAuthController::class, 'callback'])->
 Route::get('/dashboard', fn () => redirect(Auth::user()->dashboardPath()))
     ->middleware(['auth', 'verified'])->name('dashboard.redirect');
 
-// Placeholder student dashboard (real pages land in Stage H), behind the D4 role middleware.
-// Admin (Stage F) and educator (Stage G) are real groups below.
-Route::get('/student/dashboard', fn () => view('dummy', [
-    'role' => 'student',
-    'navItems' => [['label' => 'Dashboard', 'url' => '#']],
-]))->middleware(['auth', 'verified', 'role:student'])->name('student.dashboard');
+// Stage H — Student features + quiz engine. Enrollment-gated; quiz actions add schedule +
+// attempt gates. H6 server-side grading is the core invariant (correct_answer never client-side).
+Route::middleware(['auth', 'verified', 'role:student'])
+    ->prefix('student')->name('student.')->group(function () {
+        Route::get('/dashboard', [StudentDashboardController::class, 'index'])->name('dashboard');
+
+        // H2 assessment list.
+        Route::get('assessments', [StudentQuizController::class, 'index'])->name('assessments.index');
+        Route::get('assessments/{assessment}', [StudentQuizController::class, 'details'])->name('assessments.details');
+
+        // H3–H6 take-quiz: load, autosave draft, submit (server-side grading).
+        Route::get('take-quiz/{assessment}', [StudentQuizController::class, 'take'])->name('take-quiz');
+        Route::post('take-quiz/{assessment}/draft', [StudentQuizController::class, 'saveDraft'])->name('take-quiz.draft');
+        Route::post('take-quiz/{assessment}/submit', [StudentQuizController::class, 'submit'])->name('take-quiz.submit');
+
+        // H7 result/review + H8 scores history (own only).
+        Route::get('scores', [StudentScoreController::class, 'index'])->name('scores.index');
+        Route::get('scores/{score}', [StudentScoreController::class, 'show'])->name('scores.show');
+
+        // H9 materials (enrollment-gated) + H10 chats (request/response).
+        Route::get('materials', [StudentMaterialController::class, 'index'])->name('materials.index');
+        Route::get('materials/{material}/download', [StudentMaterialController::class, 'download'])->name('materials.download');
+        Route::get('chats', [StudentChatController::class, 'index'])->name('chats.index');
+        Route::get('chats/{chat}', [StudentChatController::class, 'show'])->name('chats.show');
+        Route::post('chats/{chat}/messages', [StudentChatController::class, 'sendMessage'])->name('chats.messages.send');
+    });
+
+// H11 — shared profile (all roles). Self-service column lock enforced in the Form Request.
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+});
 
 // Stage F — Admin features. One route group per role (CONVENTIONS.md); every action behind
 // a D-Policy via $this->authorize() in the controller.

@@ -4,7 +4,7 @@
 > `BUILD_ORDER_STEP_BY_STEP.md` (Stages A–J) and `IMPLEMENTATION_ROADMAP_LARAVEL.md`
 > (Phases 0–9). This file records **what is done and verified** vs **what's next**.
 >
-> Last updated: 2026-06-30 (Stage J1–J5 complete — hardening + parity audit; J6 cutover deferred).
+> Last updated: 2026-06-30 (Stage J1–J5 + full smoke-test; J6 cutover deferred).
 
 ## Stage ↔ Phase map
 
@@ -132,6 +132,13 @@ names; shell `resources/views/student/layout.blade.php`. Profile is a shared gro
 - **Tests:** `tests/Feature/HardeningTest.php` — 3 tests (headers present, CSP nonce flows into rendered HTML, quiz routes throttled). **Full suite 43/43 green.**
 - **J6 cutover — deferred:** final data sync, host switch, smoke, rollback. Needs real data (Stage E) + a target host; nothing to build until those exist.
 
+### Full-app smoke test (2026-06-30) — beyond the unit suite
+Booted the **real app against the seeded MySQL DB** and drove actual HTTP requests as each role
+(what feature tests, on fresh fixtures, don't cover — real render-path 500s):
+- **46/46 major routes returned HTTP 200** as the correct role — every admin/educator/student index + create + edit page + profile. No render-time errors, missing view vars, or broken `route()` calls.
+- **Core interactive flows work end-to-end:** student quiz **submit → server-side grading** (all-correct = 4/4, `passed`), `quiz_submitted` educator notification fired, draft **autosave → 200**.
+Conclusion: the dev build is verified working, not just green in isolation.
+
 ---
 
 ## What's next
@@ -173,6 +180,11 @@ remains **Stage E** (needs the live PG data export; `docs/LiveSchemaExport.sql` 
 ## Commit trail (main)
 
 ```
+2d19f1e feat(hardening): Stage J1-J5 - security headers, CSP, throttle, audits
+7b85f9c chore(seed): demo dataset for local click-through
+d7372ad feat(student): Stage H - student features + quiz engine (H1-H11)
+8dd34c6 feat(educator): Stage G - educator features (G1-G11)
+f6fc707 feat(admin): Stage F - admin features (F1-F8)
 bf66513 feat(frontend): swap Tabler template for Metronic
 58e159f feat(authz): Stage D - authorization core (RLS -> app layer)
 d498125 feat(auth): Stage C - Fortify auth on tbl_users + Google OAuth

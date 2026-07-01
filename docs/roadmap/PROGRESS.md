@@ -147,14 +147,22 @@ are built) — Stage I only upgrades the transport. After I (or skipping it), **
 ## Verify commands
 
 ```bash
-php artisan migrate:fresh   # rebuild all 21 tbl_* tables (MySQL qyzen_v2)
+php artisan migrate:fresh --seed   # rebuild 21 tbl_* tables + load the demo dataset (MySQL qyzen_v2)
 php artisan test            # full suite (SQLite :memory:), 39 tests; AuthorizationMatrixTest is the D gate
 php artisan test --filter=AuthorizationMatrixTest
 php artisan test --filter=AdminFeaturesTest      # Stage F admin tests
 php artisan test --filter=EducatorFeaturesTest   # Stage G educator tests (ownership gate)
 php artisan test --filter=StudentFeaturesTest    # Stage H student tests (incl. H6 correct_answer gate)
-composer dev                # serve + log in as admin/educator/student to smoke the pages
+composer dev                # serve + log in to smoke the pages
 ```
+
+**Demo dataset** (`database/seeders/DemoSeeder.php`, for local click-through — NOT the real Stage E
+import): `migrate:fresh --seed` loads 1 admin / 2 educators / 8 students, an academic year+2 terms,
+2 educator classrooms (sections+term links, subjects, enrollment, an active assessment with 4
+questions, submitted scores, a material, a group chat). **All logins use password `password`** and
+are email-verified. Try `admin@qyzen.test`, `educator@qyzen.test`, `student1@qyzen.test`. The two
+educators have separate data so the ownership gate is visible in the UI. Real Supabase→MySQL import
+remains **Stage E** (needs the live PG data export; `docs/LiveSchemaExport.sql` is DDL only, no rows).
 
 ## Commit trail (main)
 

@@ -50,8 +50,10 @@ Route::middleware(['auth', 'verified', 'role:student'])
 
         // H3–H6 take-quiz: load, autosave draft, submit (server-side grading).
         Route::get('take-quiz/{assessment}', [StudentQuizController::class, 'take'])->name('take-quiz');
-        Route::post('take-quiz/{assessment}/draft', [StudentQuizController::class, 'saveDraft'])->name('take-quiz.draft');
-        Route::post('take-quiz/{assessment}/submit', [StudentQuizController::class, 'submit'])->name('take-quiz.submit');
+        Route::post('take-quiz/{assessment}/draft', [StudentQuizController::class, 'saveDraft'])
+            ->middleware('throttle:quiz-writes')->name('take-quiz.draft');
+        Route::post('take-quiz/{assessment}/submit', [StudentQuizController::class, 'submit'])
+            ->middleware('throttle:quiz-writes')->name('take-quiz.submit');
 
         // H7 result/review + H8 scores history (own only).
         Route::get('scores', [StudentScoreController::class, 'index'])->name('scores.index');

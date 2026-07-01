@@ -58,7 +58,7 @@
     </div>
 
     @push('scripts')
-    <script>
+    <script nonce="{{ $cspNonce ?? '' }}">
         let permIdx = 1;
         function addPermRow() {
             const row = document.querySelector('.perm-row').cloneNode(true);

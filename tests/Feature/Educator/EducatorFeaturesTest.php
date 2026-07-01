@@ -77,6 +77,24 @@ class EducatorFeaturesTest extends TestCase
         $this->actingAs($this->eduB)->delete(route('educator.sections.destroy', $section))->assertForbidden();
     }
 
+    // J4: cross-tenant re-audit — an educator must not reach another educator's assessment/quiz
+    // edit pages through the built routes (not just at the model-scope layer).
+    public function test_educator_cannot_reach_another_educators_assessment_or_quiz(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        $quiz = Quiz::create([
+            'assessment_id' => $assessment->id, 'subject_id' => $subject->id, 'section_id' => $subject->sections_id,
+            'educator_id' => $this->eduA->id, 'question' => '2+2', 'quiz_type' => 'multiple_choice',
+            'choices' => ['A' => '3', 'B' => '4'], 'correct_answer' => 'B',
+        ]);
+
+        $this->actingAs($this->eduB)->get(route('educator.assessments.edit', $assessment))->assertForbidden();
+        $this->actingAs($this->eduB)->delete(route('educator.assessments.destroy', $assessment))->assertForbidden();
+        $this->actingAs($this->eduB)->get(route('educator.quizzes.edit', $quiz))->assertForbidden();
+        $this->actingAs($this->eduB)->delete(route('educator.quizzes.destroy', $quiz))->assertForbidden();
+    }
+
     public function test_section_name_unique_per_term_per_educator(): void
     {
         $this->actingAs($this->eduA)->post(route('educator.sections.store'), [

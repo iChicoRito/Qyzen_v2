@@ -32,7 +32,7 @@
         <div class="form-text">For multiple-choice, enter the key (A, B, C or D).</div></div>
 </div>
 @push('scripts')
-<script>
+<script nonce="{{ $cspNonce ?? '' }}">
     function toggleChoices() {
         document.getElementById('mc_choices').style.display =
             document.getElementById('quiz_type').value === 'multiple_choice' ? '' : 'none';

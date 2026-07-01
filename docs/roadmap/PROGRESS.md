@@ -4,7 +4,7 @@
 > `BUILD_ORDER_STEP_BY_STEP.md` (Stages A–J) and `IMPLEMENTATION_ROADMAP_LARAVEL.md`
 > (Phases 0–9). This file records **what is done and verified** vs **what's next**.
 >
-> Last updated: 2026-06-30 (Stage H complete — H6 invariant verified).
+> Last updated: 2026-06-30 (Stage J1–J5 complete — hardening + parity audit; J6 cutover deferred).
 
 ## Stage ↔ Phase map
 
@@ -18,8 +18,8 @@
 | F | 5 | Admin features | ✅ done — first real UI |
 | G | 6 | Educator features | ✅ done — ownership-gated |
 | H | 7 | Student / quiz engine ⚠ | ✅ done — H6 invariant green |
-| I | 8 | Real-time (deferred) | ⬅ **NEXT** (optional) |
-| J | 9 | Hardening + cutover | ⬜ |
+| I | 8 | Real-time (deferred) | ⬜ optional |
+| J | 9 | Hardening + cutover | 🟡 J1–J5 done; J6 cutover deferred (needs data + host) |
 
 Critical path: `A→B→C→D ─┬→ F → G → H → I → J`, with `E` parallel after B–C. **Stage D
 gates all feature work** (no feature pages until its matrix is green — it is). **Stage H6
@@ -124,18 +124,23 @@ names; shell `resources/views/student/layout.blade.php`. Profile is a shared gro
 - **H11 Profile (shared)** — `UpdateProfileRequest` enforces the self-service lock: `user_id`/`user_type`/`is_active` never editable; **name read-only for students** (rule dropped from the request for students), editable for educators/admins; email/picture/cover editable by all; password change (`current_password` + `Password::min(8)->mixedCase->numbers->symbols`, hashed via cast); Google link reuses the Stage C Socialite route.
 - **Tests:** `tests/Feature/Student/StudentFeaturesTest.php` — 9 tests / 22 assertions. **The H6 gate: take-quiz HTML contains no `correct_answer` and no identification answer; model hides it in JSON.** Plus server-side grading (3/4 = 75% passes, 1/4 fails), educator notified on submit, review-display gate hides answers when review off + wrong, own-scores-only (403 on another student's score), enrollment gating. **Full suite 39/39 green.** `migrate:fresh` clean; all Blade compiles.
 
+### Stage J / Phase 9 — Hardening (J1–J5 done; J6 cutover deferred)
+- **J1/J2 `App\Http\Middleware\SecurityHeaders`** (appended to the `web` group in `bootstrap/app.php`): `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, `X-Permitted-Cross-Domain-Policies: none`, HSTS (HTTPS only), and a **CSP** with a per-request **nonce** shared to Blade as `$cspNonce`. The four inline `<script>` blocks (base layout `hostUrl`, take-quiz JS, quiz-type toggle, permission repeater) carry `nonce="{{ $cspNonce }}"`. CSP: `script-src 'self' 'nonce-…' 'strict-dynamic'`, `frame-ancestors 'none'`, `form-action 'self'`.
+- **J3 rate limiting:** Fortify's `login` limiter (5/min per email+IP) already existed; added a **`quiz-writes` limiter** (60/min per user) on the take-quiz `draft` + `submit` routes.
+- **J4 authz re-audit:** the full suite is the matrix re-run against built features — role gates (wrong-role → 302), cross-tenant denials (educator B → 403 on A's section/**assessment/quiz** edit+delete; student → 403 on another's score/non-enrolled assessment), and the model-scope `AuthorizationMatrixTest`. Added `test_educator_cannot_reach_another_educators_assessment_or_quiz` (HTTP-level). **No cross-tenant leak.**
+- **J5 parity audit:** [`docs/roadmap/PARITY_AUDIT.md`](PARITY_AUDIT.md) — every FEATURE_MATRIX action marked ✅ reproduced / 🔵 deferred (Stage I) / ⛔ deliberately dropped / 🟡 cosmetic-partial. All writes reproduced; all four admin 🚧 STUBs finished; no dead buttons; H6 invariant reproduced + asserted. Dropped (documented): quiz hints, list/slideshow toggle, image-crop dialog. Cosmetic 🟡: dashboard charts, timer color-staging, monitoring drill-down modal.
+- **Tests:** `tests/Feature/HardeningTest.php` — 3 tests (headers present, CSP nonce flows into rendered HTML, quiz routes throttled). **Full suite 43/43 green.**
+- **J6 cutover — deferred:** final data sync, host switch, smoke, rollback. Needs real data (Stage E) + a target host; nothing to build until those exist.
+
 ---
 
 ## What's next
 
-**Stage I / Phase 8 — Real-time (deferred, optional)** (I1–I6): pick transport per feature
-(Reverb/WebSockets vs polling); presence heartbeat (~25s upsert, 60s-stale online); group-chat live
-delivery; educator monitoring live updates; notification-bell live unread; dashboard live-refresh.
-All of these features already work **request/response** today (chat, monitoring, dashboards, notifications
-are built) — Stage I only upgrades the transport. After I (or skipping it), **Stage J** is hardening
-+ cutover.
+The functional rewrite is **complete and hardened**. Remaining work is dependency-gated:
 
-**Stage E / Phase 4 (data import)** can still run in parallel — it's the remaining non-UI gap before a real cutover.
+- **Stage E — Data import** (blocked on the live PG export; `docs/LiveSchemaExport.sql` is DDL only). A `DemoSeeder` exists for local click-through (`migrate:fresh --seed`), but real Supabase→MySQL import is unbuilt.
+- **Stage J6 — Cutover** (needs E + a host): final sync, host switch, smoke test, rollback plan.
+- **Stage I — Real-time** (optional): upgrade chat/monitoring/dashboards/notifications from request/response to live transport (Reverb/polling) + presence heartbeat + live notification bell. Everything works without it.
 
 ---
 
@@ -148,11 +153,12 @@ are built) — Stage I only upgrades the transport. After I (or skipping it), **
 
 ```bash
 php artisan migrate:fresh --seed   # rebuild 21 tbl_* tables + load the demo dataset (MySQL qyzen_v2)
-php artisan test            # full suite (SQLite :memory:), 39 tests; AuthorizationMatrixTest is the D gate
+php artisan test            # full suite (SQLite :memory:), 43 tests; AuthorizationMatrixTest is the D gate
 php artisan test --filter=AuthorizationMatrixTest
 php artisan test --filter=AdminFeaturesTest      # Stage F admin tests
-php artisan test --filter=EducatorFeaturesTest   # Stage G educator tests (ownership gate)
+php artisan test --filter=EducatorFeaturesTest   # Stage G educator tests (ownership gate + J4 cross-tenant)
 php artisan test --filter=StudentFeaturesTest    # Stage H student tests (incl. H6 correct_answer gate)
+php artisan test --filter=HardeningTest          # Stage J1–J3 (headers, CSP nonce, throttle)
 composer dev                # serve + log in to smoke the pages
 ```
 

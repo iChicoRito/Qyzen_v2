@@ -88,7 +88,7 @@
         </div>
     </div>
 
-    <script>var hostUrl = "{{ asset('metronic/dist/assets/') }}/";</script>
+    <script nonce="{{ $cspNonce ?? '' }}">var hostUrl = "{{ asset('metronic/dist/assets/') }}/";</script>
     <script src="{{ asset('metronic/dist/assets/plugins/global/plugins.bundle.js') }}"></script>
     <script src="{{ asset('metronic/dist/assets/js/scripts.bundle.js') }}"></script>
     @stack('scripts')

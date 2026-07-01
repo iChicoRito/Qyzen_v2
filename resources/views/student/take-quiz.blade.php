@@ -35,7 +35,7 @@
     </form>
 
     @push('scripts')
-    <script>
+    <script nonce="{{ $cspNonce ?? '' }}">
     (function () {
         const draftUrl = "{{ route('student.take-quiz.draft', $assessment) }}";
         const token = "{{ csrf_token() }}";

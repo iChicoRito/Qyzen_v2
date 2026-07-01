@@ -27,4 +27,6 @@ Homestead.yaml
 Thumbs.db
 
 # Metronic uncompiled template source (only dist/ is served)
-/public/metronic/src
+/public/metronic-tailwind-html-demos/src
+# Template build tooling — not served; dist/ assets are committed pre-built
+/public/metronic-tailwind-html-demos/node_modules

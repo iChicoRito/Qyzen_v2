@@ -21,7 +21,7 @@ class SectionController extends Controller
 
         $sections = Section::visibleTo(Auth::user())
             ->with('terms:id,term_name,semester')
-            ->orderByDesc('id')->paginate(20);
+            ->orderByDesc('id')->get();
 
         return view('educator.sections.index', compact('sections'));
     }

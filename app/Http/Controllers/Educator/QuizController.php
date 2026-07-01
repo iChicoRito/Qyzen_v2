@@ -34,7 +34,7 @@ class QuizController extends Controller
                 'quizzes as multiple_choice_count' => fn ($q) => $q->where('quiz_type', 'multiple_choice'),
                 'quizzes as identification_count' => fn ($q) => $q->where('quiz_type', 'identification'),
             ])
-            ->orderByDesc('id')->paginate(20);
+            ->orderByDesc('id')->get();
 
         return view('educator.quizzes.index', compact('assessments'));
     }

@@ -28,67 +28,46 @@
         </div>
     </div>
 
-    <div class="kt-card kt-card-grid min-w-full">
-        <div class="kt-card-header py-5 flex-wrap gap-2">
-            <h3 class="kt-card-title">Permissions</h3>
-            <label class="kt-input">
-                <i class="ki-filled ki-magnifier"></i>
-                <input data-kt-datatable-search="#permissions_table" placeholder="Search permissions" type="text" value="" />
-            </label>
-        </div>
-        <div class="kt-card-content">
-            <div class="grid" data-kt-datatable="true" data-kt-datatable-page-size="10" id="permissions_table">
-                <div class="kt-scrollable-x-auto">
-                    <table class="kt-table table-auto kt-table-border" data-kt-datatable-table="true">
-                        <thead>
-                            <tr>
-                                <th class="min-w-[220px]"><span class="kt-table-col"><span class="kt-table-col-label">Permission</span><span class="kt-table-col-sort"></span></span></th>
-                                <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Module</span><span class="kt-table-col-sort"></span></span></th>
-                                <th class="min-w-[100px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
-                                <th class="w-[150px] text-end">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($permissions as $perm)
-                                <tr>
-                                    <td class="leading-none font-medium text-sm text-mono">{{ $perm->permission_string }}</td>
-                                    <td class="text-secondary-foreground">{{ $perm->module ?: '—' }}</td>
-                                    <td>
-                                        <span class="kt-badge rounded-full kt-badge-outline kt-badge-{{ $perm->is_active ? 'success' : 'destructive' }} gap-1 items-center">
-                                            <span class="kt-badge-dot size-1.5"></span>{{ $perm->is_active ? 'Active' : 'Inactive' }}
-                                        </span>
-                                    </td>
-                                    <td class="text-end">
-                                        <div class="inline-flex gap-1.5">
-                                            <a href="{{ route('admin.permissions.show', $perm) }}" class="kt-btn kt-btn-sm kt-btn-outline">View</a>
-                                            <a href="{{ route('admin.permissions.edit', $perm) }}" class="kt-btn kt-btn-sm kt-btn-outline">Edit</a>
-                                            <form method="POST" action="{{ route('admin.permissions.destroy', $perm) }}" class="inline" onsubmit="return confirm('Delete this permission?')">
-                                                @csrf @method('DELETE')
-                                                <button class="kt-btn kt-btn-sm kt-btn-outline kt-btn-destructive">Delete</button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="4" class="text-center text-secondary-foreground py-5">No permissions.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-                <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium">
-                    <div class="flex items-center gap-2 order-2 md:order-1">
-                        Show
-                        <select class="kt-select w-16" data-kt-datatable-size="true" name="perpage"></select>
-                        per page
-                    </div>
-                    <div class="flex items-center gap-4 order-1 md:order-2">
-                        <span data-kt-datatable-info="true"></span>
-                        <div class="kt-datatable-pagination" data-kt-datatable-pagination="true"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <x-data-table id="permissions_table" search-placeholder="Search permissions">
+        <x-slot:filters>
+            <select data-filter="status" class="kt-select w-36">
+                <option value="">All statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+        </x-slot:filters>
+        <x-slot:head>
+            <thead>
+                <tr>
+                    <th class="min-w-[220px]"><span class="kt-table-col"><span class="kt-table-col-label">Permission</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Module</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[100px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="w-[60px]"></th>
+                </tr>
+            </thead>
+        </x-slot:head>
+        @forelse ($permissions as $perm)
+            <tr>
+                <td class="leading-none font-medium text-sm text-mono">{{ $perm->permission_string }}</td>
+                <td class="text-secondary-foreground">{{ $perm->module ?: '—' }}</td>
+                <td>
+                    <span data-filter-value="status" data-filter-key="{{ $perm->is_active ? 'active' : 'inactive' }}" hidden></span>
+                    <span class="kt-badge rounded-full kt-badge-outline kt-badge-{{ $perm->is_active ? 'success' : 'destructive' }} gap-1 items-center">
+                        <span class="kt-badge-dot size-1.5"></span>{{ $perm->is_active ? 'Active' : 'Inactive' }}
+                    </span>
+                </td>
+                <td class="text-center">
+                    <x-table-actions
+                        :view="route('admin.permissions.show', $perm)"
+                        :edit="route('admin.permissions.edit', $perm)"
+                        :delete="route('admin.permissions.destroy', $perm)"
+                        confirm="Delete this permission? This cannot be undone." />
+                </td>
+            </tr>
+        @empty
+            <tr><td colspan="4" class="text-center text-secondary-foreground py-5">No permissions.</td></tr>
+        @endforelse
+    </x-data-table>
 
     @push('scripts')
     <script nonce="{{ $cspNonce ?? '' }}">

@@ -25,7 +25,7 @@ class ScoreController extends Controller
             $query->where('status', $status);
         }
 
-        $scores = $query->orderByDesc('submitted_at')->paginate(20)->withQueryString();
+        $scores = $query->orderByDesc('submitted_at')->get();
 
         $summary = [
             'total' => Score::where('student_id', Auth::id())->whereIn('status', ['passed', 'failed', 'submitted'])->count(),

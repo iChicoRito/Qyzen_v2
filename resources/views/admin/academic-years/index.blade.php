@@ -9,65 +9,44 @@
 
 @section('content')
     @include('admin._status')
-    <div class="kt-card kt-card-grid min-w-full">
-        <div class="kt-card-header py-5 flex-wrap gap-2">
-            <h3 class="kt-card-title">Academic Years</h3>
-            <label class="kt-input">
-                <i class="ki-filled ki-magnifier"></i>
-                <input data-kt-datatable-search="#years_table" placeholder="Search years" type="text" value="" />
-            </label>
-        </div>
-        <div class="kt-card-content">
-            <div class="grid" data-kt-datatable="true" data-kt-datatable-page-size="10" id="years_table">
-                <div class="kt-scrollable-x-auto">
-                    <table class="kt-table table-auto kt-table-border" data-kt-datatable-table="true">
-                        <thead>
-                            <tr>
-                                <th class="min-w-[180px]"><span class="kt-table-col"><span class="kt-table-col-label">Year</span><span class="kt-table-col-sort"></span></span></th>
-                                <th class="min-w-[100px]"><span class="kt-table-col"><span class="kt-table-col-label">Terms</span><span class="kt-table-col-sort"></span></span></th>
-                                <th class="min-w-[100px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
-                                <th class="w-[150px] text-end">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($years as $year)
-                                <tr>
-                                    <td><a href="{{ route('admin.academic-years.show', $year) }}" class="leading-none font-medium text-sm text-mono hover:text-primary">{{ $year->year }}</a></td>
-                                    <td>{{ $year->terms_count }}</td>
-                                    <td>
-                                        <span class="kt-badge rounded-full kt-badge-outline kt-badge-{{ $year->is_active ? 'success' : 'destructive' }} gap-1 items-center">
-                                            <span class="kt-badge-dot size-1.5"></span>{{ $year->is_active ? 'Active' : 'Inactive' }}
-                                        </span>
-                                    </td>
-                                    <td class="text-end">
-                                        <div class="inline-flex gap-1.5">
-                                            <a href="{{ route('admin.academic-years.show', $year) }}" class="kt-btn kt-btn-sm kt-btn-outline">View</a>
-                                            <a href="{{ route('admin.academic-years.edit', $year) }}" class="kt-btn kt-btn-sm kt-btn-outline">Edit</a>
-                                            <form method="POST" action="{{ route('admin.academic-years.destroy', $year) }}" class="inline" onsubmit="return confirm('Delete this year and ALL its terms?')">
-                                                @csrf @method('DELETE')
-                                                <button class="kt-btn kt-btn-sm kt-btn-outline kt-btn-destructive">Delete</button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="4" class="text-center text-secondary-foreground py-5">No academic years.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-                <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium">
-                    <div class="flex items-center gap-2 order-2 md:order-1">
-                        Show
-                        <select class="kt-select w-16" data-kt-datatable-size="true" name="perpage"></select>
-                        per page
-                    </div>
-                    <div class="flex items-center gap-4 order-1 md:order-2">
-                        <span data-kt-datatable-info="true"></span>
-                        <div class="kt-datatable-pagination" data-kt-datatable-pagination="true"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <x-data-table id="years_table" search-placeholder="Search years">
+        <x-slot:filters>
+            <select data-filter="status" class="kt-select w-36">
+                <option value="">All statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+        </x-slot:filters>
+        <x-slot:head>
+            <thead>
+                <tr>
+                    <th class="min-w-[180px]"><span class="kt-table-col"><span class="kt-table-col-label">Year</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[100px]"><span class="kt-table-col"><span class="kt-table-col-label">Terms</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[100px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="w-[60px]"></th>
+                </tr>
+            </thead>
+        </x-slot:head>
+        @forelse ($years as $year)
+            <tr>
+                <td><a href="{{ route('admin.academic-years.show', $year) }}" class="leading-none font-medium text-sm text-mono hover:text-primary">{{ $year->year }}</a></td>
+                <td>{{ $year->terms_count }}</td>
+                <td>
+                    <span data-filter-value="status" data-filter-key="{{ $year->is_active ? 'active' : 'inactive' }}" hidden></span>
+                    <span class="kt-badge rounded-full kt-badge-outline kt-badge-{{ $year->is_active ? 'success' : 'destructive' }} gap-1 items-center">
+                        <span class="kt-badge-dot size-1.5"></span>{{ $year->is_active ? 'Active' : 'Inactive' }}
+                    </span>
+                </td>
+                <td class="text-center">
+                    <x-table-actions
+                        :view="route('admin.academic-years.show', $year)"
+                        :edit="route('admin.academic-years.edit', $year)"
+                        :delete="route('admin.academic-years.destroy', $year)"
+                        confirm="Delete this year and ALL its terms? This cannot be undone." />
+                </td>
+            </tr>
+        @empty
+            <tr><td colspan="4" class="text-center text-secondary-foreground py-5">No academic years.</td></tr>
+        @endforelse
+    </x-data-table>
 @endsection

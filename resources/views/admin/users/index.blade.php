@@ -14,152 +14,102 @@
 @section('content')
     @include('admin._status')
 
-    <div class="kt-card kt-card-grid min-w-full">
-        <div class="kt-card-header flex-wrap gap-2">
-            <h3 class="kt-card-title text-sm">Showing {{ $users->count() }} users</h3>
-            <div class="flex flex-wrap gap-2 lg:gap-5">
-                <div class="flex">
-                    <label class="kt-input">
-                        <i class="ki-filled ki-magnifier"></i>
-                        <input data-kt-datatable-search="#users_table" placeholder="Search users" type="text" value="" />
-                    </label>
-                </div>
-                <form method="GET" class="flex flex-wrap gap-2.5">
-                    <select name="status" class="kt-select w-36" onchange="this.form.submit()">
-                        <option value="">All statuses</option>
-                        <option value="active" @selected(request('status')==='active')>Active</option>
-                        <option value="inactive" @selected(request('status')==='inactive')>Inactive</option>
-                    </select>
-                    <select name="user_type" class="kt-select w-36" onchange="this.form.submit()">
-                        <option value="">All types</option>
-                        @foreach (['admin','educator','student'] as $t)
-                            <option value="{{ $t }}" @selected(request('user_type')===$t)>{{ ucfirst($t) }}</option>
-                        @endforeach
-                    </select>
-                </form>
-            </div>
-        </div>
-        <div class="kt-card-content">
-            <div data-kt-datatable="true" data-kt-datatable-state-save="false" data-kt-datatable-page-size="10" id="users_table">
-                <div class="kt-scrollable-x-auto">
-                    <table class="kt-table table-auto kt-table-border" data-kt-datatable-table="true">
-                        <thead>
-                            <tr>
-                                <th class="w-[60px] text-center">
-                                    <input class="kt-checkbox kt-checkbox-sm" data-kt-datatable-check="true" type="checkbox" />
-                                </th>
-                                <th class="min-w-[300px]"><span class="kt-table-col"><span class="kt-table-col-label">Member</span><span class="kt-table-col-sort"></span></span></th>
-                                <th class="min-w-[160px]"><span class="kt-table-col"><span class="kt-table-col-label">Role</span><span class="kt-table-col-sort"></span></span></th>
-                                <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
-                                <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">User ID</span><span class="kt-table-col-sort"></span></span></th>
-                                <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Verified</span><span class="kt-table-col-sort"></span></span></th>
-                                <th class="w-[60px]"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($users as $u)
-                                @php $initial = strtoupper(mb_substr($u->given_name ?: $u->name, 0, 1)); @endphp
-                                <tr>
-                                    <td class="text-center">
-                                        <input class="kt-checkbox kt-checkbox-sm" data-kt-datatable-row-check="true" type="checkbox" value="{{ $u->id }}" />
-                                    </td>
-                                    <td>
-                                        <div class="flex items-center gap-2.5">
-                                            @if ($u->profile_picture)
-                                                <img alt="{{ $u->name }}" class="rounded-full size-9 shrink-0" src="{{ asset('storage/'.$u->profile_picture) }}" />
-                                            @else
-                                                <span class="inline-flex items-center justify-center rounded-full size-9 shrink-0 bg-primary/10 text-primary text-sm font-semibold">{{ $initial }}</span>
-                                            @endif
-                                            <div class="flex flex-col">
-                                                <a class="text-sm font-medium text-mono hover:text-primary mb-px" href="{{ route('admin.users.show', $u) }}">{{ $u->name }}</a>
-                                                <a class="text-sm text-secondary-foreground font-normal hover:text-primary" href="mailto:{{ $u->email }}">{{ $u->email }}</a>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="text-foreground font-normal">{{ $u->roles->pluck('name')->join(', ') ?: ucfirst($u->user_type) }}</td>
-                                    <td>
-                                        <span class="kt-badge kt-badge-{{ $u->is_active ? 'success' : 'destructive' }} kt-badge-outline rounded-[30px]">
-                                            <span class="kt-badge-dot size-1.5"></span>{{ $u->is_active ? 'Active' : 'Inactive' }}
-                                        </span>
-                                    </td>
-                                    <td class="text-foreground font-normal">{{ $u->user_id }}</td>
-                                    <td>
-                                        @if ($u->email_verified_at)
-                                            <span class="kt-badge kt-badge-success kt-badge-outline rounded-[30px]"><span class="kt-badge-dot size-1.5"></span>Verified</span>
-                                        @else
-                                            <span class="kt-badge kt-badge-warning kt-badge-outline rounded-[30px]"><span class="kt-badge-dot size-1.5"></span>Pending</span>
-                                        @endif
-                                    </td>
-                                    <td class="text-center">
-                                        <div class="kt-menu flex-inline" data-kt-menu="true">
-                                            <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
-                                                <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
-                                                    <i class="ki-filled ki-dots-vertical text-lg"></i>
-                                                </button>
-                                                <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
-                                                    <div class="kt-menu-item">
-                                                        <a class="kt-menu-link" href="{{ route('admin.users.show', $u) }}">
-                                                            <span class="kt-menu-icon"><i class="ki-filled ki-search-list"></i></span>
-                                                            <span class="kt-menu-title">View</span>
-                                                        </a>
-                                                    </div>
-                                                    <div class="kt-menu-item">
-                                                        <a class="kt-menu-link js-user-edit" href="#"
-                                                           data-action="{{ route('admin.users.update', $u) }}"
-                                                           data-user_type="{{ $u->user_type }}"
-                                                           data-user_id="{{ $u->user_id }}"
-                                                           data-given_name="{{ $u->given_name }}"
-                                                           data-surname="{{ $u->surname }}"
-                                                           data-email="{{ $u->email }}"
-                                                           data-is_active="{{ (int) $u->is_active }}"
-                                                           data-roles="{{ $u->roles->pluck('name')->join(',') }}"
-                                                           data-name="{{ $u->name }}">
-                                                            <span class="kt-menu-icon"><i class="ki-filled ki-pencil"></i></span>
-                                                            <span class="kt-menu-title">Edit</span>
-                                                        </a>
-                                                    </div>
-                                                    @if ($u->email_verified_at === null)
-                                                        <div class="kt-menu-item">
-                                                            <a class="kt-menu-link" href="#" onclick="event.preventDefault(); this.closest('.kt-menu-item').querySelector('form').submit();">
-                                                                <span class="kt-menu-icon"><i class="ki-filled ki-sms"></i></span>
-                                                                <span class="kt-menu-title">Resend verification</span>
-                                                            </a>
-                                                            <form method="POST" action="{{ route('admin.users.resend-verification', $u) }}" class="hidden">@csrf</form>
-                                                        </div>
-                                                    @endif
-                                                    <div class="kt-menu-separator"></div>
-                                                    <div class="kt-menu-item">
-                                                        <a class="kt-menu-link" href="#" onclick="event.preventDefault(); if(confirm('Delete this user?')) this.closest('.kt-menu-item').querySelector('form').submit();">
-                                                            <span class="kt-menu-icon"><i class="ki-filled ki-trash"></i></span>
-                                                            <span class="kt-menu-title">Remove</span>
-                                                        </a>
-                                                        <form method="POST" action="{{ route('admin.users.destroy', $u) }}" class="hidden">@csrf @method('DELETE')</form>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="7" class="text-center text-secondary-foreground py-5">No users.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-                <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium">
-                    <div class="flex items-center gap-2 order-2 md:order-1">
-                        Show
-                        <select class="kt-select w-16" data-kt-datatable-size="true" name="perpage"></select>
-                        per page
+    <x-data-table id="users_table" search-placeholder="Search users">
+        <x-slot:filters>
+            <select data-filter="status" class="kt-select w-36">
+                <option value="">All statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+            <select data-filter="type" class="kt-select w-36">
+                <option value="">All types</option>
+                @foreach (['admin','educator','student'] as $t)
+                    <option value="{{ $t }}">{{ ucfirst($t) }}</option>
+                @endforeach
+            </select>
+        </x-slot:filters>
+        <x-slot:head>
+            <thead>
+                <tr>
+                    <th class="w-[60px] text-center">
+                        <input class="kt-checkbox kt-checkbox-sm" data-kt-datatable-check="true" type="checkbox" />
+                    </th>
+                    <th class="min-w-[300px]"><span class="kt-table-col"><span class="kt-table-col-label">Member</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[160px]"><span class="kt-table-col"><span class="kt-table-col-label">Role</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">User ID</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Verified</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="w-[60px]"></th>
+                </tr>
+            </thead>
+        </x-slot:head>
+        @forelse ($users as $u)
+            @php $initial = strtoupper(mb_substr($u->given_name ?: $u->name, 0, 1)); @endphp
+            <tr>
+                <td class="text-center">
+                    <input class="kt-checkbox kt-checkbox-sm" data-kt-datatable-row-check="true" type="checkbox" value="{{ $u->id }}" />
+                </td>
+                <td>
+                    <div class="flex items-center gap-2.5">
+                        @if ($u->profile_picture)
+                            <img alt="{{ $u->name }}" class="rounded-full size-9 shrink-0" src="{{ asset('storage/'.$u->profile_picture) }}" />
+                        @else
+                            <span class="inline-flex items-center justify-center rounded-full size-9 shrink-0 bg-primary/10 text-primary text-sm font-semibold">{{ $initial }}</span>
+                        @endif
+                        <div class="flex flex-col">
+                            <a class="text-sm font-medium text-mono hover:text-primary mb-px" href="{{ route('admin.users.show', $u) }}">{{ $u->name }}</a>
+                            <a class="text-sm text-secondary-foreground font-normal hover:text-primary" href="mailto:{{ $u->email }}">{{ $u->email }}</a>
+                        </div>
                     </div>
-                    <div class="flex items-center gap-4 order-1 md:order-2">
-                        <span data-kt-datatable-info="true"></span>
-                        <div class="kt-datatable-pagination" data-kt-datatable-pagination="true"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+                </td>
+                <td class="text-foreground font-normal">{{ $u->roles->pluck('name')->join(', ') ?: ucfirst($u->user_type) }}</td>
+                <td>
+                    <span data-filter-value="status" data-filter-key="{{ $u->is_active ? 'active' : 'inactive' }}" hidden></span>
+                    <span data-filter-value="type" data-filter-key="{{ $u->user_type }}" hidden></span>
+                    <span class="kt-badge kt-badge-{{ $u->is_active ? 'success' : 'destructive' }} kt-badge-outline rounded-[30px]">
+                        <span class="kt-badge-dot size-1.5"></span>{{ $u->is_active ? 'Active' : 'Inactive' }}
+                    </span>
+                </td>
+                <td class="text-foreground font-normal">{{ $u->user_id }}</td>
+                <td>
+                    @if ($u->email_verified_at)
+                        <span class="kt-badge kt-badge-success kt-badge-outline rounded-[30px]"><span class="kt-badge-dot size-1.5"></span>Verified</span>
+                    @else
+                        <span class="kt-badge kt-badge-warning kt-badge-outline rounded-[30px]"><span class="kt-badge-dot size-1.5"></span>Pending</span>
+                    @endif
+                </td>
+                <td class="text-center">
+                    <x-table-actions
+                        :view="route('admin.users.show', $u)"
+                        edit="#"
+                        edit-class="js-user-edit"
+                        :edit-attributes="'data-action=\''.route('admin.users.update', $u).'\''
+                            .' data-user_type=\''.$u->user_type.'\''
+                            .' data-user_id=\''.e($u->user_id).'\''
+                            .' data-given_name=\''.e($u->given_name).'\''
+                            .' data-surname=\''.e($u->surname).'\''
+                            .' data-email=\''.e($u->email).'\''
+                            .' data-is_active=\''.(int) $u->is_active.'\''
+                            .' data-roles=\''.e($u->roles->pluck('name')->join(',')).'\''
+                            .' data-name=\''.e($u->name).'\''"
+                        :delete="route('admin.users.destroy', $u)"
+                        confirm="Delete this user? This cannot be undone.">
+                        @if ($u->email_verified_at === null)
+                            <div class="kt-menu-item">
+                                <a class="kt-menu-link" href="#" data-confirm="Resend the verification email to this user?" data-confirm-title="Resend verification" data-confirm-button="Resend">
+                                    <span class="kt-menu-icon"><i class="ki-filled ki-sms"></i></span>
+                                    <span class="kt-menu-title">Resend verification</span>
+                                </a>
+                                <form method="POST" action="{{ route('admin.users.resend-verification', $u) }}" class="hidden">@csrf</form>
+                            </div>
+                        @endif
+                    </x-table-actions>
+                </td>
+            </tr>
+        @empty
+            <tr><td colspan="7" class="text-center text-secondary-foreground py-5">No users.</td></tr>
+        @endforelse
+    </x-data-table>
 
     {{-- F3: import modal --}}
     <div class="kt-modal" data-kt-modal="true" id="kt_import_modal">
@@ -274,23 +224,11 @@
         </div>
     </div>
 
-    {{-- KTDataTable re-renders the tbody on search/sort/paginate, which drops the per-row
-         KTMenu dropdown (Popper) instances. Re-init KTMenu after each 'drew' so the 3-dots
-         context menus keep working across pages. --}}
+    {{-- The datatable redraw → KTMenu.init() re-init now lives in <x-data-table>. This block
+         only wires the user-specific edit modal. --}}
     @push('scripts')
     <script nonce="{{ $cspNonce ?? '' }}">
         document.addEventListener('DOMContentLoaded', function () {
-            // Re-init the row context menus after each datatable redraw.
-            var el = document.querySelector('#users_table');
-            if (el && typeof KTDataTable !== 'undefined') {
-                var dt = KTDataTable.getInstance(el);
-                if (dt && typeof dt.on === 'function') {
-                    dt.on('drew', function () {
-                        if (typeof KTMenu !== 'undefined') KTMenu.init();
-                    });
-                }
-            }
-
             // Edit: fill the shared modal from the clicked row's data-* attributes, then open it.
             // Delegated on document so it survives datatable re-renders.
             var editForm = document.querySelector('#kt_user_edit_form');

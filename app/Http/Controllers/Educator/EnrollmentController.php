@@ -29,7 +29,7 @@ class EnrollmentController extends Controller
 
         $enrollments = Enrolled::visibleTo(Auth::user())
             ->with(['student:id,given_name,surname,user_id', 'subject:id,subject_code,subject_name'])
-            ->orderByDesc('id')->paginate(20);
+            ->orderByDesc('id')->get();
 
         return view('educator.enrollment.index', compact('enrollments'));
     }

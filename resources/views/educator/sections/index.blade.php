@@ -1,34 +1,48 @@
 @extends('educator.layout')
 @section('title', 'Sections')
 @section('heading', 'Sections')
+@section('toolbar')
+    <a href="{{ route('educator.sections.create') }}" class="kt-btn kt-btn-sm kt-btn-primary">Add section</a>
+@endsection
 @section('content')
     @include('admin._status')
-    <div class="card">
-        <div class="card-header border-0 pt-6"><div class="card-toolbar ms-auto">
-            <a href="{{ route('educator.sections.create') }}" class="btn btn-sm btn-primary">Add section</a>
-        </div></div>
-        <div class="card-body pt-0">
-            <table class="table align-middle table-row-dashed fs-6 gy-3">
-                <thead><tr class="text-start text-gray-500 fw-bold fs-7 text-uppercase">
-                    <th>Name</th><th>Terms</th><th>Status</th><th class="text-end">Actions</th>
-                </tr></thead>
-                <tbody class="fw-semibold text-gray-700">
-                    @forelse ($sections as $section)
-                        <tr>
-                            <td>{{ $section->section_name }}</td>
-                            <td>{{ $section->terms->pluck('term_name')->join(', ') ?: '—' }}</td>
-                            <td><span class="badge badge-light-{{ $section->is_active ? 'success' : 'danger' }}">{{ $section->is_active ? 'Active' : 'Inactive' }}</span></td>
-                            <td class="text-end">
-                                <a href="{{ route('educator.sections.edit', $section) }}" class="btn btn-sm btn-light">Edit</a>
-                                <form method="POST" action="{{ route('educator.sections.destroy', $section) }}" class="d-inline" onsubmit="return confirm('Delete this section?')">@csrf @method('DELETE')<button class="btn btn-sm btn-light-danger">Delete</button></form>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="4" class="text-center text-muted py-5">No sections.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-            {{ $sections->links() }}
-        </div>
-    </div>
+    <x-data-table id="sections_table" search-placeholder="Search sections">
+        <x-slot:filters>
+            <select data-filter="status" class="kt-select w-36">
+                <option value="">All statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+        </x-slot:filters>
+        <x-slot:head>
+            <thead>
+                <tr>
+                    <th class="min-w-[180px]"><span class="kt-table-col"><span class="kt-table-col-label">Name</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[200px]"><span class="kt-table-col"><span class="kt-table-col-label">Terms</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[110px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="w-[60px]"></th>
+                </tr>
+            </thead>
+        </x-slot:head>
+        @forelse ($sections as $section)
+            <tr>
+                <td class="text-mono font-medium text-sm">{{ $section->section_name }}</td>
+                <td class="text-secondary-foreground">{{ $section->terms->pluck('term_name')->join(', ') ?: '—' }}</td>
+                <td>
+                    <span data-filter-value="status" data-filter-key="{{ $section->is_active ? 'active' : 'inactive' }}" hidden></span>
+                    <span class="kt-badge rounded-full kt-badge-outline kt-badge-{{ $section->is_active ? 'success' : 'destructive' }} gap-1 items-center">
+                        <span class="kt-badge-dot size-1.5"></span>{{ $section->is_active ? 'Active' : 'Inactive' }}
+                    </span>
+                </td>
+                <td class="text-center">
+                    <x-table-actions
+                        :edit="route('educator.sections.edit', $section)"
+                        :delete="route('educator.sections.destroy', $section)"
+                        confirm="Delete this section? This cannot be undone." />
+                </td>
+            </tr>
+        @empty
+            <tr><td colspan="4" class="text-center text-secondary-foreground py-5">No sections.</td></tr>
+        @endforelse
+    </x-data-table>
 @endsection

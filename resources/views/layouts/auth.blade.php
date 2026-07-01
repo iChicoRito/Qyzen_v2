@@ -33,5 +33,7 @@
 
 <script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('metronic-tailwind-html-demos/dist/assets/js/core.bundle.js') }}"></script>
 <script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/ktui/ktui.min.js') }}"></script>
+@include('partials._toasts')
+@include('partials._form-submit-spinner')
 </body>
 </html>

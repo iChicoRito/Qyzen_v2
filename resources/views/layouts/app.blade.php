@@ -217,6 +217,10 @@
 <script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/apexcharts/apexcharts.min.js') }}"></script>
 <script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('metronic-tailwind-html-demos/dist/assets/js/widgets/general.js') }}"></script>
 <script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('metronic-tailwind-html-demos/dist/assets/js/layouts/demo1.js') }}"></script>
+<script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('vendor/sweetalert2/sweetalert2.all.min.js') }}"></script>
+@include('partials._toasts')
+@include('partials._form-submit-spinner')
+@include('partials._confirm-delete')
 @stack('scripts')
 </body>
 </html>

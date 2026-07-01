@@ -31,7 +31,7 @@ class ScoreController extends Controller
         // Best + latest attempt per student per assessment.
         $scores = Score::visibleTo(Auth::user())
             ->with(['student:id,given_name,surname,user_id', 'assessment:id,assessment_code'])
-            ->orderByDesc('submitted_at')->paginate(30);
+            ->orderByDesc('submitted_at')->get();
 
         return view('educator.scores.index', compact('scores'));
     }

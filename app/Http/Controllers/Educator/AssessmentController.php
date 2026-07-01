@@ -26,7 +26,7 @@ class AssessmentController extends Controller
 
         $assessments = Assessment::visibleTo(Auth::user())
             ->with(['subject:id,subject_code,subject_name', 'section:id,section_name', 'academicTerm:id,term_name'])
-            ->orderByDesc('id')->paginate(20);
+            ->orderByDesc('id')->get();
 
         return view('educator.assessments.index', compact('assessments'));
     }

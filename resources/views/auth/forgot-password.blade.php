@@ -10,10 +10,6 @@
       <div class="text-sm text-secondary-foreground font-medium">Enter your email to reset it.</div>
     </div>
 
-    @if (session('status'))
-      <div class="kt-alert kt-alert-success">{{ session('status') }}</div>
-    @endif
-
     <div class="flex flex-col gap-1">
       <label class="kt-form-label font-normal text-mono">Email</label>
       <input type="email" name="email" value="{{ old('email') }}" placeholder="your@email.com" class="kt-input" required autofocus />

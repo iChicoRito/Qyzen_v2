@@ -4,6 +4,7 @@
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Name</label>
         <input name="name" class="kt-input" value="{{ old('name', $role?->name) }}" placeholder="lower_snake_case">
+        @error('name')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Status</label>
@@ -22,6 +23,7 @@
     <div class="flex flex-col gap-1 md:col-span-2">
         <label class="kt-form-label">Description</label>
         <textarea name="description" class="kt-textarea" rows="2">{{ old('description', $role?->description) }}</textarea>
+        @error('description')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1 md:col-span-2">
         <label class="kt-form-label">Permissions</label>
@@ -34,5 +36,6 @@
                 </label>
             @endforeach
         </div>
+        @error('permission_ids')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
 </div>

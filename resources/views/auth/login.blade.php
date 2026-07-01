@@ -13,16 +13,10 @@
       </div>
     </div>
 
-    @if (session('status'))
-      <div class="kt-alert kt-alert-success">{{ session('status') }}</div>
-    @endif
-    @error('email')
-      <div class="kt-alert kt-alert-destructive">{{ $message }}</div>
-    @enderror
-
     <div class="flex flex-col gap-1">
       <label class="kt-form-label font-normal text-mono">Email</label>
       <input type="email" name="email" value="{{ old('email') }}" placeholder="your@email.com" class="kt-input" required autofocus />
+      @error('email')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
 
     <div class="flex flex-col gap-1">

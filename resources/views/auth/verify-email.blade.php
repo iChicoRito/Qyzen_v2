@@ -10,7 +10,7 @@
     </div>
 
     @if (session('status') == 'verification-link-sent')
-      <div class="kt-alert kt-alert-success">A new verification link has been sent.</div>
+      <div class="text-sm font-medium text-green-600">A new verification link has been sent.</div>
     @endif
 
     <div class="flex flex-center justify-center gap-2.5">

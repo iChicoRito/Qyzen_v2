@@ -16,22 +16,27 @@
                 <option value="{{ $t }}" @selected(old('user_type', $user?->user_type)===$t)>{{ ucfirst($t) }}</option>
             @endforeach
         </select>
+        @error('user_type')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">User ID</label>
         <input name="user_id" class="kt-input" value="{{ old('user_id', $user?->user_id) }}" placeholder="YYYY-NNNNN">
+        @error('user_id')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Given Name</label>
         <input name="given_name" class="kt-input" value="{{ old('given_name', $user?->given_name) }}">
+        @error('given_name')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Surname</label>
         <input name="surname" class="kt-input" value="{{ old('surname', $user?->surname) }}">
+        @error('surname')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Email</label>
         <input name="email" type="email" class="kt-input" value="{{ old('email', $user?->email) }}">
+        @error('email')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Status</label>
@@ -39,6 +44,7 @@
             <option value="1" @selected(old('is_active', $user?->is_active ?? true)==1)>Active</option>
             <option value="0" @selected(old('is_active', $user?->is_active ?? true)==0)>Inactive</option>
         </select>
+        @error('is_active')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1.5 col-span-2">
         <label class="kt-form-label">Roles</label>
@@ -54,5 +60,6 @@
                 </label>
             @endforeach
         </div>
+        @error('role_names')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
 </div>

@@ -47,6 +47,9 @@ class SecurityHeaders
     {
         // Metronic ships inline styles + data: fonts/images; scripts are nonce-gated.
         // 'strict-dynamic' lets nonced bundle.js load its own chunks without host allowlisting.
+        // NOTE: the Metronic Tailwind JS must be built for production (webpack mode=production,
+        // no 'eval' devtool) or it will violate this CSP with an EvalError. See the template's
+        // `npm run build:js -- --env production` — do NOT add 'unsafe-eval' here to work around it.
         return implode('; ', [
             "default-src 'self'",
             "script-src 'self' 'nonce-{$nonce}' 'strict-dynamic'",

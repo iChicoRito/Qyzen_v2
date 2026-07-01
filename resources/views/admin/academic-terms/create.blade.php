@@ -4,15 +4,15 @@
 @section('heading', 'Add Academic Term')
 @section('content')
     @include('admin._status')
-    <div class="card"><div class="card-body">
+    <div class="kt-card"><div class="kt-card-content p-5">
         @if ($years->isEmpty())
-            <div class="alert alert-warning">Create an academic year first.</div>
+            <div class="kt-alert kt-alert-warning">Create an academic year first.</div>
         @else
             <form method="POST" action="{{ route('admin.academic-terms.store') }}">
                 @csrf
                 @include('admin.academic-terms._fields', ['term' => null])
-                <div class="mt-4"><button class="btn btn-primary">Create</button>
-                    <a href="{{ route('admin.academic-terms.index') }}" class="btn btn-light">Cancel</a></div>
+                <div class="flex gap-2 mt-5"><button class="kt-btn kt-btn-primary">Create</button>
+                    <a href="{{ route('admin.academic-terms.index') }}" class="kt-btn kt-btn-outline">Cancel</a></div>
             </form>
         @endif
     </div></div>

@@ -3,24 +3,24 @@
 @section('title', 'Role')
 @section('heading', $role->name)
 @section('content')
-    <div class="card"><div class="card-body">
-        <dl class="row mb-4">
-            <dt class="col-sm-3">Name</dt><dd class="col-sm-9">{{ $role->name }}</dd>
-            <dt class="col-sm-3">Description</dt><dd class="col-sm-9">{{ $role->description ?: '—' }}</dd>
-            <dt class="col-sm-3">System</dt><dd class="col-sm-9">{{ $role->is_system ? 'Yes' : 'No' }}</dd>
-            <dt class="col-sm-3">Status</dt><dd class="col-sm-9">{{ $role->is_active ? 'Active' : 'Inactive' }}</dd>
+    <div class="kt-card"><div class="kt-card-content p-5">
+        <dl class="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-y-3 gap-x-4 text-sm mb-5">
+            <dt class="text-secondary-foreground">Name</dt><dd class="text-mono">{{ $role->name }}</dd>
+            <dt class="text-secondary-foreground">Description</dt><dd class="text-mono">{{ $role->description ?: '—' }}</dd>
+            <dt class="text-secondary-foreground">System</dt><dd class="text-mono">{{ $role->is_system ? 'Yes' : 'No' }}</dd>
+            <dt class="text-secondary-foreground">Status</dt><dd class="text-mono">{{ $role->is_active ? 'Active' : 'Inactive' }}</dd>
         </dl>
-        <h4>Permissions ({{ $role->permissions->count() }})</h4>
-        <div class="d-flex flex-wrap gap-2">
+        <h4 class="text-sm font-semibold text-mono mb-2.5">Permissions ({{ $role->permissions->count() }})</h4>
+        <div class="flex flex-wrap gap-2">
             @forelse ($role->permissions as $p)
-                <span class="badge badge-light-primary">{{ $p->permission_string }}</span>
+                <span class="kt-badge kt-badge-sm kt-badge-outline kt-badge-primary">{{ $p->permission_string }}</span>
             @empty
-                <span class="text-muted">None assigned.</span>
+                <span class="text-secondary-foreground">None assigned.</span>
             @endforelse
         </div>
-        <div class="mt-4">
-            <a href="{{ route('admin.roles.edit', $role) }}" class="btn btn-primary">Edit</a>
-            <a href="{{ route('admin.roles.index') }}" class="btn btn-light">Back</a>
+        <div class="flex gap-2 mt-5">
+            <a href="{{ route('admin.roles.edit', $role) }}" class="kt-btn kt-btn-primary">Edit</a>
+            <a href="{{ route('admin.roles.index') }}" class="kt-btn kt-btn-outline">Back</a>
         </div>
     </div></div>
 @endsection

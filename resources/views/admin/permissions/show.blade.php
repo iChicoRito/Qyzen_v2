@@ -3,18 +3,18 @@
 @section('title', 'Permission')
 @section('heading', $permission->permission_string)
 @section('content')
-    <div class="card"><div class="card-body">
-        <dl class="row mb-0">
-            <dt class="col-sm-3">Permission</dt><dd class="col-sm-9">{{ $permission->permission_string }}</dd>
-            <dt class="col-sm-3">Resource</dt><dd class="col-sm-9">{{ $permission->resource }}</dd>
-            <dt class="col-sm-3">Action</dt><dd class="col-sm-9">{{ $permission->action }}</dd>
-            <dt class="col-sm-3">Module</dt><dd class="col-sm-9">{{ $permission->module ?: '—' }}</dd>
-            <dt class="col-sm-3">Description</dt><dd class="col-sm-9">{{ $permission->description ?: '—' }}</dd>
-            <dt class="col-sm-3">Status</dt><dd class="col-sm-9">{{ $permission->is_active ? 'Active' : 'Inactive' }}</dd>
+    <div class="kt-card"><div class="kt-card-content p-5">
+        <dl class="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-y-3 gap-x-4 text-sm mb-0">
+            <dt class="text-secondary-foreground">Permission</dt><dd class="text-mono">{{ $permission->permission_string }}</dd>
+            <dt class="text-secondary-foreground">Resource</dt><dd class="text-mono">{{ $permission->resource }}</dd>
+            <dt class="text-secondary-foreground">Action</dt><dd class="text-mono">{{ $permission->action }}</dd>
+            <dt class="text-secondary-foreground">Module</dt><dd class="text-mono">{{ $permission->module ?: '—' }}</dd>
+            <dt class="text-secondary-foreground">Description</dt><dd class="text-mono">{{ $permission->description ?: '—' }}</dd>
+            <dt class="text-secondary-foreground">Status</dt><dd class="text-mono">{{ $permission->is_active ? 'Active' : 'Inactive' }}</dd>
         </dl>
-        <div class="mt-4">
-            <a href="{{ route('admin.permissions.edit', $permission) }}" class="btn btn-primary">Edit</a>
-            <a href="{{ route('admin.permissions.index') }}" class="btn btn-light">Back</a>
+        <div class="flex gap-2 mt-5">
+            <a href="{{ route('admin.permissions.edit', $permission) }}" class="kt-btn kt-btn-primary">Edit</a>
+            <a href="{{ route('admin.permissions.index') }}" class="kt-btn kt-btn-outline">Back</a>
         </div>
     </div></div>
 @endsection

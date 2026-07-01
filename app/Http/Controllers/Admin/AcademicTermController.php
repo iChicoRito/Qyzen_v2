@@ -17,7 +17,7 @@ class AcademicTermController extends Controller
     {
         $this->authorize('viewAny', AcademicTerm::class);
 
-        $terms = AcademicTerm::with('year')->orderByDesc('id')->paginate(20);
+        $terms = AcademicTerm::with('year')->orderByDesc('id')->get();
 
         return view('admin.academic-terms.index', compact('terms'));
     }

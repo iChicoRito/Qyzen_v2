@@ -16,7 +16,7 @@ class PermissionController extends Controller
     {
         $this->authorize('viewAny', Permission::class);
 
-        $permissions = Permission::orderBy('permission_string')->paginate(30);
+        $permissions = Permission::orderBy('permission_string')->get();
 
         return view('admin.permissions.index', compact('permissions'));
     }

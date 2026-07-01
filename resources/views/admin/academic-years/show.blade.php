@@ -3,20 +3,22 @@
 @section('title', 'Academic Year')
 @section('heading', $year->year)
 @section('content')
-    <div class="card"><div class="card-body">
-        <dl class="row mb-4">
-            <dt class="col-sm-3">Year</dt><dd class="col-sm-9">{{ $year->year }}</dd>
-            <dt class="col-sm-3">Status</dt><dd class="col-sm-9">{{ $year->is_active ? 'Active' : 'Inactive' }}</dd>
+    <div class="kt-card"><div class="kt-card-content p-5">
+        <dl class="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-y-3 gap-x-4 text-sm mb-5">
+            <dt class="text-secondary-foreground">Year</dt><dd class="text-mono">{{ $year->year }}</dd>
+            <dt class="text-secondary-foreground">Status</dt><dd class="text-mono">{{ $year->is_active ? 'Active' : 'Inactive' }}</dd>
         </dl>
-        <h4>Terms ({{ $year->terms->count() }})</h4>
-        <ul class="mb-4">
+        <h4 class="text-sm font-semibold text-mono mb-2.5">Terms ({{ $year->terms->count() }})</h4>
+        <ul class="list-disc ps-5 mb-5 text-sm">
             @forelse ($year->terms as $term)
                 <li>{{ $term->term_name }} — {{ $term->semester }}</li>
             @empty
-                <li class="text-muted">No terms.</li>
+                <li class="text-secondary-foreground list-none">No terms.</li>
             @endforelse
         </ul>
-        <a href="{{ route('admin.academic-years.edit', $year) }}" class="btn btn-primary">Edit</a>
-        <a href="{{ route('admin.academic-years.index') }}" class="btn btn-light">Back</a>
+        <div class="flex gap-2">
+            <a href="{{ route('admin.academic-years.edit', $year) }}" class="kt-btn kt-btn-primary">Edit</a>
+            <a href="{{ route('admin.academic-years.index') }}" class="kt-btn kt-btn-outline">Back</a>
+        </div>
     </div></div>
 @endsection

@@ -18,7 +18,7 @@ class AcademicYearController extends Controller
     {
         $this->authorize('viewAny', AcademicYear::class);
 
-        $years = AcademicYear::withCount('terms')->orderByDesc('year')->paginate(20);
+        $years = AcademicYear::withCount('terms')->orderByDesc('year')->get();
 
         return view('admin.academic-years.index', compact('years'));
     }

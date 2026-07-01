@@ -25,13 +25,8 @@
     }
 </script>
 
-<style nonce="{{ $cspNonce ?? '' }}">
-    .page-bg { background-image: url('{{ asset('metronic-tailwind-html-demos/dist/assets/media/images/2600x1200/bg-10.png') }}'); }
-    .dark .page-bg { background-image: url('{{ asset('metronic-tailwind-html-demos/dist/assets/media/images/2600x1200/bg-10-dark.png') }}'); }
-</style>
-
-<div class="flex items-center justify-center grow bg-center bg-no-repeat page-bg">
-    <div class="kt-card max-w-[400px] w-full">
+<div class="flex items-center justify-center grow">
+    <div class="kt-card max-w-96 w-full">
         @yield('card')
     </div>
 </div>

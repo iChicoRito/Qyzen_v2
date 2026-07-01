@@ -34,9 +34,10 @@ class UserController extends Controller
             $query->where('user_type', $type);
         }
 
-        $users = $query->orderByDesc('id')->paginate(20)->withQueryString();
+        $users = $query->orderByDesc('id')->get();
+        $roles = Role::orderBy('name')->get();
 
-        return view('admin.users.index', compact('users'));
+        return view('admin.users.index', compact('users', 'roles'));
     }
 
     public function create(): View

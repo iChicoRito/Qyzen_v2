@@ -3,45 +3,46 @@
 @section('title', 'Sign up')
 
 @section('card')
-  <div class="card card-md">
-    <div class="card-body">
-      <h2 class="h2 text-center mb-4">Create new account</h2>
-
-      <form action="{{ route('register') }}" method="POST" autocomplete="off" novalidate>
-        @csrf
-        <div class="row">
-          <div class="col mb-3">
-            <label class="form-label">Given name</label>
-            <input type="text" name="given_name" value="{{ old('given_name') }}" class="form-control" required autofocus />
-            @error('given_name')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-          </div>
-          <div class="col mb-3">
-            <label class="form-label">Surname</label>
-            <input type="text" name="surname" value="{{ old('surname') }}" class="form-control" required />
-            @error('surname')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-          </div>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Email address</label>
-          <input type="email" name="email" value="{{ old('email') }}" class="form-control" placeholder="your@email.com" required />
-          @error('email')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Password</label>
-          <input type="password" name="password" class="form-control" required />
-          @error('password')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Confirm password</label>
-          <input type="password" name="password_confirmation" class="form-control" required />
-        </div>
-        <div class="form-footer">
-          <button type="submit" class="btn btn-primary w-100">Create account</button>
-        </div>
-      </form>
+  <form action="{{ route('register') }}" method="POST" class="kt-card-content flex flex-col gap-5 p-10" autocomplete="off" novalidate>
+    @csrf
+    <div class="text-center mb-2.5">
+      <h3 class="text-lg font-medium text-mono leading-none mb-2.5">Create Account</h3>
+      <div class="flex items-center justify-center font-medium">
+        <span class="text-sm text-secondary-foreground me-1.5">Already have an account?</span>
+        <a class="text-sm kt-link" href="{{ route('login') }}">Sign in</a>
+      </div>
     </div>
-  </div>
-  <div class="text-center text-secondary mt-3">
-    Already have an account? <a href="{{ route('login') }}">Sign in</a>
-  </div>
+
+    <div class="grid grid-cols-2 gap-2.5">
+      <div class="flex flex-col gap-1">
+        <label class="kt-form-label font-normal text-mono">Given name</label>
+        <input type="text" name="given_name" value="{{ old('given_name') }}" class="kt-input" required autofocus />
+        @error('given_name')<span class="text-xs text-destructive">{{ $message }}</span>@enderror
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="kt-form-label font-normal text-mono">Surname</label>
+        <input type="text" name="surname" value="{{ old('surname') }}" class="kt-input" required />
+        @error('surname')<span class="text-xs text-destructive">{{ $message }}</span>@enderror
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="kt-form-label font-normal text-mono">Email</label>
+      <input type="email" name="email" value="{{ old('email') }}" placeholder="your@email.com" class="kt-input" required />
+      @error('email')<span class="text-xs text-destructive">{{ $message }}</span>@enderror
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="kt-form-label font-normal text-mono">Password</label>
+      <input type="password" name="password" class="kt-input" required />
+      @error('password')<span class="text-xs text-destructive">{{ $message }}</span>@enderror
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="kt-form-label font-normal text-mono">Confirm password</label>
+      <input type="password" name="password_confirmation" class="kt-input" required />
+    </div>
+
+    <button type="submit" class="kt-btn kt-btn-primary flex justify-center grow">Create account</button>
+  </form>
 @endsection

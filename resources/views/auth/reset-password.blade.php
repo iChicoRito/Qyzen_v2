@@ -3,31 +3,30 @@
 @section('title', 'Reset password')
 
 @section('card')
-  <div class="card card-md">
-    <div class="card-body">
-      <h2 class="h2 text-center mb-4">Set a new password</h2>
-
-      <form action="{{ route('password.update') }}" method="POST" novalidate>
-        @csrf
-        <input type="hidden" name="token" value="{{ $request->route('token') }}" />
-        <div class="mb-3">
-          <label class="form-label">Email address</label>
-          <input type="email" name="email" value="{{ old('email', $request->email) }}" class="form-control" required />
-          @error('email')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-        </div>
-        <div class="mb-3">
-          <label class="form-label">New password</label>
-          <input type="password" name="password" class="form-control" required autofocus />
-          @error('password')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Confirm password</label>
-          <input type="password" name="password_confirmation" class="form-control" required />
-        </div>
-        <div class="form-footer">
-          <button type="submit" class="btn btn-primary w-100">Reset password</button>
-        </div>
-      </form>
+  <form action="{{ route('password.update') }}" method="POST" class="kt-card-content flex flex-col gap-5 p-10" novalidate>
+    @csrf
+    <input type="hidden" name="token" value="{{ $request->route('token') }}" />
+    <div class="text-center mb-2.5">
+      <h3 class="text-lg font-medium text-mono leading-none mb-2.5">Set New Password</h3>
     </div>
-  </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="kt-form-label font-normal text-mono">Email</label>
+      <input type="email" name="email" value="{{ old('email', $request->email) }}" class="kt-input" required />
+      @error('email')<span class="text-xs text-destructive">{{ $message }}</span>@enderror
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="kt-form-label font-normal text-mono">New password</label>
+      <input type="password" name="password" class="kt-input" required autofocus />
+      @error('password')<span class="text-xs text-destructive">{{ $message }}</span>@enderror
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="kt-form-label font-normal text-mono">Confirm password</label>
+      <input type="password" name="password_confirmation" class="kt-input" required />
+    </div>
+
+    <button type="submit" class="kt-btn kt-btn-primary flex justify-center grow">Reset password</button>
+  </form>
 @endsection

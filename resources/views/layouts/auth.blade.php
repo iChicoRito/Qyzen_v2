@@ -1,23 +1,42 @@
-<!doctype html>
-{{-- Tabler centered auth shell — from template/sign-in.html (page page-center) --}}
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-  <head>
+<!DOCTYPE html>
+{{-- Metronic (Tailwind/KTUI) auth shell — rebuilt from
+     public/metronic-tailwind-html-demos/dist/html/demo1/authentication/classic/sign-in.html.
+     Child views fill @yield('card') with a <form> using kt-card-content. --}}
+<html class="h-full" data-kt-theme="true" data-kt-theme-mode="light" dir="ltr" lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>@yield('title', config('app.name'))</title>
-    <link href="{{ asset('tabler/css/tabler.min.css') }}" rel="stylesheet" />
-    <style>@import url("https://rsms.me/inter/inter.css");</style>
-  </head>
-  <body class="d-flex flex-column">
-    <script src="{{ asset('tabler/js/tabler-theme.min.js') }}"></script>
-    <div class="page page-center">
-      <div class="container container-tight py-4">
-        <div class="text-center mb-4">
-          <span class="navbar-brand navbar-brand-autodark h1">{{ config('app.name') }}</span>
-        </div>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link rel="shortcut icon" href="{{ asset('metronic-tailwind-html-demos/dist/assets/media/app/favicon.ico') }}" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+    <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet" />
+    <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/css/styles.css') }}" rel="stylesheet" />
+</head>
+<body class="antialiased flex h-full text-base text-foreground bg-background">
+<script nonce="{{ $cspNonce ?? '' }}">
+    const defaultThemeMode = 'light';
+    let themeMode;
+    if (document.documentElement) {
+        if (localStorage.getItem('kt-theme')) { themeMode = localStorage.getItem('kt-theme'); }
+        else if (document.documentElement.hasAttribute('data-kt-theme-mode')) { themeMode = document.documentElement.getAttribute('data-kt-theme-mode'); }
+        else { themeMode = defaultThemeMode; }
+        if (themeMode === 'system') { themeMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+        document.documentElement.classList.add(themeMode);
+    }
+</script>
+
+<style nonce="{{ $cspNonce ?? '' }}">
+    .page-bg { background-image: url('{{ asset('metronic-tailwind-html-demos/dist/assets/media/images/2600x1200/bg-10.png') }}'); }
+    .dark .page-bg { background-image: url('{{ asset('metronic-tailwind-html-demos/dist/assets/media/images/2600x1200/bg-10-dark.png') }}'); }
+</style>
+
+<div class="flex items-center justify-center grow bg-center bg-no-repeat page-bg">
+    <div class="kt-card max-w-[400px] w-full">
         @yield('card')
-      </div>
     </div>
-    <script src="{{ asset('tabler/js/tabler.min.js') }}" defer></script>
-  </body>
+</div>
+
+<script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('metronic-tailwind-html-demos/dist/assets/js/core.bundle.js') }}"></script>
+<script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/ktui/ktui.min.js') }}"></script>
+</body>
 </html>

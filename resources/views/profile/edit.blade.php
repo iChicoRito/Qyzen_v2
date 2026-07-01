@@ -16,43 +16,43 @@
 @section('content')
     @include('admin._status')
 
-    <div class="card mb-5"><div class="card-body">
+    <div class="kt-card mb-5"><div class="kt-card-content p-5">
         <form method="POST" action="{{ route('profile.update') }}" enctype="multipart/form-data">@csrf @method('PUT')
-            <div class="row g-4">
-                <div class="col-md-6"><label class="form-label">Given Name</label>
-                    <input name="given_name" class="form-control" value="{{ old('given_name', $user->given_name) }}" @disabled($isStudent)>
-                    @if ($isStudent)<div class="form-text">Students can't change their name.</div>@endif</div>
-                <div class="col-md-6"><label class="form-label">Surname</label>
-                    <input name="surname" class="form-control" value="{{ old('surname', $user->surname) }}" @disabled($isStudent)></div>
-                <div class="col-md-6"><label class="form-label required">Email</label>
-                    <input name="email" type="email" class="form-control" value="{{ old('email', $user->email) }}"></div>
-                <div class="col-md-6"><label class="form-label">Profile Picture</label>
-                    <input name="profile_picture" type="file" class="form-control" accept="image/png,image/jpeg,image/webp"></div>
-                <div class="col-md-6"><label class="form-label">Cover Photo</label>
-                    <input name="cover_photo" type="file" class="form-control" accept="image/png,image/jpeg,image/webp"></div>
+            <div class="grid md:grid-cols-2 gap-5">
+                <div class="flex flex-col gap-1"><label class="kt-form-label">Given Name</label>
+                    <input name="given_name" class="kt-input" value="{{ old('given_name', $user->given_name) }}" @disabled($isStudent)>
+                    @if ($isStudent)<span class="text-xs text-secondary-foreground">Students can't change their name.</span>@endif</div>
+                <div class="flex flex-col gap-1"><label class="kt-form-label">Surname</label>
+                    <input name="surname" class="kt-input" value="{{ old('surname', $user->surname) }}" @disabled($isStudent)></div>
+                <div class="flex flex-col gap-1"><label class="kt-form-label">Email</label>
+                    <input name="email" type="email" class="kt-input" value="{{ old('email', $user->email) }}"></div>
+                <div class="flex flex-col gap-1"><label class="kt-form-label">Profile Picture</label>
+                    <input name="profile_picture" type="file" class="kt-input" accept="image/png,image/jpeg,image/webp"></div>
+                <div class="flex flex-col gap-1"><label class="kt-form-label">Cover Photo</label>
+                    <input name="cover_photo" type="file" class="kt-input" accept="image/png,image/jpeg,image/webp"></div>
             </div>
-            <div class="mt-4"><button class="btn btn-primary">Save</button></div>
+            <div class="mt-5"><button class="kt-btn kt-btn-primary">Save</button></div>
         </form>
     </div></div>
 
-    <div class="card mb-5"><div class="card-body">
-        <h4 class="mb-3">Change Password</h4>
+    <div class="kt-card mb-5"><div class="kt-card-content p-5">
+        <h4 class="text-sm font-semibold text-mono mb-3">Change Password</h4>
         <form method="POST" action="{{ route('profile.password') }}">@csrf @method('PUT')
-            <div class="row g-4">
-                <div class="col-md-4"><label class="form-label required">Current Password</label>
-                    <input name="current_password" type="password" class="form-control"></div>
-                <div class="col-md-4"><label class="form-label required">New Password</label>
-                    <input name="password" type="password" class="form-control"></div>
-                <div class="col-md-4"><label class="form-label required">Confirm</label>
-                    <input name="password_confirmation" type="password" class="form-control"></div>
+            <div class="grid md:grid-cols-3 gap-5">
+                <div class="flex flex-col gap-1"><label class="kt-form-label">Current Password</label>
+                    <input name="current_password" type="password" class="kt-input"></div>
+                <div class="flex flex-col gap-1"><label class="kt-form-label">New Password</label>
+                    <input name="password" type="password" class="kt-input"></div>
+                <div class="flex flex-col gap-1"><label class="kt-form-label">Confirm</label>
+                    <input name="password_confirmation" type="password" class="kt-input"></div>
             </div>
-            <div class="form-text mt-2">≥8 chars, upper + lower + number + symbol.</div>
-            <div class="mt-4"><button class="btn btn-primary">Change Password</button></div>
+            <span class="text-xs text-secondary-foreground mt-2 block">≥8 chars, upper + lower + number + symbol.</span>
+            <div class="mt-5"><button class="kt-btn kt-btn-primary">Change Password</button></div>
         </form>
     </div></div>
 
-    <div class="card"><div class="card-body">
-        <h4 class="mb-3">Linked Accounts</h4>
-        <a href="{{ route('oauth.redirect', 'google') }}" class="btn btn-light">Link Google</a>
+    <div class="kt-card"><div class="kt-card-content p-5">
+        <h4 class="text-sm font-semibold text-mono mb-3">Linked Accounts</h4>
+        <a href="{{ route('oauth.redirect', 'google') }}" class="kt-btn kt-btn-outline">Link Google</a>
     </div></div>
 @endsection

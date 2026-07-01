@@ -1,13 +1,15 @@
-{{-- Admin shell: wraps the Metronic app layout with the admin sidebar nav.
-     Active item resolved from the current route name. --}}
+{{-- Admin shell: wraps the Metronic light-sidebar layout with the admin nav (icons per item). --}}
 @php
     $navItems = [
-        ['label' => 'Dashboard',    'url' => route('admin.dashboard'),        'active' => request()->routeIs('admin.dashboard')],
-        ['label' => 'Users',        'url' => route('admin.users.index'),      'active' => request()->routeIs('admin.users.*')],
-        ['label' => 'Roles',        'url' => route('admin.roles.index'),      'active' => request()->routeIs('admin.roles.*')],
-        ['label' => 'Permissions',  'url' => route('admin.permissions.index'), 'active' => request()->routeIs('admin.permissions.*')],
-        ['label' => 'Academic Year', 'url' => route('admin.academic-years.index'), 'active' => request()->routeIs('admin.academic-years.*')],
-        ['label' => 'Academic Term', 'url' => route('admin.academic-terms.index'), 'active' => request()->routeIs('admin.academic-terms.*')],
+        ['heading' => 'Admin'],
+        ['label' => 'Dashboard',     'url' => route('admin.dashboard'),            'active' => request()->routeIs('admin.dashboard'),          'icon' => 'element-11'],
+        ['label' => 'Users',         'url' => route('admin.users.index'),          'active' => request()->routeIs('admin.users.*'),            'icon' => 'profile-user'],
+        ['heading' => 'Access Control'],
+        ['label' => 'Roles',         'url' => route('admin.roles.index'),          'active' => request()->routeIs('admin.roles.*'),            'icon' => 'security-user'],
+        ['label' => 'Permissions',   'url' => route('admin.permissions.index'),    'active' => request()->routeIs('admin.permissions.*'),      'icon' => 'key'],
+        ['heading' => 'Academic Settings'],
+        ['label' => 'Academic Year', 'url' => route('admin.academic-years.index'), 'active' => request()->routeIs('admin.academic-years.*'),   'icon' => 'calendar'],
+        ['label' => 'Academic Term', 'url' => route('admin.academic-terms.index'), 'active' => request()->routeIs('admin.academic-terms.*'),   'icon' => 'calendar-tick'],
     ];
 @endphp
 

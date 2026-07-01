@@ -3,47 +3,58 @@
 @section('title', 'Sign in')
 
 @section('card')
-  <div class="card card-md">
-    <div class="card-body">
-      <h2 class="h2 text-center mb-4">Login to your account</h2>
-
-      @if (session('status'))
-        <div class="alert alert-success">{{ session('status') }}</div>
-      @endif
-      @error('email')
-        <div class="alert alert-danger">{{ $message }}</div>
-      @enderror
-
-      <form action="{{ route('login') }}" method="POST" autocomplete="off" novalidate>
-        @csrf
-        <div class="mb-3">
-          <label class="form-label">Email address</label>
-          <input type="email" name="email" value="{{ old('email') }}" class="form-control" placeholder="your@email.com" required autofocus />
-        </div>
-        <div class="mb-2">
-          <label class="form-label">
-            Password
-            <span class="form-label-description"><a href="{{ route('password.request') }}">I forgot password</a></span>
-          </label>
-          <input type="password" name="password" class="form-control" placeholder="Your password" required />
-        </div>
-        <div class="mb-2">
-          <label class="form-check">
-            <input type="checkbox" name="remember" class="form-check-input" />
-            <span class="form-check-label">Remember me on this device</span>
-          </label>
-        </div>
-        <div class="form-footer">
-          <button type="submit" class="btn btn-primary w-100">Sign in</button>
-        </div>
-      </form>
+  <form action="{{ route('login') }}" method="POST" class="kt-card-content flex flex-col gap-5 p-10" autocomplete="off" novalidate>
+    @csrf
+    <div class="text-center mb-2.5">
+      <h3 class="text-lg font-medium text-mono leading-none mb-2.5">Sign in</h3>
+      <div class="flex items-center justify-center font-medium">
+        <span class="text-sm text-secondary-foreground me-1.5">Not a member yet?</span>
+        <a class="text-sm kt-link" href="{{ route('register') }}">Sign up</a>
+      </div>
     </div>
-    <div class="hr-text">or</div>
-    <div class="card-body">
-      <a href="{{ route('oauth.redirect', 'google') }}" class="btn btn-white w-100">Sign in with Google</a>
+
+    @if (session('status'))
+      <div class="kt-alert kt-alert-success">{{ session('status') }}</div>
+    @endif
+    @error('email')
+      <div class="kt-alert kt-alert-destructive">{{ $message }}</div>
+    @enderror
+
+    <div class="flex flex-col gap-1">
+      <label class="kt-form-label font-normal text-mono">Email</label>
+      <input type="email" name="email" value="{{ old('email') }}" placeholder="your@email.com" class="kt-input" required autofocus />
     </div>
-  </div>
-  <div class="text-center text-secondary mt-3">
-    Don't have an account yet? <a href="{{ route('register') }}">Sign up</a>
-  </div>
+
+    <div class="flex flex-col gap-1">
+      <div class="flex items-center justify-between gap-1">
+        <label class="kt-form-label font-normal text-mono">Password</label>
+        <a class="text-sm kt-link shrink-0" href="{{ route('password.request') }}">Forgot Password?</a>
+      </div>
+      <div class="kt-input" data-kt-toggle-password="true">
+        <input type="password" name="password" placeholder="Enter Password" required />
+        <button class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-icon bg-transparent! -me-1.5" data-kt-toggle-password-trigger="true" type="button">
+          <span class="kt-toggle-password-active:hidden"><i class="ki-filled ki-eye text-muted-foreground"></i></span>
+          <span class="hidden kt-toggle-password-active:block"><i class="ki-filled ki-eye-slash text-muted-foreground"></i></span>
+        </button>
+      </div>
+    </div>
+
+    <label class="kt-label">
+      <input type="checkbox" name="remember" class="kt-checkbox kt-checkbox-sm" value="1" />
+      <span class="kt-checkbox-label">Remember me</span>
+    </label>
+
+    <button type="submit" class="kt-btn kt-btn-primary flex justify-center grow">Sign In</button>
+
+    <div class="flex items-center gap-2">
+      <span class="border-t border-border w-full"></span>
+      <span class="text-xs text-muted-foreground font-medium uppercase">Or</span>
+      <span class="border-t border-border w-full"></span>
+    </div>
+
+    <a href="{{ route('oauth.redirect', 'google') }}" class="kt-btn kt-btn-outline justify-center">
+      <img alt="Google" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/brand-logos/google.svg') }}" class="size-3.5 shrink-0" />
+      Sign in with Google
+    </a>
+  </form>
 @endsection

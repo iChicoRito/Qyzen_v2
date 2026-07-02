@@ -13,12 +13,12 @@
 <div class="grid grid-cols-2 gap-5">
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Code</label>
-        <input name="subject_code" class="kt-input" value="{{ $code }}">
+        <input name="subject_code" class="kt-input" value="{{ $code }}" required>
         @error('subject_code')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Name</label>
-        <input name="subject_name" class="kt-input" value="{{ $name }}">
+        <input name="subject_name" class="kt-input" value="{{ $name }}" required>
         @error('subject_name')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">

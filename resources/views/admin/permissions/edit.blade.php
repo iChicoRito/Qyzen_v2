@@ -9,9 +9,9 @@
             @csrf @method('PUT')
             <div class="grid grid-cols-2 gap-5">
                 <div class="flex flex-col gap-1"><label class="kt-form-label">Resource</label>
-                    <input name="resource" class="kt-input" value="{{ old('resource', $permission->resource) }}"></div>
+                    <input name="resource" class="kt-input" value="{{ old('resource', $permission->resource) }}" required pattern="[a-z_]+" title="Lowercase letters and underscores only"></div>
                 <div class="flex flex-col gap-1"><label class="kt-form-label">Action</label>
-                    <input name="action" class="kt-input" value="{{ old('action', $permission->action) }}"></div>
+                    <input name="action" class="kt-input" value="{{ old('action', $permission->action) }}" required pattern="[a-z_]+" title="Lowercase letters and underscores only"></div>
                 <div class="flex flex-col gap-1"><label class="kt-form-label">Name</label>
                     <input name="name" class="kt-input" value="{{ old('name', $permission->name) }}"></div>
                 <div class="flex flex-col gap-1"><label class="kt-form-label">Module</label>

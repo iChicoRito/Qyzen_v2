@@ -20,22 +20,22 @@
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">User ID</label>
-        <input name="user_id" class="kt-input" value="{{ old('user_id', $user?->user_id) }}" placeholder="YYYY-NNNNN">
+        <input name="user_id" class="kt-input" value="{{ old('user_id', $user?->user_id) }}" placeholder="YYYY-NNNNN" required>
         @error('user_id')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Given Name</label>
-        <input name="given_name" class="kt-input" value="{{ old('given_name', $user?->given_name) }}">
+        <input name="given_name" class="kt-input" value="{{ old('given_name', $user?->given_name) }}" required>
         @error('given_name')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Surname</label>
-        <input name="surname" class="kt-input" value="{{ old('surname', $user?->surname) }}">
+        <input name="surname" class="kt-input" value="{{ old('surname', $user?->surname) }}" required>
         @error('surname')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Email</label>
-        <input name="email" type="email" class="kt-input" value="{{ old('email', $user?->email) }}">
+        <input name="email" type="email" class="kt-input" value="{{ old('email', $user?->email) }}" required>
         @error('email')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">

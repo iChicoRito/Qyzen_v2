@@ -44,7 +44,8 @@
                 </td>
                 <td class="text-center">
                     <x-table-actions
-                        :view="route('admin.roles.show', $role)"
+                        :view-modal="route('admin.roles.show', $role)"
+                        view-modal-title="Role"
                         :edit-modal="route('admin.roles.edit', $role)"
                         edit-modal-title="Edit role"
                         :delete="$role->is_system ? null : route('admin.roles.destroy', $role)"

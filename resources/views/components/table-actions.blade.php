@@ -5,6 +5,8 @@
      $slot holds optional extra <div class="kt-menu-item">…</div> entries (rendered before delete). --}}
 @props([
     'view' => null,
+    'viewModal' => null,        // URL of the detail fragment → opens in the shared modal (no redirect)
+    'viewModalTitle' => 'Details',
     'edit' => null,
     'delete' => null,
     'confirm' => 'This action cannot be undone.',
@@ -20,7 +22,14 @@
             <i class="ki-filled ki-dots-vertical text-lg"></i>
         </button>
         <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
-            @if ($view)
+            @if ($viewModal)
+                <div class="kt-menu-item">
+                    <a class="kt-menu-link" href="#" data-modal-url="{{ $viewModal }}" data-modal-target="{{ $modalTarget }}" data-modal-title="{{ $viewModalTitle }}">
+                        <span class="kt-menu-icon"><i class="ki-filled ki-search-list"></i></span>
+                        <span class="kt-menu-title">View</span>
+                    </a>
+                </div>
+            @elseif ($view)
                 <div class="kt-menu-item">
                     <a class="kt-menu-link" href="{{ $view }}">
                         <span class="kt-menu-icon"><i class="ki-filled ki-search-list"></i></span>

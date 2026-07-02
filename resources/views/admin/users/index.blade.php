@@ -80,7 +80,8 @@
                 </td>
                 <td class="text-center">
                     <x-table-actions
-                        :view="route('admin.users.show', $u)"
+                        :view-modal="route('admin.users.show', $u)"
+                        view-modal-title="User"
                         edit="#"
                         edit-class="js-user-edit"
                         :edit-attributes="'data-action=\''.route('admin.users.update', $u).'\''
@@ -110,6 +111,9 @@
             <tr><td colspan="7" class="text-center text-secondary-foreground py-5">No users.</td></tr>
         @endforelse
     </x-data-table>
+
+    {{-- View-details modal (AJAX-loaded fragment) --}}
+    <x-modal id="form_modal" width="640px" />
 
     {{-- F3: import modal --}}
     <div class="kt-modal" data-kt-modal="true" id="kt_import_modal">

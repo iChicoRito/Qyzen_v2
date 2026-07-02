@@ -5,7 +5,8 @@
 <script nonce="{{ $cspNonce ?? '' }}">
     (function () {
         function reinit() {
-            if (window.KTMenu) KTMenu.init();
+            {{-- This bundle has no window.KTMenu; menus/3-dots are KTDropdown. --}}
+            if (window.KTDropdown) KTDropdown.init();
             if (window.KTModal) KTModal.init();
         }
         document.addEventListener('click', function (e) {
@@ -27,6 +28,8 @@
                 .then(function (r) { return r.text(); })
                 .then(function (html) {
                     if (body) body.innerHTML = html;
+                    // Let the global submit gate own validation feedback for injected forms too.
+                    var mf = body && body.querySelector('form'); if (mf) mf.noValidate = true;
                     // Cancel buttons/links inside the fragment should dismiss, not navigate.
                     modal.querySelectorAll('[data-modal-cancel]').forEach(function (c) {
                         c.setAttribute('data-kt-modal-dismiss', 'true');

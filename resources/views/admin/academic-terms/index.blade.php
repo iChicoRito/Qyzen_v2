@@ -42,7 +42,8 @@
                 </td>
                 <td class="text-center">
                     <x-table-actions
-                        :view="route('admin.academic-terms.show', $term)"
+                        :view-modal="route('admin.academic-terms.show', $term)"
+                        view-modal-title="Academic term"
                         :edit-modal="route('admin.academic-terms.edit', $term)"
                         edit-modal-title="Edit academic term"
                         :delete="route('admin.academic-terms.destroy', $term)"
@@ -54,5 +55,5 @@
         @endforelse
     </x-data-table>
 
-    <x-modal id="form_modal" width="560px" />
+    <x-modal id="form_modal" width="640px" />
 @endsection

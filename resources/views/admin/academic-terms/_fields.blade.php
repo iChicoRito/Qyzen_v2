@@ -1,7 +1,7 @@
 {{-- Shared academic-term form fields. $term null on create. --}}
 <div class="grid grid-cols-2 gap-5">
     <div class="flex flex-col gap-1"><label class="kt-form-label">Term Name</label>
-        <input name="term_name" class="kt-input" value="{{ old('term_name', $term?->term_name) }}" placeholder="e.g. Prelim">
+        <input name="term_name" class="kt-input" value="{{ old('term_name', $term?->term_name) }}" placeholder="e.g. Prelim" required>
         @error('term_name')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror</div>
     <div class="flex flex-col gap-1"><label class="kt-form-label">Semester</label>
         <select name="semester" class="kt-select">

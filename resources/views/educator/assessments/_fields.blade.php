@@ -2,7 +2,7 @@
 <div class="grid grid-cols-3 gap-5">
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Code</label>
-        <input name="assessment_code" class="kt-input" value="{{ old('assessment_code', $a?->assessment_code) }}">
+        <input name="assessment_code" class="kt-input" value="{{ old('assessment_code', $a?->assessment_code) }}" required>
         @error('assessment_code')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">
@@ -25,7 +25,7 @@
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Time Limit (minutes)</label>
-        <input name="time_limit" class="kt-input" value="{{ old('time_limit', $a?->time_limit) }}">
+        <input name="time_limit" class="kt-input" value="{{ old('time_limit', $a?->time_limit) }}" required>
         @error('time_limit')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">
@@ -35,20 +35,20 @@
 
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Start Date</label>
-        <input type="date" name="start_date" class="kt-input" value="{{ old('start_date', optional($a?->start_date)->format('Y-m-d')) }}">
+        <input type="date" name="start_date" class="kt-input" value="{{ old('start_date', optional($a?->start_date)->format('Y-m-d')) }}" required>
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">End Date</label>
-        <input type="date" name="end_date" class="kt-input" value="{{ old('end_date', optional($a?->end_date)->format('Y-m-d')) }}">
+        <input type="date" name="end_date" class="kt-input" value="{{ old('end_date', optional($a?->end_date)->format('Y-m-d')) }}" required>
     </div>
     <div class="flex flex-col gap-1"><span class="hidden"></span></div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Start Time</label>
-        <input type="time" name="start_time" class="kt-input" value="{{ old('start_time', $a?->start_time) }}">
+        <input type="time" name="start_time" class="kt-input" value="{{ old('start_time', $a?->start_time) }}" required>
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">End Time</label>
-        <input type="time" name="end_time" class="kt-input" value="{{ old('end_time', $a?->end_time) }}">
+        <input type="time" name="end_time" class="kt-input" value="{{ old('end_time', $a?->end_time) }}" required>
     </div>
     <div class="flex flex-col gap-1"><span class="hidden"></span></div>
 

@@ -81,14 +81,17 @@
         }
         selects.forEach(function (sel) { sel.addEventListener('change', applyFilters); });
 
-        {{-- KTDataTable re-renders tbody on search/sort/paginate, dropping per-row KTMenu
-             instances and our hidden state. Re-init KTMenu + re-apply filters after each 'drew'. --}}
+        {{-- KTDataTable re-renders tbody on search/sort/paginate, dropping per-row dropdown
+             instances and our hidden state. Re-init dropdowns + re-apply filters after each 'drew'. --}}
         document.addEventListener('DOMContentLoaded', function () {
             if (typeof KTDataTable !== 'undefined') {
                 var dt = KTDataTable.getInstance(wrap);
                 if (dt && typeof dt.on === 'function') {
                     dt.on('drew', function () {
-                        if (typeof KTMenu !== 'undefined') KTMenu.init();
+                        {{-- KTDataTable rebuilds <tbody> on each draw → the new rows' 3-dots
+                             dropdowns are unregistered. Re-init them. NOTE: this bundle has no
+                             window.KTMenu; the 3-dots is a KTDropdown. --}}
+                        if (typeof KTDropdown !== 'undefined') KTDropdown.init();
                         applyFilters();
                     });
                 }

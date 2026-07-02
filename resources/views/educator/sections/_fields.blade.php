@@ -2,7 +2,7 @@
 <div class="grid grid-cols-2 gap-5">
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Section Name</label>
-        <input name="section_name" class="kt-input" value="{{ old('section_name', $section->section_name ?? '') }}">
+        <input name="section_name" class="kt-input" value="{{ old('section_name', $section->section_name ?? '') }}" required>
         @error('section_name')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">

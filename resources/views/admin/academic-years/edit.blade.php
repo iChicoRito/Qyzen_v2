@@ -9,7 +9,7 @@
             @csrf @method('PUT')
             <div class="grid grid-cols-2 gap-5">
                 <div class="flex flex-col gap-1"><label class="kt-form-label">Year</label>
-                    <input name="year" class="kt-input" value="{{ old('year', $year->year) }}" placeholder="2026 - 2027"></div>
+                    <input name="year" class="kt-input" value="{{ old('year', $year->year) }}" placeholder="2026 - 2027" required pattern="\d{4} - \d{4}" title="Format: YYYY - YYYY"></div>
                 <div class="flex flex-col gap-1"><label class="kt-form-label">Status</label>
                     <select name="is_active" class="kt-select">
                         <option value="1" @selected(old('is_active', $year->is_active)==1)>Active</option>

@@ -40,7 +40,8 @@
                 </td>
                 <td class="text-center">
                     <x-table-actions
-                        :view="route('admin.permissions.show', $perm)"
+                        :view-modal="route('admin.permissions.show', $perm)"
+                        view-modal-title="Permission"
                         :edit-modal="route('admin.permissions.edit', $perm)"
                         edit-modal-title="Edit permission"
                         :delete="route('admin.permissions.destroy', $perm)"
@@ -70,11 +71,11 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div class="flex flex-col gap-1">
                             <label class="kt-form-label">Resource</label>
-                            <input name="permissions[0][resource]" class="kt-input" placeholder="e.g. sections">
+                            <input name="permissions[0][resource]" class="kt-input" placeholder="e.g. sections" required pattern="[a-z_]+" title="Lowercase letters and underscores only">
                         </div>
                         <div class="flex flex-col gap-1">
                             <label class="kt-form-label">Action</label>
-                            <input name="permissions[0][action]" class="kt-input" placeholder="e.g. view">
+                            <input name="permissions[0][action]" class="kt-input" placeholder="e.g. view" required pattern="[a-z_]+" title="Lowercase letters and underscores only">
                         </div>
                         <div class="flex flex-col gap-1">
                             <label class="kt-form-label">Module</label>

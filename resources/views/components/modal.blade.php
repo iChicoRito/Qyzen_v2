@@ -13,6 +13,9 @@
 <style nonce="{{ $cspNonce ?? '' }}">
     #{{ $id }} [data-modal-body] .kt-card { border: 0; box-shadow: none; background: transparent; }
     #{{ $id }} [data-modal-body] .kt-card-content { padding: 0; }
+    {{-- Card content padding is zeroed above, so a detail card's footer would butt against the last
+         row. Give the flattened footer breathing room from the content. --}}
+    #{{ $id }} [data-modal-body] .kt-card-footer { padding-inline: 0; margin-top: calc(var(--spacing) * 5); }
     {{-- Cap the modal height and scroll the BODY (not the page) when content is tall.
          kt-modal-content is already display:flex/column; header stays fixed, body flexes + scrolls. --}}
     #{{ $id }} .kt-modal-content { max-height: 85vh; }

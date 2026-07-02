@@ -14,7 +14,7 @@
     </div>
     <div class="flex flex-col gap-1 col-span-2">
         <label class="kt-form-label">Question</label>
-        <textarea name="question" class="kt-textarea" rows="2">{{ old('question', $q?->question) }}</textarea>
+        <textarea name="question" class="kt-textarea" rows="2" required>{{ old('question', $q?->question) }}</textarea>
         @error('question')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
     <div class="flex flex-col gap-1">
@@ -40,7 +40,7 @@
     <div class="flex flex-col gap-1 col-span-2">
         <label class="kt-form-label">Correct Answer</label>
         <input name="correct_answer" class="kt-input" value="{{ old('correct_answer', $q?->correct_answer) }}"
-            placeholder="MC: choice key (A–D). Identification: the answer text.">
+            placeholder="MC: choice key (A–D). Identification: the answer text." required>
         <span class="text-xs text-secondary-foreground">For multiple-choice, enter the key (A, B, C or D).</span>
         @error('correct_answer')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>

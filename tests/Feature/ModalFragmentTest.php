@@ -37,4 +37,23 @@ class ModalFragmentTest extends TestCase
         $full->assertOk();
         $this->assertStringContainsString('id="sidebar"', $full->getContent());
     }
+
+    // Task 10: View-details `show` views render as a bare fragment under ?modal=1 (injected into
+    // the shared modal, no redirect) and as a full chrome page otherwise.
+    public function test_show_renders_as_fragment_under_modal_and_full_page_otherwise(): void
+    {
+        $admin = $this->admin();
+        $role = Role::where('name', 'admin')->first();
+
+        $frag = $this->actingAs($admin)->get(route('admin.roles.show', ['role' => $role, 'modal' => 1]));
+        $frag->assertOk();
+        $f = $frag->getContent();
+        $this->assertStringNotContainsString('id="sidebar"', $f);
+        $this->assertStringNotContainsString('id="header"', $f);
+        $this->assertStringContainsString('data-modal-cancel', $f);
+
+        $full = $this->actingAs($admin)->get(route('admin.roles.show', $role));
+        $full->assertOk();
+        $this->assertStringContainsString('id="sidebar"', $full->getContent());
+    }
 }

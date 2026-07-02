@@ -39,11 +39,13 @@
                 </td>
                 <td class="text-secondary-foreground">{{ optional($s->submitted_at)->format('Y-m-d H:i') ?? '—' }}</td>
                 <td class="text-center">
-                    <x-table-actions :view="route('educator.scores.show', $s)" />
+                    <x-table-actions :view-modal="route('educator.scores.show', $s)" view-modal-title="Attempt detail" />
                 </td>
             </tr>
         @empty
             <tr><td colspan="6" class="text-center text-secondary-foreground py-5">No scores yet.</td></tr>
         @endforelse
     </x-data-table>
+
+    <x-modal id="form_modal" width="760px" />
 @endsection

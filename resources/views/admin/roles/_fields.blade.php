@@ -4,7 +4,7 @@
     <div class="grid grid-cols-3 gap-5">
         <div class="flex flex-col gap-1">
             <label class="kt-form-label">Name</label>
-            <input name="name" class="kt-input" value="{{ old('name', $role?->name) }}" placeholder="lower_snake_case">
+            <input name="name" class="kt-input" value="{{ old('name', $role?->name) }}" placeholder="lower_snake_case" required pattern="[a-z]+(_[a-z]+)*" title="Lowercase words separated by underscores">
             @error('name')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
         </div>
         <div class="flex flex-col gap-1">

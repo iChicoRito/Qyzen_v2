@@ -1,5 +1,5 @@
 {{-- F8: create academic term. --}}
-@extends('admin.layout')
+@extends(request()->boolean('modal') ? 'layouts.fragment' : 'admin.layout')
 @section('title', 'Add Academic Term')
 @section('heading', 'Add Academic Term')
 @section('content')
@@ -12,7 +12,7 @@
                 @csrf
                 @include('admin.academic-terms._fields', ['term' => null])
                 <div class="flex gap-2 mt-5"><button class="kt-btn kt-btn-primary">Create</button>
-                    <a href="{{ route('admin.academic-terms.index') }}" class="kt-btn kt-btn-outline">Cancel</a></div>
+                    <a href="{{ route('admin.academic-terms.index') }}" class="kt-btn kt-btn-outline" data-modal-cancel>Cancel</a></div>
             </form>
         @endif
     </div></div>

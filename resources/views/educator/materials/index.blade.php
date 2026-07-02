@@ -2,7 +2,8 @@
 @section('title', 'Materials')
 @section('heading', 'Learning Materials')
 @section('toolbar')
-    <a href="{{ route('educator.materials.create') }}" class="kt-btn kt-btn-sm kt-btn-primary">Upload</a>
+    <button type="button" class="kt-btn kt-btn-sm kt-btn-primary"
+            data-modal-url="{{ route('educator.materials.create') }}" data-modal-target="#form_modal" data-modal-title="Upload materials">Upload</button>
 @endsection
 @section('content')
     @include('admin._status')
@@ -41,7 +42,8 @@
                     </td>
                     <td class="text-center">
                         <x-table-actions
-                            :edit="route('educator.materials.edit', $m)"
+                            :edit-modal="route('educator.materials.edit', $m)"
+                            edit-modal-title="Edit material"
                             :delete="route('educator.materials.destroy', $m)"
                             confirm="Delete this file? This cannot be undone.">
                             <div class="kt-menu-item">
@@ -58,4 +60,6 @@
             <tr><td colspan="6" class="text-center text-secondary-foreground py-5">No materials.</td></tr>
         @endforelse
     </x-data-table>
+
+    <x-modal id="form_modal" width="640px" />
 @endsection

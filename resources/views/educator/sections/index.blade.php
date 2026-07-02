@@ -2,7 +2,8 @@
 @section('title', 'Sections')
 @section('heading', 'Sections')
 @section('toolbar')
-    <a href="{{ route('educator.sections.create') }}" class="kt-btn kt-btn-sm kt-btn-primary">Add section</a>
+    <button type="button" class="kt-btn kt-btn-sm kt-btn-primary"
+            data-modal-url="{{ route('educator.sections.create') }}" data-modal-target="#form_modal" data-modal-title="Add section">Add section</button>
 @endsection
 @section('content')
     @include('admin._status')
@@ -36,7 +37,8 @@
                 </td>
                 <td class="text-center">
                     <x-table-actions
-                        :edit="route('educator.sections.edit', $section)"
+                        :edit-modal="route('educator.sections.edit', $section)"
+                        edit-modal-title="Edit section"
                         :delete="route('educator.sections.destroy', $section)"
                         confirm="Delete this section? This cannot be undone." />
                 </td>
@@ -45,4 +47,6 @@
             <tr><td colspan="4" class="text-center text-secondary-foreground py-5">No sections.</td></tr>
         @endforelse
     </x-data-table>
+
+    <x-modal id="form_modal" width="640px" />
 @endsection

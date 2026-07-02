@@ -4,7 +4,8 @@
 @section('toolbar')
     <a href="{{ route('educator.quizzes.upload.template') }}" class="kt-btn kt-btn-sm kt-btn-outline">Download template</a>
     <button type="button" class="kt-btn kt-btn-sm kt-btn-secondary" data-kt-modal-toggle="#kt_quiz_upload">Bulk upload</button>
-    <a href="{{ route('educator.quizzes.create') }}" class="kt-btn kt-btn-sm kt-btn-primary">Add question</a>
+    <button type="button" class="kt-btn kt-btn-sm kt-btn-primary"
+            data-modal-url="{{ route('educator.quizzes.create') }}" data-modal-target="#form_modal" data-modal-title="Add question">Add question</button>
 @endsection
 @section('content')
     @include('admin._status')
@@ -31,7 +32,9 @@
                         :delete="$a->quizzes_count > 0 ? route('educator.quizzes.destroy-for-assessment', $a) : null"
                         confirm="Delete ALL questions for this assessment? This cannot be undone.">
                         <div class="kt-menu-item">
-                            <a class="kt-menu-link" href="{{ route('educator.quizzes.create', ['assessment_id' => $a->id]) }}">
+                            <a class="kt-menu-link" href="#"
+                               data-modal-url="{{ route('educator.quizzes.create', ['assessment_id' => $a->id]) }}"
+                               data-modal-target="#form_modal" data-modal-title="Add question">
                                 <span class="kt-menu-icon"><i class="ki-filled ki-plus-squared"></i></span>
                                 <span class="kt-menu-title">Add question</span>
                             </a>
@@ -44,8 +47,10 @@
         @endforelse
     </x-data-table>
 
+    <x-modal id="form_modal" width="640px" />
+
     <div class="kt-modal" data-kt-modal="true" id="kt_quiz_upload">
-        <div class="kt-modal-content max-w-[500px] top-[15%]">
+        <div class="kt-modal-content top-[15%]" style="width: 100%; max-width: min(92vw, 500px);">
             <form method="POST" action="{{ route('educator.quizzes.upload') }}" enctype="multipart/form-data">
                 @csrf
                 <div class="kt-modal-header">

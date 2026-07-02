@@ -10,6 +10,9 @@
     'confirm' => 'This action cannot be undone.',
     'editClass' => '',
     'editAttributes' => '',
+    'editModal' => null,        // URL of the edit form fragment → opens in the shared modal
+    'editModalTitle' => 'Edit',
+    'modalTarget' => '#form_modal',
 ])
 <div class="kt-menu flex-inline" data-kt-menu="true">
     <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
@@ -25,7 +28,14 @@
                     </a>
                 </div>
             @endif
-            @if ($edit)
+            @if ($editModal)
+                <div class="kt-menu-item">
+                    <a class="kt-menu-link" href="#" data-modal-url="{{ $editModal }}" data-modal-target="{{ $modalTarget }}" data-modal-title="{{ $editModalTitle }}">
+                        <span class="kt-menu-icon"><i class="ki-filled ki-pencil"></i></span>
+                        <span class="kt-menu-title">Edit</span>
+                    </a>
+                </div>
+            @elseif ($edit)
                 <div class="kt-menu-item">
                     <a class="kt-menu-link {{ $editClass }}" href="{{ $edit }}" {!! $editAttributes !!}>
                         <span class="kt-menu-icon"><i class="ki-filled ki-pencil"></i></span>

@@ -1,5 +1,5 @@
 {{-- F5: create role. --}}
-@extends('admin.layout')
+@extends(request()->boolean('modal') ? 'layouts.fragment' : 'admin.layout')
 @section('title', 'Add Role')
 @section('heading', 'Add Role')
 @section('content')
@@ -9,7 +9,7 @@
             @csrf
             @include('admin.roles._fields', ['role' => null])
             <div class="flex gap-2 mt-5"><button class="kt-btn kt-btn-primary">Create</button>
-                <a href="{{ route('admin.roles.index') }}" class="kt-btn kt-btn-outline">Cancel</a></div>
+                <a href="{{ route('admin.roles.index') }}" class="kt-btn kt-btn-outline" data-modal-cancel>Cancel</a></div>
         </form>
     </div></div>
 @endsection

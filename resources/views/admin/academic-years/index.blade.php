@@ -4,7 +4,8 @@
 @section('heading', 'Academic Years')
 
 @section('toolbar')
-    <a href="{{ route('admin.academic-years.create') }}" class="kt-btn kt-btn-sm kt-btn-primary">Add year</a>
+    <button type="button" class="kt-btn kt-btn-sm kt-btn-primary"
+            data-modal-url="{{ route('admin.academic-years.create') }}" data-modal-target="#form_modal" data-modal-title="Add academic year">Add year</button>
 @endsection
 
 @section('content')
@@ -40,7 +41,8 @@
                 <td class="text-center">
                     <x-table-actions
                         :view="route('admin.academic-years.show', $year)"
-                        :edit="route('admin.academic-years.edit', $year)"
+                        :edit-modal="route('admin.academic-years.edit', $year)"
+                        edit-modal-title="Edit academic year"
                         :delete="route('admin.academic-years.destroy', $year)"
                         confirm="Delete this year and ALL its terms? This cannot be undone." />
                 </td>
@@ -49,4 +51,6 @@
             <tr><td colspan="4" class="text-center text-secondary-foreground py-5">No academic years.</td></tr>
         @endforelse
     </x-data-table>
+
+    <x-modal id="form_modal" width="560px" />
 @endsection

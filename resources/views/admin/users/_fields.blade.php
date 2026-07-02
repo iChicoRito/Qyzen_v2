@@ -50,14 +50,12 @@
         <label class="kt-form-label">Roles</label>
         <div class="grid grid-cols-1 gap-2">
             @foreach ($roles as $role)
-                <label class="flex items-start gap-2 border border-border rounded-lg p-3 cursor-pointer">
-                    <input class="kt-checkbox kt-checkbox-sm mt-1" type="checkbox" name="role_names[]" value="{{ $role->name }}"
-                        @checked(in_array($role->name, $selectedRoles))>
-                    <span class="flex flex-col gap-1">
-                        <span class="text-sm font-medium text-mono">{{ ucfirst($role->name) }}</span>
-                        <span class="text-xs text-secondary-foreground">{{ $roleBlurbs[strtolower($role->name)] ?? ($role->description ?: 'Custom role.') }}</span>
-                    </span>
-                </label>
+                <x-checkbox-card
+                    name="role_names[]"
+                    :value="$role->name"
+                    :title="ucfirst($role->name)"
+                    :desc="$roleBlurbs[strtolower($role->name)] ?? ($role->description ?: 'Custom role.')"
+                    :checked="in_array($role->name, $selectedRoles)" />
             @endforeach
         </div>
         @error('role_names')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror

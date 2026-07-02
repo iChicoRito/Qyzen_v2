@@ -1,5 +1,5 @@
 {{-- F5: edit role + assign permissions (all-or-nothing replace). --}}
-@extends('admin.layout')
+@extends(request()->boolean('modal') ? 'layouts.fragment' : 'admin.layout')
 @section('title', 'Edit Role')
 @section('heading', 'Edit Role')
 @section('content')
@@ -9,7 +9,7 @@
             @csrf @method('PUT')
             @include('admin.roles._fields', ['role' => $role])
             <div class="flex gap-2 mt-5"><button class="kt-btn kt-btn-primary">Save</button>
-                <a href="{{ route('admin.roles.index') }}" class="kt-btn kt-btn-outline">Cancel</a></div>
+                <a href="{{ route('admin.roles.index') }}" class="kt-btn kt-btn-outline" data-modal-cancel>Cancel</a></div>
         </form>
     </div></div>
 @endsection

@@ -221,6 +221,7 @@
 @include('partials._toasts')
 @include('partials._form-submit-spinner')
 @include('partials._confirm-delete')
+@include('partials._modal-loader')
 @stack('scripts')
 </body>
 </html>

@@ -113,7 +113,7 @@
 
     {{-- F3: import modal --}}
     <div class="kt-modal" data-kt-modal="true" id="kt_import_modal">
-        <div class="kt-modal-content max-w-[500px] top-[15%]">
+        <div class="kt-modal-content top-[15%]" style="width: 100%; max-width: min(92vw, 500px);">
             <form method="POST" action="{{ route('admin.users.import') }}" enctype="multipart/form-data">
                 @csrf
                 <div class="kt-modal-header">
@@ -135,7 +135,7 @@
 
     {{-- Add user modal (empty form → store) --}}
     <div class="kt-modal kt-modal-center" data-kt-modal="true" id="kt_user_add_modal">
-        <div class="kt-modal-content max-w-[440px]">
+        <div class="kt-modal-content" style="width: 100%; max-width: min(92vw, 440px);">
             <form method="POST" action="{{ route('admin.users.store') }}">
                 @csrf
                 <div class="kt-modal-header">
@@ -157,7 +157,7 @@
 
     {{-- Edit user modal (shared; JS fills fields + action from the clicked row's data-* attributes) --}}
     <div class="kt-modal kt-modal-center" data-kt-modal="true" id="kt_user_edit_modal">
-        <div class="kt-modal-content max-w-[440px]">
+        <div class="kt-modal-content" style="width: 100%; max-width: min(92vw, 440px);">
             <form method="POST" id="kt_user_edit_form">
                 @csrf @method('PUT')
                 <div class="kt-modal-header">

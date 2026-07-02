@@ -2,41 +2,46 @@
     $q = $quiz ?? null;
     $choices = old('choices', $q?->choices ?? ['A' => '', 'B' => '', 'C' => '', 'D' => '']);
     $selectedAssessment = old('assessment_id', $q?->assessment_id ?? ($selectedAssessment ?? null));
+    $type = old('quiz_type', $q?->quiz_type ?? 'multiple_choice');
 @endphp
-<div class="row g-4">
-    <div class="col-12"><label class="form-label required">Assessment</label>
-        <select name="assessment_id" class="form-select">
+<div class="grid grid-cols-2 gap-5">
+    <div class="flex flex-col gap-1 col-span-2">
+        <label class="kt-form-label">Assessment</label>
+        <select name="assessment_id" class="kt-select">
             @foreach ($assessments as $a)<option value="{{ $a->id }}" @selected($selectedAssessment==$a->id)>{{ $a->assessment_code }}</option>@endforeach
-        </select></div>
-    <div class="col-12"><label class="form-label required">Question</label>
-        <textarea name="question" class="form-control" rows="2">{{ old('question', $q?->question) }}</textarea></div>
-    <div class="col-md-4"><label class="form-label required">Type</label>
-        <select name="quiz_type" class="form-select" id="quiz_type" onchange="toggleChoices()">
-            <option value="multiple_choice" @selected(old('quiz_type', $q?->quiz_type)==='multiple_choice')>Multiple choice</option>
-            <option value="identification" @selected(old('quiz_type', $q?->quiz_type)==='identification')>Identification</option>
-        </select></div>
-
-    <div class="col-12" id="mc_choices">
-        <label class="form-label">Choices</label>
-        @foreach (['A','B','C','D'] as $key)
-            <div class="input-group mb-2">
-                <span class="input-group-text">{{ $key }}</span>
-                <input name="choices[{{ $key }}]" class="form-control" value="{{ $choices[$key] ?? '' }}">
-            </div>
-        @endforeach
+        </select>
+        @error('assessment_id')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
+    </div>
+    <div class="flex flex-col gap-1 col-span-2">
+        <label class="kt-form-label">Question</label>
+        <textarea name="question" class="kt-textarea" rows="2">{{ old('question', $q?->question) }}</textarea>
+        @error('question')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
+    </div>
+    <div class="flex flex-col gap-1">
+        <label class="kt-form-label">Type</label>
+        <select name="quiz_type" class="kt-select" data-quiz-type>
+            <option value="multiple_choice" @selected($type==='multiple_choice')>Multiple choice</option>
+            <option value="identification" @selected($type==='identification')>Identification</option>
+        </select>
     </div>
 
-    <div class="col-md-6"><label class="form-label required">Correct Answer</label>
-        <input name="correct_answer" class="form-control" value="{{ old('correct_answer', $q?->correct_answer) }}"
+    <div class="flex flex-col gap-1 col-span-2" data-mc-choices @if($type!=='multiple_choice') hidden @endif>
+        <label class="kt-form-label">Choices</label>
+        <div class="flex flex-col gap-2">
+            @foreach (['A','B','C','D'] as $key)
+                <div class="flex items-center gap-2">
+                    <span class="kt-badge kt-badge-outline w-8 justify-center">{{ $key }}</span>
+                    <input name="choices[{{ $key }}]" class="kt-input" value="{{ $choices[$key] ?? '' }}">
+                </div>
+            @endforeach
+        </div>
+    </div>
+
+    <div class="flex flex-col gap-1 col-span-2">
+        <label class="kt-form-label">Correct Answer</label>
+        <input name="correct_answer" class="kt-input" value="{{ old('correct_answer', $q?->correct_answer) }}"
             placeholder="MC: choice key (A–D). Identification: the answer text.">
-        <div class="form-text">For multiple-choice, enter the key (A, B, C or D).</div></div>
+        <span class="text-xs text-secondary-foreground">For multiple-choice, enter the key (A, B, C or D).</span>
+        @error('correct_answer')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
+    </div>
 </div>
-@push('scripts')
-<script nonce="{{ $cspNonce ?? '' }}">
-    function toggleChoices() {
-        document.getElementById('mc_choices').style.display =
-            document.getElementById('quiz_type').value === 'multiple_choice' ? '' : 'none';
-    }
-    toggleChoices();
-</script>
-@endpush

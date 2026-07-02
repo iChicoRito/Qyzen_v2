@@ -2,7 +2,8 @@
 @section('title', 'Subjects')
 @section('heading', 'Subjects')
 @section('toolbar')
-    <a href="{{ route('educator.subjects.create') }}" class="kt-btn kt-btn-sm kt-btn-primary">Add subject</a>
+    <button type="button" class="kt-btn kt-btn-sm kt-btn-primary"
+            data-modal-url="{{ route('educator.subjects.create') }}" data-modal-target="#form_modal" data-modal-title="Add subject">Add subject</button>
 @endsection
 @section('content')
     @include('admin._status')
@@ -39,7 +40,8 @@
                 </td>
                 <td class="text-center">
                     <x-table-actions
-                        :edit="route('educator.subjects.edit', $first)"
+                        :edit-modal="route('educator.subjects.edit', $first)"
+                        edit-modal-title="Edit subject"
                         :delete="route('educator.subjects.destroy', $first)"
                         confirm="Delete this subject and all its sections? This cannot be undone." />
                 </td>
@@ -48,4 +50,6 @@
             <tr><td colspan="5" class="text-center text-secondary-foreground py-5">No subjects.</td></tr>
         @endforelse
     </x-data-table>
+
+    <x-modal id="form_modal" width="640px" />
 @endsection

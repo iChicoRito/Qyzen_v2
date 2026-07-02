@@ -4,7 +4,8 @@
 @section('toolbar')
     <a href="{{ route('educator.enrollment.import.template') }}" class="kt-btn kt-btn-sm kt-btn-outline">Download template</a>
     <button type="button" class="kt-btn kt-btn-sm kt-btn-secondary" data-kt-modal-toggle="#kt_enroll_import">Import (xlsx)</button>
-    <a href="{{ route('educator.enrollment.create') }}" class="kt-btn kt-btn-sm kt-btn-primary">Enroll students</a>
+    <button type="button" class="kt-btn kt-btn-sm kt-btn-primary"
+            data-modal-url="{{ route('educator.enrollment.create') }}" data-modal-target="#form_modal" data-modal-title="Enroll students">Enroll students</button>
 @endsection
 @section('content')
     @include('admin._status')
@@ -40,7 +41,8 @@
                 </td>
                 <td class="text-center">
                     <x-table-actions
-                        :edit="route('educator.enrollment.edit', $e)"
+                        :edit-modal="route('educator.enrollment.edit', $e)"
+                        edit-modal-title="Edit enrollment"
                         :delete="route('educator.enrollment.destroy', $e)"
                         confirm="Remove this enrollment?" />
                 </td>
@@ -50,8 +52,10 @@
         @endforelse
     </x-data-table>
 
+    <x-modal id="form_modal" width="640px" />
+
     <div class="kt-modal" data-kt-modal="true" id="kt_enroll_import">
-        <div class="kt-modal-content max-w-[500px] top-[15%]">
+        <div class="kt-modal-content top-[15%]" style="width: 100%; max-width: min(92vw, 500px);">
             <form method="POST" action="{{ route('educator.enrollment.import') }}" enctype="multipart/form-data">
                 @csrf
                 <div class="kt-modal-header">

@@ -1,5 +1,5 @@
 {{-- F2: create user. --}}
-@extends('admin.layout')
+@extends(request()->boolean('modal') ? 'layouts.fragment' : 'admin.layout')
 @section('title', 'Add User')
 @section('heading', 'Add User')
 @section('content')
@@ -11,7 +11,7 @@
                 @include('admin.users._fields', ['user' => null])
                 <div class="flex gap-2 mt-5">
                     <button class="kt-btn kt-btn-primary">Create</button>
-                    <a href="{{ route('admin.users.index') }}" class="kt-btn kt-btn-outline">Cancel</a>
+                    <a href="{{ route('admin.users.index') }}" class="kt-btn kt-btn-outline" data-modal-cancel>Cancel</a>
                 </div>
             </form>
         </div>

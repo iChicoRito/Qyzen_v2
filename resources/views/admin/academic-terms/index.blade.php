@@ -4,7 +4,8 @@
 @section('heading', 'Academic Terms')
 
 @section('toolbar')
-    <a href="{{ route('admin.academic-terms.create') }}" class="kt-btn kt-btn-sm kt-btn-primary">Add term</a>
+    <button type="button" class="kt-btn kt-btn-sm kt-btn-primary"
+            data-modal-url="{{ route('admin.academic-terms.create') }}" data-modal-target="#form_modal" data-modal-title="Add academic term">Add term</button>
 @endsection
 
 @section('content')
@@ -42,7 +43,8 @@
                 <td class="text-center">
                     <x-table-actions
                         :view="route('admin.academic-terms.show', $term)"
-                        :edit="route('admin.academic-terms.edit', $term)"
+                        :edit-modal="route('admin.academic-terms.edit', $term)"
+                        edit-modal-title="Edit academic term"
                         :delete="route('admin.academic-terms.destroy', $term)"
                         confirm="Delete this term? This cannot be undone." />
                 </td>
@@ -51,4 +53,6 @@
             <tr><td colspan="5" class="text-center text-secondary-foreground py-5">No academic terms.</td></tr>
         @endforelse
     </x-data-table>
+
+    <x-modal id="form_modal" width="560px" />
 @endsection

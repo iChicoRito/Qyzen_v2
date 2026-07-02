@@ -2,7 +2,8 @@
 @section('title', 'Assessments')
 @section('heading', 'Assessments')
 @section('toolbar')
-    <a href="{{ route('educator.assessments.create') }}" class="kt-btn kt-btn-sm kt-btn-primary">Add assessment</a>
+    <button type="button" class="kt-btn kt-btn-sm kt-btn-primary"
+            data-modal-url="{{ route('educator.assessments.create') }}" data-modal-target="#form_modal" data-modal-title="Add assessment">Add assessment</button>
 @endsection
 @section('content')
     @include('admin._status')
@@ -42,7 +43,8 @@
                 </td>
                 <td class="text-center">
                     <x-table-actions
-                        :edit="route('educator.assessments.edit', $a)"
+                        :edit-modal="route('educator.assessments.edit', $a)"
+                        edit-modal-title="Edit assessment"
                         :delete="route('educator.assessments.destroy', $a)"
                         confirm="Delete this assessment and its questions? This cannot be undone.">
                         <div class="kt-menu-item">
@@ -64,4 +66,6 @@
             <tr><td colspan="7" class="text-center text-secondary-foreground py-5">No assessments.</td></tr>
         @endforelse
     </x-data-table>
+
+    <x-modal id="form_modal" width="900px" />
 @endsection

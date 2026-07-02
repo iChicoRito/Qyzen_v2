@@ -4,7 +4,8 @@
 @section('heading', 'Roles')
 
 @section('toolbar')
-    <a href="{{ route('admin.roles.create') }}" class="kt-btn kt-btn-sm kt-btn-primary">Add role</a>
+    <button type="button" class="kt-btn kt-btn-sm kt-btn-primary"
+            data-modal-url="{{ route('admin.roles.create') }}" data-modal-target="#form_modal" data-modal-title="Add role">Add role</button>
 @endsection
 
 @section('content')
@@ -44,7 +45,8 @@
                 <td class="text-center">
                     <x-table-actions
                         :view="route('admin.roles.show', $role)"
-                        :edit="route('admin.roles.edit', $role)"
+                        :edit-modal="route('admin.roles.edit', $role)"
+                        edit-modal-title="Edit role"
                         :delete="$role->is_system ? null : route('admin.roles.destroy', $role)"
                         confirm="Delete this role? This cannot be undone." />
                 </td>
@@ -53,4 +55,6 @@
             <tr><td colspan="6" class="text-center text-secondary-foreground py-5">No roles.</td></tr>
         @endforelse
     </x-data-table>
+
+    <x-modal id="form_modal" width="640px" />
 @endsection

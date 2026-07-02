@@ -9,8 +9,10 @@
         @else
             <form method="POST" action="{{ route('educator.assessments.store') }}">@csrf
                 @include('educator.assessments._fields')
-                <div class="flex gap-2 mt-5"><button class="kt-btn kt-btn-primary">Create</button>
-                    <a href="{{ route('educator.assessments.index') }}" class="kt-btn kt-btn-outline" data-modal-cancel>Cancel</a></div>
+                <div class="flex gap-2 mt-5">
+                    <button class="kt-btn kt-btn-primary">Create</button>
+                    <a href="{{ route('educator.assessments.index') }}" class="kt-btn kt-btn-outline" data-modal-cancel>Cancel</a>
+                </div>
             </form>
         @endif
     </div></div>

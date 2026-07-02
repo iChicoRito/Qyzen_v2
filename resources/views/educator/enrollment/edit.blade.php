@@ -5,10 +5,13 @@
     @include('admin._status')
     <div class="kt-card"><div class="kt-card-content p-5">
         <form method="POST" action="{{ route('educator.enrollment.update', $enrolled) }}">@csrf @method('PUT')
-            <div class="grid grid-cols-2 gap-5">
+            <div class="grid grid-cols-1 gap-5">
                 <div class="flex flex-col gap-1">
                     <label class="kt-form-label">Student</label>
-                    <select name="student_id" class="kt-select">
+                    <select name="student_id" class="kt-select"
+                            data-kt-select="true"
+                            data-kt-select-enable-search="true"
+                            data-kt-select-search-placeholder="Search students…">
                         @foreach ($students as $s)
                             <option value="{{ $s->id }}" @selected(old('student_id', $enrolled->student_id)==$s->id)>{{ $s->user_id }} — {{ $s->name }}</option>
                         @endforeach
@@ -16,7 +19,10 @@
                 </div>
                 <div class="flex flex-col gap-1">
                     <label class="kt-form-label">Subject</label>
-                    <select name="subject_id" class="kt-select">
+                    <select name="subject_id" class="kt-select"
+                            data-kt-select="true"
+                            data-kt-select-enable-search="true"
+                            data-kt-select-search-placeholder="Search subjects…">
                         @foreach ($subjects as $sub)
                             <option value="{{ $sub->id }}" @selected(old('subject_id', $enrolled->subject_id)==$sub->id)>{{ $sub->subject_code }} — {{ $sub->subject_name }}</option>
                         @endforeach

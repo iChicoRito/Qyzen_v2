@@ -8,10 +8,15 @@
             <div class="kt-alert kt-alert-warning">Create a subject first.</div>
         @else
             <form method="POST" action="{{ route('educator.enrollment.store') }}">@csrf
-                <div class="grid grid-cols-2 gap-5">
+                <div class="grid grid-cols-1 gap-5">
                     <div class="flex flex-col gap-1">
                         <label class="kt-form-label">Students</label>
-                        <select name="student_ids[]" class="kt-select" multiple size="8">
+                        <select name="student_ids[]" class="kt-select" multiple
+                                data-kt-select="true"
+                                data-kt-select-multiple="true"
+                                data-kt-select-enable-search="true"
+                                data-kt-select-placeholder="Select students…"
+                                data-kt-select-search-placeholder="Search students…">
                             @foreach ($students as $s)
                                 <option value="{{ $s->id }}">{{ $s->user_id }} — {{ $s->name }}</option>
                             @endforeach
@@ -20,7 +25,12 @@
                     </div>
                     <div class="flex flex-col gap-1">
                         <label class="kt-form-label">Subjects</label>
-                        <select name="subject_ids[]" class="kt-select" multiple size="8">
+                        <select name="subject_ids[]" class="kt-select" multiple
+                                data-kt-select="true"
+                                data-kt-select-multiple="true"
+                                data-kt-select-enable-search="true"
+                                data-kt-select-placeholder="Select subjects…"
+                                data-kt-select-search-placeholder="Search subjects…">
                             @foreach ($subjects as $sub)
                                 <option value="{{ $sub->id }}">{{ $sub->subject_code }} — {{ $sub->subject_name }}</option>
                             @endforeach

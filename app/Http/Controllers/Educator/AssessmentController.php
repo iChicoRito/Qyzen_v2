@@ -42,14 +42,28 @@ class AssessmentController extends Controller
     {
         $this->authorize('create', Assessment::class);
 
-        $assessment = Assessment::create($request->validated() + ['educator_id' => Auth::id()]);
+        $data = $request->validated();
+        $subjectIds = $data['subject_ids'];
+        unset($data['subject_ids']);
 
-        // Publish-on-create: if created already active, notify enrolled students.
-        if ($assessment->is_active) {
-            $this->notifyEnrolled($assessment, 'assessment_created', 'New assessment published');
+        // One assessment per selected subject; section_id derived from each subject's own section.
+        $subjects = Subject::whereKey($subjectIds)->get(['id', 'sections_id']);
+        foreach ($subjects as $subject) {
+            $assessment = Assessment::create($data + [
+                'educator_id' => Auth::id(),
+                'subject_id'  => $subject->id,
+                'section_id'  => $subject->sections_id,
+            ]);
+
+            // Publish-on-create: if created already active, notify enrolled students.
+            if ($assessment->is_active) {
+                $this->notifyEnrolled($assessment, 'assessment_created', 'New assessment published');
+            }
         }
 
-        return redirect()->route('educator.assessments.index')->with('status', 'Assessment created.');
+        $n = $subjects->count();
+        return redirect()->route('educator.assessments.index')
+            ->with('status', $n === 1 ? 'Assessment created.' : "{$n} assessments created.");
     }
 
     public function edit(Assessment $assessment): View
@@ -64,7 +78,12 @@ class AssessmentController extends Controller
         $this->authorize('update', $assessment);
 
         $wasActive = $assessment->is_active;
-        $assessment->update($request->validated());
+        $data = $request->validated();
+        $subjectIds = $data['subject_ids'];
+        unset($data['subject_ids']);
+
+        // Update the current row against its own subject (section follows the subject).
+        $assessment->update($data + ['section_id' => $assessment->subject->sections_id]);
 
         // Publish trigger: inactive → active fires assessment_created; otherwise assessment_updated.
         if (! $wasActive && $assessment->is_active) {
@@ -73,7 +92,23 @@ class AssessmentController extends Controller
             $this->notifyEnrolled($assessment, 'assessment_updated', 'Assessment updated');
         }
 
-        return redirect()->route('educator.assessments.index')->with('status', 'Assessment updated.');
+        // Any additional selected subjects become NEW assessments (one per subject).
+        $extraIds = array_diff($subjectIds, [$assessment->subject_id]);
+        $created = Subject::whereKey($extraIds)->get(['id', 'sections_id']);
+        foreach ($created as $subject) {
+            $new = Assessment::create($data + [
+                'educator_id' => Auth::id(),
+                'subject_id'  => $subject->id,
+                'section_id'  => $subject->sections_id,
+            ]);
+            if ($new->is_active) {
+                $this->notifyEnrolled($new, 'assessment_created', 'New assessment published');
+            }
+        }
+
+        $extra = $created->count();
+        return redirect()->route('educator.assessments.index')
+            ->with('status', $extra ? "Assessment updated; {$extra} added." : 'Assessment updated.');
     }
 
     public function destroy(Assessment $assessment): RedirectResponse
@@ -102,7 +137,7 @@ class AssessmentController extends Controller
     private function formData(): array
     {
         return [
-            'subjects' => Subject::visibleTo(Auth::user())->orderBy('subject_code')->get(),
+            'subjects' => Subject::visibleTo(Auth::user())->with('section:id,section_name')->orderBy('subject_code')->get(),
             'sections' => Section::visibleTo(Auth::user())->orderBy('section_name')->get(),
             'terms' => AcademicTerm::with('year')->get(),
         ];

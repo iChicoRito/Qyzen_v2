@@ -8,6 +8,11 @@
             {{-- This bundle has no window.KTMenu; menus/3-dots are KTDropdown. --}}
             if (window.KTDropdown) KTDropdown.init();
             if (window.KTModal) KTModal.init();
+            {{-- Injected data-kt-select / data-kt-tabs aren't auto-upgraded (added after DOM ready). --}}
+            if (window.KTSelect) KTSelect.init();
+            if (window.KTTabs) KTTabs.init();
+            {{-- Collapse "N selected" on multi-selects opted in via data-count-summary (after KTSelect built its wrapper). --}}
+            setTimeout(bindAllCountSummaries, 0);
         }
         document.addEventListener('click', function (e) {
             var trigger = e.target.closest('[data-modal-url]');
@@ -55,14 +60,158 @@
                 });
         });
 
-        {{-- Quiz type ⇄ MC choices toggle (delegated; works inside the injected modal form). --}}
+        {{-- Click anywhere on a date/time input opens the native picker (not just the tiny icon). --}}
+        document.addEventListener('click', function (e) {
+            var f = e.target.closest('input[type=date], input[type=time]');
+            if (f && typeof f.showPicker === 'function') { try { f.showPicker(); } catch (_) {} }
+        });
+
+        {{-- Quiz type select ⇄ show MC choices vs Identification answers (delegated; works in injected modal). --}}
         document.addEventListener('change', function (e) {
             var sel = e.target.closest('[data-quiz-type]');
             if (!sel) return;
             var form = sel.closest('form') || document;
             var mc = form.querySelector('[data-mc-choices]');
+            var id = form.querySelector('[data-id-answers]');
             if (mc) mc.hidden = sel.value !== 'multiple_choice';
+            if (id) id.hidden = sel.value === 'multiple_choice';
         });
+
+        {{-- Switch with data-reveal="#id" → show/hide the target field when toggled on/off. --}}
+        document.addEventListener('change', function (e) {
+            var sw = e.target.closest('[data-reveal]');
+            if (!sw) return;
+            var target = document.querySelector(sw.getAttribute('data-reveal'));
+            if (target) target.classList.toggle('hidden', !sw.checked);
+        });
+
+        {{-- Bulk quiz upload: render picked files as Metronic "Recent Uploads" rows
+             (file-type icon + name + human size). Native input only — no upload library. --}}
+        function humanSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            var kb = bytes / 1024;
+            if (kb < 1024) return kb.toFixed(1) + ' KB';
+            return (kb / 1024).toFixed(1) + ' MB';
+        }
+        var FILE_ICON_BASE = @json(asset('metronic-tailwind-html-demos/dist/assets/media/file-types'));
+        function fileIcon(name) {
+            var ext = (name.split('.').pop() || '').toLowerCase();
+            var known = { xlsx: 'xls', xls: 'xls', csv: 'xls' };
+            return FILE_ICON_BASE + '/' + (known[ext] || 'text') + '.svg';
+        }
+        function renderFileList(input) {
+            var list = document.querySelector('[data-file-list]');
+            if (!list) return;
+            if (!input.files.length) {
+                list.innerHTML = '<span class="text-xs text-secondary-foreground">' + list.getAttribute('data-empty') + '</span>';
+                return;
+            }
+            list.innerHTML = '';
+            Array.prototype.forEach.call(input.files, function (f, i) {
+                var row = document.createElement('div');
+                row.className = 'flex items-center gap-2.5';
+                var img = document.createElement('img');
+                img.src = fileIcon(f.name);
+                img.className = 'size-8 shrink-0';
+                var meta = document.createElement('div');
+                meta.className = 'flex flex-col min-w-0 grow';
+                var nm = document.createElement('span');
+                nm.className = 'text-sm font-medium text-mono truncate';
+                nm.textContent = f.name;
+                var sz = document.createElement('span');
+                sz.className = 'text-xs text-secondary-foreground';
+                sz.textContent = humanSize(f.size);
+                meta.appendChild(nm); meta.appendChild(sz);
+                var del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost text-destructive shrink-0';
+                del.title = 'Remove file';
+                del.setAttribute('data-file-remove', i);
+                del.innerHTML = '<i class="ki-filled ki-trash"></i>';
+                row.appendChild(img); row.appendChild(meta); row.appendChild(del);
+                list.appendChild(row);
+            });
+        }
+        document.addEventListener('change', function (e) {
+            var input = e.target.closest('input[type=file][name="files[]"]');
+            if (!input) return;
+            renderFileList(input);
+        });
+        {{-- Remove one queued file: rebuild the input's FileList via DataTransfer (FileList is read-only). --}}
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-file-remove]');
+            if (!btn) return;
+            e.preventDefault();
+            var input = document.querySelector('input[type=file][name="files[]"]');
+            if (!input) return;
+            var remove = parseInt(btn.getAttribute('data-file-remove'), 10);
+            var dt = new DataTransfer();
+            Array.prototype.forEach.call(input.files, function (f, i) { if (i !== remove) dt.items.add(f); });
+            input.files = dt.files;
+            renderFileList(input);
+        });
+
+        {{-- Bulk quiz upload: mirror the selected target assessments below the multi-select. --}}
+        document.addEventListener('change', function (e) {
+            var sel = e.target.closest('select[data-target-assessments]');
+            if (!sel) return;
+            var out = document.querySelector('[data-selected-list]');
+            if (!out) return;
+            var labels = [];
+            for (var i = 0; i < sel.options.length; i++) { if (sel.options[i].selected) labels.push(sel.options[i].text); }
+            out.textContent = labels.length ? labels.join(' • ') : out.getAttribute('data-empty');
+        });
+
+        {{-- Subject <details> picker: reflect the checked count in the summary label. --}}
+        document.addEventListener('change', function (e) {
+            var opt = e.target.closest('[data-subject-option]');
+            if (!opt) return;
+            var box = opt.closest('details');
+            var summary = box && box.querySelector('[data-subject-summary]');
+            if (!summary) return;
+            var n = box.querySelectorAll('[data-subject-option]:checked').length;
+            summary.textContent = n ? n + ' selected' : summary.getAttribute('data-subject-summary-default');
+        });
+
+        {{-- KTUI multi-select with data-count-summary: collapse the display to "N <noun>s selected"
+             when 2+ are picked; keep the real label for a single selection. KTUI writes the joined
+             labels into its values container ([data-kt-select-combobox-values]) and re-renders on every
+             change, so we watch that container with a MutationObserver and overwrite it — no event/timing
+             guesswork. Guard with a flag so our own write doesn't retrigger the observer. --}}
+        function countSummaryText(sel) {
+            var n = 0;
+            for (var i = 0; i < sel.options.length; i++) { if (sel.options[i].selected) n++; }
+            if (n < 2) return null; // 0 → placeholder, 1 → real label: leave KTUI's output
+            var noun = sel.getAttribute('data-count-summary') || 'item';
+            return n + ' ' + noun + 's selected';
+        }
+        function attachCountSummary(sel) {
+            if (sel._countSummaryBound) return;
+            var wrap = sel.nextElementSibling;
+            if (!wrap || !wrap.classList.contains('kt-select-wrapper')) {
+                wrap = sel.parentElement && sel.parentElement.querySelector('.kt-select-wrapper');
+            }
+            var target = wrap && (wrap.querySelector('[data-kt-select-combobox-values]')
+                || wrap.querySelector('[data-kt-text-container]')
+                || wrap.querySelector('[data-kt-select-display]'));
+            if (!target) return;
+            sel._countSummaryBound = true;
+            var writing = false;
+            var apply = function () {
+                var text = countSummaryText(sel);
+                if (text === null) return;            // let KTUI's placeholder/single label stand
+                if (target.textContent === text && target.children.length === 0) return;
+                writing = true;
+                target.textContent = text;
+                writing = false;
+            };
+            new MutationObserver(function () { if (!writing) apply(); }).observe(target, { childList: true, subtree: true, characterData: true });
+            apply();
+        }
+        {{-- Bind after KTUI has built its wrapper (it inits on our reinit()/DOM ready). --}}
+        function bindAllCountSummaries() {
+            document.querySelectorAll('select[data-count-summary]').forEach(attachCountSummary);
+        }
 
         {{-- CSP-safe form repeater (bulk permissions). Delegated so it works on injected DOM. --}}
         function renumberRepeater(list) {

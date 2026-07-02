@@ -31,7 +31,7 @@
         @forelse ($assessments as $a)
             <tr>
                 <td class="text-mono font-medium text-sm">{{ $a->assessment_code }}</td>
-                <td>{{ optional($a->subject)->subject_code }}</td>
+                <td>{{ optional($a->subject)->subject_name }}</td>
                 <td>{{ optional($a->section)->section_name }}</td>
                 <td>{{ optional($a->academicTerm)->term_name }}</td>
                 <td class="text-secondary-foreground">{{ $a->start_date?->format('Y-m-d') }} → {{ $a->end_date?->format('Y-m-d') }}</td>
@@ -46,20 +46,7 @@
                         :edit-modal="route('educator.assessments.edit', $a)"
                         edit-modal-title="Edit assessment"
                         :delete="route('educator.assessments.destroy', $a)"
-                        confirm="Delete this assessment and its questions? This cannot be undone.">
-                        <div class="kt-menu-item">
-                            <a class="kt-menu-link" href="{{ route('educator.quizzes.create', ['assessment_id' => $a->id]) }}">
-                                <span class="kt-menu-icon"><i class="ki-filled ki-plus-squared"></i></span>
-                                <span class="kt-menu-title">Add questions</span>
-                            </a>
-                        </div>
-                        <div class="kt-menu-item">
-                            <a class="kt-menu-link" href="{{ route('educator.scores.export', $a) }}">
-                                <span class="kt-menu-icon"><i class="ki-filled ki-exit-down"></i></span>
-                                <span class="kt-menu-title">Export scores</span>
-                            </a>
-                        </div>
-                    </x-table-actions>
+                        confirm="Delete this assessment and its questions? This cannot be undone." />
                 </td>
             </tr>
         @empty

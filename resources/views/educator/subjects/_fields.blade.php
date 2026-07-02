@@ -10,7 +10,7 @@
         <input type="hidden" name="row_ids[]" value="{{ $row->id }}">
     @endforeach
 @endif
-<div class="grid grid-cols-2 gap-5">
+<div class="grid grid-cols-1 gap-5">
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Code</label>
         <input name="subject_code" class="kt-input" value="{{ $code }}" required>
@@ -28,7 +28,7 @@
             <option value="0" @selected($active==0)>Inactive</option>
         </select>
     </div>
-    <div class="flex flex-col gap-1.5 col-span-2">
+    <div class="flex flex-col gap-1.5">
         <label class="kt-form-label">Sections <span class="text-secondary-foreground font-normal">(one subject row per section)</span></label>
         <div class="grid grid-cols-2 gap-2">
             @foreach ($sections as $section)

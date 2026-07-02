@@ -17,13 +17,27 @@ class StoreQuizRequest extends FormRequest
 
     public function rules(): array
     {
+        // Create: add the same question to one or more assessments.
         return [
-            'assessment_id' => ['required', Rule::exists('tbl_assessments', 'id')->where('educator_id', Auth::id())],
+            'assessment_ids'   => ['required', 'array', 'min:1'],
+            'assessment_ids.*' => [Rule::exists('tbl_assessments', 'id')->where('educator_id', Auth::id())],
+        ] + $this->questionRules();
+    }
+
+    // Shared question/answer rules (both create and edit).
+    protected function questionRules(): array
+    {
+        $isMc = $this->input('quiz_type') === 'multiple_choice';
+
+        return [
             'question'   => ['required', 'string'],
             'quiz_type'  => ['required', Rule::in(['multiple_choice', 'identification'])],
+            // MC: radio picks the correct choice key. Identification: repeatable accepted answers.
             'choices'    => ['nullable', 'array'],
             'choices.*'  => ['nullable', 'string'],
-            'correct_answer' => ['required', 'string'],
+            'correct_answer' => [$isMc ? 'required' : 'nullable', 'string'],
+            'answers'    => [$isMc ? 'nullable' : 'required', 'array'],
+            'answers.*'  => ['nullable', 'string'],
         ];
     }
 
@@ -35,8 +49,14 @@ class StoreQuizRequest extends FormRequest
                 if (count($choices) < 2) {
                     $v->errors()->add('choices', 'Multiple-choice needs at least two choices.');
                 }
-                if (! array_key_exists($this->input('correct_answer'), (array) $this->input('choices', []))) {
-                    $v->errors()->add('correct_answer', 'The correct answer must be one of the choice keys (A–D).');
+                if (! array_key_exists((string) $this->input('correct_answer'), (array) $this->input('choices', []))) {
+                    $v->errors()->add('correct_answer', 'Select which choice is the correct answer.');
+                }
+            } else {
+                // Identification: at least one non-empty accepted answer.
+                $answers = array_filter((array) $this->input('answers', []), fn ($a) => trim((string) $a) !== '');
+                if (count($answers) < 1) {
+                    $v->errors()->add('answers', 'Enter at least one correct answer.');
                 }
             }
         });

@@ -14,6 +14,8 @@ use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -27,8 +29,13 @@ class QuizController extends Controller
     {
         $this->authorize('viewAny', Quiz::class);
 
-        // Grouped by assessment with MC/identification counts.
+        // Grouped by assessment (accordion) with each assessment's questions nested + MC/identification counts.
         $assessments = Assessment::visibleTo(Auth::user())
+            ->with([
+                'subject:id,subject_code,subject_name',
+                'section:id,section_name',
+                'quizzes' => fn ($q) => $q->orderBy('id'),
+            ])
             ->withCount([
                 'quizzes',
                 'quizzes as multiple_choice_count' => fn ($q) => $q->where('quiz_type', 'multiple_choice'),
@@ -44,7 +51,7 @@ class QuizController extends Controller
         $this->authorize('create', Quiz::class);
 
         return view('educator.quizzes.create', [
-            'assessments' => Assessment::visibleTo(Auth::user())->orderByDesc('id')->get(),
+            'assessments' => $this->assessmentOptions(),
             'selectedAssessment' => $request->query('assessment_id'),
         ]);
     }
@@ -53,12 +60,18 @@ class QuizController extends Controller
     {
         $this->authorize('create', Quiz::class);
 
-        $assessment = Assessment::visibleTo(Auth::user())->findOrFail($request->input('assessment_id'));
-        $quiz = $this->makeQuiz($assessment, $request->validated());
+        $data = $request->validated();
+        $assessments = Assessment::visibleTo(Auth::user())->findOrFail($data['assessment_ids']);
 
-        $this->notifyEnrolled($assessment, 'quiz_created', 'New question added');
+        // Add the same question to each selected assessment.
+        foreach ($assessments as $assessment) {
+            $this->makeQuiz($assessment, $data);
+            $this->notifyEnrolled($assessment, 'quiz_created', 'New question added');
+        }
 
-        return redirect()->route('educator.quizzes.index')->with('status', 'Question created.');
+        $n = $assessments->count();
+        return redirect()->route('educator.quizzes.index')
+            ->with('status', $n === 1 ? 'Question created.' : "Question added to {$n} assessments.");
     }
 
     public function edit(Quiz $quiz): View
@@ -67,7 +80,7 @@ class QuizController extends Controller
 
         return view('educator.quizzes.edit', [
             'quiz' => $quiz,
-            'assessments' => Assessment::visibleTo(Auth::user())->orderByDesc('id')->get(),
+            'assessments' => $this->assessmentOptions(),
         ]);
     }
 
@@ -76,11 +89,15 @@ class QuizController extends Controller
         $this->authorize('update', $quiz);
 
         $data = $request->validated();
+        $assessment = Assessment::visibleTo(Auth::user())->findOrFail($data['assessment_id']);
         $quiz->update([
+            'assessment_id' => $assessment->id,
+            'subject_id' => $assessment->subject_id,
+            'section_id' => $assessment->section_id,
             'question' => $data['question'],
             'quiz_type' => $data['quiz_type'],
             'choices' => $data['quiz_type'] === 'multiple_choice' ? $data['choices'] : null,
-            'correct_answer' => $data['correct_answer'],
+            'correct_answer' => $this->correctAnswerFrom($data),
         ]);
 
         $this->notifyEnrolled($quiz->assessment, 'quiz_updated', 'A question was updated');
@@ -121,21 +138,67 @@ class QuizController extends Controller
         $this->authorize('create', Quiz::class);
 
         $request->validate([
-            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
-            'assessment_id' => ['required'],
+            'assessment_ids' => ['required', 'array', 'min:1'],
+            'assessment_ids.*' => ['required'],
+            'files' => ['required', 'array', 'min:1'],
+            'files.*' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+        ], [
+            'files.required' => 'Please choose at least one file to upload.',
+            'files.*.mimes' => 'Wrong file format: :input is not an Excel/CSV file. Only .xlsx, .xls or .csv are accepted.',
+            'files.*.file' => 'The upload was not a valid file.',
         ]);
 
-        $assessment = Assessment::visibleTo(Auth::user())->findOrFail($request->input('assessment_id'));
-        $import = new QuizzesImport($assessment);
-        Excel::import($import, $request->file('file'));
+        $assessments = Assessment::visibleTo(Auth::user())->findOrFail($request->input('assessment_ids'));
+        $files = $request->file('files');
 
-        if ($import->createdCount() > 0) {
-            // single bundled quiz_uploaded notification per the source.
-            $this->notifyEnrolled($assessment, 'quiz_uploaded', "{$import->createdCount()} new questions");
+        // All-or-nothing: validate every row of every (assessment × file) FIRST. If ANY row is
+        // bad (wrong format, blank, missing/invalid columns), reject the whole upload — nothing is saved.
+        $errors = [];
+        $rowsByAssessment = []; // assessmentId => [quiz attribute rows]
+        foreach ($assessments as $assessment) {
+            $rowsByAssessment[$assessment->id] = [];
+            foreach ($files as $file) {
+                $import = new QuizzesImport($assessment, $file->getClientOriginalName());
+                Excel::import($import, $file);
+                $errors = array_merge($errors, $import->errors());
+                $rowsByAssessment[$assessment->id] = array_merge($rowsByAssessment[$assessment->id], $import->validRows());
+            }
         }
 
-        return redirect()->route('educator.quizzes.index')
-            ->with('status', "Uploaded {$import->createdCount()} question(s); {$import->skippedCount()} skipped.");
+        if ($errors !== []) {
+            // Surfaced as a validation-error toast; nothing was written.
+            throw ValidationException::withMessages(['files' => $errors]);
+        }
+
+        // Clean → insert everything atomically.
+        $created = DB::transaction(function () use ($assessments, $rowsByAssessment) {
+            $total = 0;
+            foreach ($assessments as $assessment) {
+                $rows = $rowsByAssessment[$assessment->id];
+                if ($rows === []) {
+                    continue;
+                }
+                foreach ($rows as $row) {
+                    Quiz::create($row); // create() applies the choices array cast + timestamps
+                }
+                $total += count($rows);
+                // single bundled quiz_uploaded notification per assessment (per the source).
+                $this->notifyEnrolled($assessment, 'quiz_uploaded', count($rows).' new questions');
+            }
+
+            return $total;
+        });
+
+        return redirect()->route('educator.quizzes.index')->with('status',
+            "Uploaded {$created} question(s) across {$assessments->count()} assessment(s).");
+    }
+
+    // Assessments for the picker, with subject/section eager-loaded for the rich label.
+    private function assessmentOptions()
+    {
+        return Assessment::visibleTo(Auth::user())
+            ->with(['subject:id,subject_code,subject_name', 'section:id,section_name'])
+            ->orderByDesc('id')->get();
     }
 
     private function makeQuiz(Assessment $assessment, array $data): Quiz
@@ -148,8 +211,24 @@ class QuizController extends Controller
             'question' => $data['question'],
             'quiz_type' => $data['quiz_type'],
             'choices' => $data['quiz_type'] === 'multiple_choice' ? $data['choices'] : null,
-            'correct_answer' => $data['correct_answer'],
+            'correct_answer' => $this->correctAnswerFrom($data),
         ]);
+    }
+
+    // MC: the picked choice key. Identification: one accepted answer stored plain,
+    // multiple stored as a JSON array (QuizGradingService accepts either form).
+    private function correctAnswerFrom(array $data): string
+    {
+        if ($data['quiz_type'] === 'multiple_choice') {
+            return $data['correct_answer'];
+        }
+
+        $answers = array_values(array_filter(
+            array_map('trim', $data['answers'] ?? []),
+            fn ($a) => $a !== ''
+        ));
+
+        return count($answers) === 1 ? $answers[0] : json_encode($answers);
     }
 
     private function notifyEnrolled(Assessment $assessment, string $event, string $title): void

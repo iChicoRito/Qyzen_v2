@@ -6,7 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
-// G5: create assessment. Unique per (code, subject, section, term). subject+section owned by educator.
+// G5: create assessment. Any number of assessments allowed per subject/section/term.
 class StoreAssessmentRequest extends FormRequest
 {
     public function authorize(): bool
@@ -18,9 +18,9 @@ class StoreAssessmentRequest extends FormRequest
     {
         return [
             'assessment_code' => ['required', 'string', 'max:255'],
-            'subject_id' => ['required', Rule::exists('tbl_subjects', 'id')->where('educator_id', Auth::id())],
-            'section_id' => ['required', Rule::exists('tbl_sections', 'id')->where('educator_id', Auth::id())],
-            'term'       => ['required', Rule::exists('tbl_academic_term', 'id')],
+            'subject_ids'   => ['required', 'array', 'min:1'],
+            'subject_ids.*' => [Rule::exists('tbl_subjects', 'id')->where('educator_id', Auth::id())],
+            'term'          => ['required', Rule::exists('tbl_academic_term', 'id')],
             'time_limit' => ['required', 'string', 'max:255'],
             'cheating_attempts' => ['nullable', 'integer', 'min:0'],
             'is_shuffle'   => ['required', 'boolean'],
@@ -37,23 +37,4 @@ class StoreAssessmentRequest extends FormRequest
         ];
     }
 
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($v) {
-            $exists = \App\Models\Assessment::where('assessment_code', $this->input('assessment_code'))
-                ->where('subject_id', $this->input('subject_id'))
-                ->where('section_id', $this->input('section_id'))
-                ->where('term', $this->input('term'))
-                ->when($this->ignoreId(), fn ($q) => $q->whereKeyNot($this->ignoreId()))
-                ->exists();
-            if ($exists) {
-                $v->errors()->add('assessment_code', 'An assessment with this code already exists for that subject/section/term.');
-            }
-        });
-    }
-
-    protected function ignoreId(): ?int
-    {
-        return null;
-    }
 }

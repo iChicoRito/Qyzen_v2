@@ -114,6 +114,7 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         // G4 enrollment: bulk import routes precede the resource binding.
         Route::get('enrollment/import/template', [EnrollmentController::class, 'importTemplate'])->name('enrollment.import.template');
         Route::post('enrollment/import', [EnrollmentController::class, 'import'])->name('enrollment.import');
+        Route::get('enrollment/subject/{subject}', [EnrollmentController::class, 'showSubject'])->name('enrollment.subject');
         Route::resource('enrollment', EnrollmentController::class)->except('show')->parameters(['enrollment' => 'enrolled']);
 
         Route::resource('assessments', AssessmentController::class)->except('show');

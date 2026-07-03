@@ -7,9 +7,21 @@
 @endsection
 @section('content')
     @include('admin._status')
+    @php
+        $subjectOpts = $assessments->pluck('subject')->filter()->unique('id')->sortBy('subject_code')->values();
+        $sectionOpts = $assessments->pluck('section')->filter()->unique('id')->sortBy('section_name')->values();
+    @endphp
     <x-data-table id="assessments_table" search-placeholder="Search assessments">
         <x-slot:filters>
-            <select data-filter="status" class="kt-select w-36">
+            <select data-filter="subject" class="kt-select w-36">
+                <option value="">All subjects</option>
+                @foreach ($subjectOpts as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} — {{ $s->subject_name }}</option>@endforeach
+            </select>
+            <select data-filter="section" class="kt-select w-32">
+                <option value="">All sections</option>
+                @foreach ($sectionOpts as $s)<option value="{{ $s->id }}">{{ $s->section_name }}</option>@endforeach
+            </select>
+            <select data-filter="status" class="kt-select w-32">
                 <option value="">All statuses</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
@@ -31,8 +43,8 @@
         @forelse ($assessments as $a)
             <tr>
                 <td class="text-mono font-medium text-sm">{{ $a->assessment_code }}</td>
-                <td>{{ optional($a->subject)->subject_name }}</td>
-                <td>{{ optional($a->section)->section_name }}</td>
+                <td><span data-filter-value="subject" data-filter-key="{{ $a->subject_id }}" hidden></span>{{ optional($a->subject)->subject_name }}</td>
+                <td><span data-filter-value="section" data-filter-key="{{ $a->section_id }}" hidden></span>{{ optional($a->section)->section_name }}</td>
                 <td>{{ optional($a->academicTerm)->term_name }}</td>
                 <td class="text-secondary-foreground">{{ $a->start_date?->format('Y-m-d') }} → {{ $a->end_date?->format('Y-m-d') }}</td>
                 <td>

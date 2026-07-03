@@ -10,13 +10,40 @@
 @endsection
 @section('content')
     @include('admin._status')
+
+    {{-- Client-side filters: hide accordion items whose data-* token doesn't match the picked
+         value. Options are the distinct codes/subjects/sections across the visible assessments. --}}
+    @if ($assessments->isNotEmpty())
+        @php
+            $codes = $assessments->pluck('assessment_code')->unique()->sort()->values();
+            $subjects = $assessments->pluck('subject')->filter()->unique('id')->sortBy('subject_code')->values();
+            $sections = $assessments->pluck('section')->filter()->unique('id')->sortBy('section_name')->values();
+        @endphp
+        <div id="quiz_filters" class="flex flex-nowrap items-center gap-2.5 mb-4">
+            <select class="kt-select min-w-0 flex-1" data-quiz-filter="code">
+                <option value="">All assessment codes</option>
+                @foreach ($codes as $c)<option value="{{ $c }}">{{ $c }}</option>@endforeach
+            </select>
+            <select class="kt-select min-w-0 flex-1" data-quiz-filter="subject">
+                <option value="">All subjects</option>
+                @foreach ($subjects as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} — {{ $s->subject_name }}</option>@endforeach
+            </select>
+            <select class="kt-select min-w-0 flex-1" data-quiz-filter="section">
+                <option value="">All sections</option>
+                @foreach ($sections as $s)<option value="{{ $s->id }}">{{ $s->section_name }}</option>@endforeach
+            </select>
+            <button type="button" class="kt-btn kt-btn-sm kt-btn-outline shrink-0" data-quiz-filter-reset>Reset</button>
+        </div>
+    @endif
+
     {{-- KTUI Outline Style accordion (kt-accordion-outline): each item is a bordered card;
          outline CSS handles item borders + toggle/wrapper padding. --}}
     <div class="kt-accordion kt-accordion-outline" data-kt-accordion="true">
         @forelse ($assessments as $a)
             {{-- KTUI finds the toggle via a DIRECT-CHILD lookup, so the toggle button must be a
                  direct child of the item (no wrapper div around it). --}}
-            <div class="kt-accordion-item" data-kt-accordion-item="true">
+            <div class="kt-accordion-item" data-kt-accordion-item="true"
+                 data-code="{{ $a->assessment_code }}" data-subject="{{ $a->subject_id }}" data-section="{{ $a->section_id }}">
                 <button type="button" class="kt-accordion-toggle w-full flex items-center gap-3"
                         data-kt-accordion-toggle="#quiz_acc_{{ $a->id }}" aria-controls="quiz_acc_{{ $a->id }}">
                     <span class="flex flex-col items-start gap-0.5 min-w-0">
@@ -70,6 +97,7 @@
                 <div class="p-6 text-center text-sm text-secondary-foreground">No assessments.</div>
             @endforelse
     </div>
+    <div id="quiz_no_match" class="hidden p-6 text-center text-sm text-secondary-foreground">No assessments match the selected filters.</div>
 
     <x-modal id="form_modal" width="640px" />
 
@@ -122,4 +150,36 @@
             </div>
         </form>
     </x-modal>
+
+    @push('scripts')
+    <script nonce="{{ $cspNonce ?? '' }}">
+        (function () {
+            var bar = document.getElementById('quiz_filters');
+            if (!bar) return;
+            var acc = document.querySelector('[data-kt-accordion]');
+            var selects = bar.querySelectorAll('select[data-quiz-filter]');
+            var items = acc ? acc.querySelectorAll('.kt-accordion-item') : [];
+            var noMatch = document.getElementById('quiz_no_match');
+
+            function apply() {
+                var visible = 0;
+                items.forEach(function (item) {
+                    var show = true;
+                    selects.forEach(function (sel) {
+                        if (sel.value && item.getAttribute('data-' + sel.dataset.quizFilter) !== sel.value) show = false;
+                    });
+                    item.classList.toggle('hidden', !show);
+                    if (show) visible++;
+                });
+                if (noMatch) noMatch.classList.toggle('hidden', visible !== 0);
+            }
+
+            selects.forEach(function (s) { s.addEventListener('change', apply); });
+            bar.querySelector('[data-quiz-filter-reset]').addEventListener('click', function () {
+                selects.forEach(function (s) { s.value = ''; });
+                apply();
+            });
+        })();
+    </script>
+    @endpush
 @endsection

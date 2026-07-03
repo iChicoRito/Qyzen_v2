@@ -9,46 +9,31 @@
 @endsection
 @section('content')
     @include('admin._status')
-    <x-data-table id="enrollment_table" search-placeholder="Search enrollments">
-        <x-slot:filters>
-            <select data-filter="status" class="kt-select w-36">
-                <option value="">All statuses</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-            </select>
-        </x-slot:filters>
+    <x-data-table id="enrollment_table" search-placeholder="Search subjects / sections">
         <x-slot:head>
             <thead>
                 <tr>
-                    <th class="min-w-[200px]"><span class="kt-table-col"><span class="kt-table-col-label">Student</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">User ID</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[220px]"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[110px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[260px]"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[150px]"><span class="kt-table-col"><span class="kt-table-col-label">Section</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Enrolled</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="w-[60px]"></th>
                 </tr>
             </thead>
         </x-slot:head>
-        @forelse ($enrollments as $e)
+        @forelse ($subjects as $s)
             <tr>
-                <td class="text-mono font-medium text-sm">{{ optional($e->student)->name ?? '—' }}</td>
-                <td class="text-secondary-foreground">{{ optional($e->student)->user_id ?? '—' }}</td>
-                <td>{{ optional($e->subject)->subject_code }} — {{ optional($e->subject)->subject_name }}</td>
+                <td class="text-mono font-medium text-sm">{{ $s->subject_code }} — {{ $s->subject_name }}</td>
+                <td>{{ optional($s->section)->section_name ?? '—' }}</td>
                 <td>
-                    <span data-filter-value="status" data-filter-key="{{ $e->is_active ? 'active' : 'inactive' }}" hidden></span>
-                    <span class="kt-badge rounded-full kt-badge-outline kt-badge-{{ $e->is_active ? 'success' : 'destructive' }} gap-1 items-center">
-                        <span class="kt-badge-dot size-1.5"></span>{{ $e->is_active ? 'Active' : 'Inactive' }}
-                    </span>
+                    <span class="text-sm text-mono">{{ $s->enrollments_count }}</span>
+                    <span class="text-xs text-secondary-foreground">({{ $s->active_enrollments_count }} active)</span>
                 </td>
                 <td class="text-center">
-                    <x-table-actions
-                        :edit-modal="route('educator.enrollment.edit', $e)"
-                        edit-modal-title="Edit enrollment"
-                        :delete="route('educator.enrollment.destroy', $e)"
-                        confirm="Remove this enrollment?" />
+                    <x-table-actions :view="route('educator.enrollment.subject', $s)" />
                 </td>
             </tr>
         @empty
-            <tr><td colspan="5" class="text-center text-secondary-foreground py-5">No enrollments.</td></tr>
+            <tr><td colspan="4" class="text-center text-secondary-foreground py-5">No enrollments.</td></tr>
         @endforelse
     </x-data-table>
 

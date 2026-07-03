@@ -27,11 +27,31 @@ class EnrollmentController extends Controller
     {
         $this->authorize('viewAny', Enrolled::class);
 
-        $enrollments = Enrolled::visibleTo(Auth::user())
-            ->with(['student:id,given_name,surname,user_id', 'subject:id,subject_code,subject_name'])
+        // One row per subject/section (grouped), not per enrollment. Students live on the detail page.
+        $subjects = Subject::visibleTo(Auth::user())
+            ->has('enrollments')
+            ->with('section:id,section_name')
+            ->withCount([
+                'enrollments',
+                'enrollments as active_enrollments_count' => fn ($q) => $q->where('is_active', true),
+            ])
+            ->orderBy('subject_code')->get();
+
+        return view('educator.enrollment.index', compact('subjects'));
+    }
+
+    // Detail page: all students enrolled in one subject/section (mirrors scores.show).
+    public function showSubject(Subject $subject): View
+    {
+        $this->authorize('viewAny', Enrolled::class);
+        abort_unless(Subject::visibleTo(Auth::user())->whereKey($subject->getKey())->exists(), 403);
+
+        $subject->load('section:id,section_name');
+        $enrollments = Enrolled::where('subject_id', $subject->id)->visibleTo(Auth::user())
+            ->with('student:id,given_name,surname,user_id')
             ->orderByDesc('id')->get();
 
-        return view('educator.enrollment.index', compact('enrollments'));
+        return view('educator.enrollment.show', compact('subject', 'enrollments'));
     }
 
     public function create(): View

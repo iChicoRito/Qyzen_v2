@@ -9,32 +9,32 @@
 
     {{-- Filter bar: search left, filters + view toggle as one right-aligned cluster (ms-auto). --}}
     <div id="assessment_filters" class="flex flex-wrap items-center gap-2.5 mb-5">
-        <div class="w-80 max-w-full shrink-0">
+        <div class="w-full md:w-80 max-w-full">
             <label class="kt-input">
                 <i class="ki-filled ki-magnifier"></i>
                 <input type="text" data-assessment-search placeholder="Search assessments" />
             </label>
         </div>
-        <div class="flex items-center gap-2.5 ms-auto shrink-0">
-            <select class="kt-select w-40 shrink-0" data-assessment-subject>
+        <div class="flex flex-wrap items-center gap-2.5 md:ms-auto">
+            <select class="kt-select w-40" data-assessment-subject>
                 <option value="">All subjects</option>
                 @foreach ($assessments->pluck('subject')->filter()->unique('id')->sortBy('subject_name') as $s)
                     <option value="{{ $s->id }}">{{ $s->subject_name }}</option>
                 @endforeach
             </select>
-            <select class="kt-select w-36 shrink-0" data-assessment-section>
+            <select class="kt-select w-36" data-assessment-section>
                 <option value="">All sections</option>
                 @foreach ($assessments->pluck('section')->filter()->unique('id')->sortBy('section_name') as $sec)
                     <option value="{{ $sec->id }}">{{ $sec->section_name }}</option>
                 @endforeach
             </select>
-            <select class="kt-select w-32 shrink-0" data-assessment-term>
+            <select class="kt-select w-32" data-assessment-term>
                 <option value="">All terms</option>
                 @foreach ($assessments->pluck('academicTerm')->filter()->unique('id')->sortBy('term_name') as $t)
                     <option value="{{ $t->id }}">{{ $t->term_name }}</option>
                 @endforeach
             </select>
-            <select class="kt-select w-48 shrink-0" data-assessment-availability>
+            <select class="kt-select w-48" data-assessment-availability>
                 <option value="">All statuses</option>
                 <option value="Available">Available</option>
                 <option value="Reopened">Reopened</option>

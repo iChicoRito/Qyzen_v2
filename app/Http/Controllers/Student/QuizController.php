@@ -30,13 +30,18 @@ class QuizController extends Controller
         $user = Auth::user();
 
         $assessments = Assessment::visibleTo($user)
-            ->with(['subject:id,subject_code,subject_name', 'section:id,section_name'])
+            ->with(['subject:id,subject_code,subject_name', 'section:id,section_name', 'academicTerm:id,term_name'])
             ->withCount('quizzes')
             ->orderByDesc('id')->get()
             ->map(function (Assessment $a) use ($user) {
                 $av = $this->availability->summarize($a, $user->id);
                 $a->setAttribute('availability', $av);
                 [$label, $color] = $this->displayStatus($av['badge'], (int) $a->quizzes_count);
+                // Task 21: a finished, no-retake-left attempt reads "Already Taken" (was
+                // mislabelled "Available"). Takes precedence — it can never be retaken.
+                if ($av['submitted_attempts'] > 0 && $av['remaining'] === 0) {
+                    [$label, $color] = ['Already Taken', 'secondary'];
+                }
                 $a->setAttribute('status_label', $label);
                 $a->setAttribute('status_color', $color);
                 // Can only start when takeable AND questions exist (take() redirects on empty).
@@ -118,15 +123,15 @@ class QuizController extends Controller
             ->where('status', 'in_progress')->first()
             ?? $this->grading->saveDraft(Auth::user(), $assessment, [], 0);
 
-        // Shuffle is STABLE within an attempt: order by a hash seeded with the draft id so a
-        // refresh keeps the same order (and answers keep lining up). MC option display order is
-        // hashed per-question; the submitted value is the choice key, so reordering display is safe.
+        // Task 21: shuffle a fresh order on every load when is_shuffle is on. Answers are keyed by
+        // question id (name="answers[{id}]") and MC values are the choice key, so reordering the
+        // display never breaks draft-answer restore or grading.
         if ($assessment->is_shuffle) {
-            $questions = $questions->sortBy(fn (Quiz $q) => md5($draft->id.'-'.$q->id))->values();
-            $questions->each(function (Quiz $q) use ($draft) {
+            $questions = $questions->shuffle();
+            $questions->each(function (Quiz $q) {
                 if ($q->quiz_type === 'multiple_choice' && is_array($q->choices)) {
                     $keys = array_keys($q->choices);
-                    usort($keys, fn ($x, $y) => strcmp(md5($draft->id.$q->id.$x), md5($draft->id.$q->id.$y)));
+                    shuffle($keys);
                     $q->setAttribute('choices', array_replace(array_flip($keys), $q->choices));
                 }
             });

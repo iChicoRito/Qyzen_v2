@@ -11,6 +11,17 @@ class Assessment extends Model
 {
     protected $table = 'tbl_assessments';
 
+    // Task 19: opaque route key — URLs bind by the random uuid, never the sequential id.
+    protected static function booted(): void
+    {
+        static::creating(fn (self $m) => $m->uuid ??= (string) \Illuminate\Support\Str::uuid());
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
+
     // D2: admin all / educator ownership / student enrollment (active tbl_enrolled
     // matching educator+subject). NOTE: no admin RLS policy on assessments in source,
     // but admin retains full app-layer access per the admin Policy.

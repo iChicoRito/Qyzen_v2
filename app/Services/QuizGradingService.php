@@ -26,18 +26,24 @@ class QuizGradingService
      */
     public function saveDraft(User $student, Assessment $assessment, array $answers, int $warnings = 0): Score
     {
-        return Score::updateOrCreate(
+        // firstOrNew (not updateOrCreate) so taken_at is set ONCE, on the first save — it anchors
+        // the true attempt start for the server-authoritative timer. Overwriting it each autosave
+        // would let the countdown reset on every refresh.
+        $score = Score::firstOrNew(
             ['student_id' => $student->id, 'assessment_id' => $assessment->id, 'status' => 'in_progress'],
-            [
-                'educator_id' => $assessment->educator_id,
-                'subject_id' => $assessment->subject_id,
-                'section_id' => $assessment->section_id,
-                'student_answer' => $answers,
-                'warning_attempts' => $warnings,
-                'total_questions' => Quiz::where('assessment_id', $assessment->id)->count(),
-                'taken_at' => now(),
-            ],
         );
+        $score->fill([
+            'educator_id' => $assessment->educator_id,
+            'subject_id' => $assessment->subject_id,
+            'section_id' => $assessment->section_id,
+            'student_answer' => $answers,
+            'warning_attempts' => $warnings,
+            'total_questions' => Quiz::where('assessment_id', $assessment->id)->count(),
+        ]);
+        $score->taken_at ??= now();
+        $score->save();
+
+        return $score;
     }
 
     /**

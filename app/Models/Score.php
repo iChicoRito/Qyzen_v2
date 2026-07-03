@@ -10,6 +10,17 @@ class Score extends Model
 {
     protected $table = 'tbl_scores';
 
+    // Task 19: opaque route key — URLs bind by the random uuid, never the sequential id.
+    protected static function booted(): void
+    {
+        static::creating(fn (self $m) => $m->uuid ??= (string) \Illuminate\Support\Str::uuid());
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
+
     // D2: admin all / educator ownership / student own scores only.
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {

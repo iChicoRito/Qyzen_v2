@@ -10,6 +10,7 @@ use App\Services\AssessmentAvailabilityService;
 use App\Services\QuizGradingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
@@ -30,9 +31,16 @@ class QuizController extends Controller
 
         $assessments = Assessment::visibleTo($user)
             ->with(['subject:id,subject_code,subject_name', 'section:id,section_name'])
+            ->withCount('quizzes')
             ->orderByDesc('id')->get()
             ->map(function (Assessment $a) use ($user) {
-                $a->setAttribute('availability', $this->availability->summarize($a, $user->id));
+                $av = $this->availability->summarize($a, $user->id);
+                $a->setAttribute('availability', $av);
+                [$label, $color] = $this->displayStatus($av['badge'], (int) $a->quizzes_count);
+                $a->setAttribute('status_label', $label);
+                $a->setAttribute('status_color', $color);
+                // Can only start when takeable AND questions exist (take() redirects on empty).
+                $a->setAttribute('startable', $av['can_take'] && $a->quizzes_count > 0);
 
                 return $a;
             });
@@ -40,6 +48,23 @@ class QuizController extends Controller
         $tab = $request->query('tab', 'pending'); // pending | finished
 
         return view('student.assessments.index', compact('assessments', 'tab'));
+    }
+
+    /**
+     * Student-friendly card status. Time gates take precedence, then question readiness.
+     *
+     * @return array{0:string,1:string} [label, kt-badge color]
+     */
+    private function displayStatus(string $badge, int $questionCount): array
+    {
+        return match (true) {
+            $badge === 'Upcoming'       => ['Starts Soon', 'warning'],
+            $badge === 'Expired'        => ['No Longer Available', 'secondary'],
+            $badge === 'Schedule issue' => ['Not Ready Yet', 'secondary'],
+            $questionCount === 0        => ['Not Ready Yet', 'secondary'],
+            $badge === 'Reopened'       => ['Reopened', 'info'],
+            default                     => ['Available', 'success'],
+        };
     }
 
     // H2: details panel.
@@ -51,20 +76,30 @@ class QuizController extends Controller
         $questionCount = Quiz::where('assessment_id', $assessment->id)->count();
         $attempts = Score::where('assessment_id', $assessment->id)
             ->where('student_id', Auth::id())
-            ->orderByDesc('submitted_at')->get(['id', 'score', 'total_questions', 'is_passed', 'status', 'submitted_at']);
+            ->orderByDesc('submitted_at')->get(['id', 'uuid', 'score', 'total_questions', 'is_passed', 'status', 'submitted_at']);
 
         return view('student.assessments.details', compact('assessment', 'availability', 'questionCount', 'attempts'));
     }
 
-    // H3: take-quiz session load — eligibility + draft restore + shuffle.
-    public function take(Assessment $assessment): View|RedirectResponse
+    // H3: take-quiz session load — eligibility + draft restore + stable shuffle + server timer.
+    public function take(Assessment $assessment): Response|RedirectResponse
     {
         $this->authorize('view', $assessment);
 
+        // Post-submit lock: a finished attempt can't be reloaded. If no attempt remains, send the
+        // student to their latest result (or the list) rather than back into the quiz.
         $summary = $this->availability->summarize($assessment, Auth::id());
         if (! $summary['can_take']) {
-            return redirect()->route('student.assessments.details', $assessment)
-                ->with('status', 'This assessment is not available to take right now.');
+            $latest = Score::where('assessment_id', $assessment->id)
+                ->where('student_id', Auth::id())
+                ->whereIn('status', ['passed', 'failed', 'submitted'])
+                ->orderByDesc('submitted_at')->first();
+
+            return $latest
+                ? redirect()->route('student.scores.show', $latest)
+                    ->with('status', 'You have already completed this assessment.')
+                : redirect()->route('student.assessments.index')
+                    ->with('status', 'This assessment is not available to take right now.');
         }
 
         // Questions WITHOUT correct_answer (model hides it; we also select explicit columns).
@@ -76,20 +111,52 @@ class QuizController extends Controller
                 ->with('status', 'This assessment has no questions yet.');
         }
 
-        if ($assessment->is_shuffle) {
-            $questions = $questions->shuffle()->values();
-        }
-
-        // Restore an in-progress draft if present.
+        // Anchor the attempt: ensure the in-progress row exists so taken_at (the true start
+        // for the timer) is fixed on first screen load, before any autosave.
         $draft = Score::where('assessment_id', $assessment->id)
             ->where('student_id', Auth::id())
-            ->where('status', 'in_progress')->first();
+            ->where('status', 'in_progress')->first()
+            ?? $this->grading->saveDraft(Auth::user(), $assessment, [], 0);
 
-        return view('student.take-quiz', [
+        // Shuffle is STABLE within an attempt: order by a hash seeded with the draft id so a
+        // refresh keeps the same order (and answers keep lining up). MC option display order is
+        // hashed per-question; the submitted value is the choice key, so reordering display is safe.
+        if ($assessment->is_shuffle) {
+            $questions = $questions->sortBy(fn (Quiz $q) => md5($draft->id.'-'.$q->id))->values();
+            $questions->each(function (Quiz $q) use ($draft) {
+                if ($q->quiz_type === 'multiple_choice' && is_array($q->choices)) {
+                    $keys = array_keys($q->choices);
+                    usort($keys, fn ($x, $y) => strcmp(md5($draft->id.$q->id.$x), md5($draft->id.$q->id.$y)));
+                    $q->setAttribute('choices', array_replace(array_flip($keys), $q->choices));
+                }
+            });
+        }
+
+        // Server-authoritative remaining time: resume from real elapsed since taken_at, not a
+        // fresh countdown each load. Time keeps running while the student is away.
+        $timeLimitSec = ((int) $assessment->time_limit) * 60;
+        $remainingSeconds = $timeLimitSec > 0
+            ? (int) max(0, $timeLimitSec - $draft->taken_at->diffInSeconds(now()))
+            : 0;
+
+        $assessment->load([
+            'subject:id,subject_code,subject_name',
+            'section:id,section_name',
+            'educator:id,given_name,surname',
+            'academicTerm:id,term_name',
+        ]);
+
+        // no-store so the Back button can't re-show a finished quiz from cache/bfcache — it
+        // refetches and hits the can_take gate above.
+        return response()->view('student.take-quiz', [
             'assessment' => $assessment,
             'questions' => $questions,
-            'draftAnswers' => $draft?->student_answer ?? [],
-            'warnings' => $draft?->warning_attempts ?? 0,
+            'draftAnswers' => $draft->student_answer ?? [],
+            'warnings' => $draft->warning_attempts ?? 0,
+            'remainingSeconds' => $remainingSeconds,
+        ])->withHeaders([
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
         ]);
     }
 

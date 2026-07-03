@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\Quiz;
 use App\Models\Score;
+use App\Services\AssessmentAvailabilityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -37,11 +38,14 @@ class ScoreController extends Controller
     }
 
     // H7: result + per-question review (gated correct-answer display).
-    public function show(Score $score): View
+    public function show(Score $score, AssessmentAvailabilityService $availability): View
     {
         $this->authorize('view', $score); // ScorePolicy: student sees own only
 
         abort_unless($score->student_id === Auth::id(), 403);
+
+        $score->load(['assessment.subject:id,subject_code,subject_name', 'assessment.section:id,section_name',
+            'assessment.educator:id,given_name,surname', 'assessment.academicTerm:id,term_name']);
 
         $allowReview = (bool) $score->assessment->allow_review;
         $studentAnswers = $score->student_answer ?? [];
@@ -67,8 +71,14 @@ class ScoreController extends Controller
         // Attempt history (other attempts for the same assessment).
         $attempts = Score::where('assessment_id', $score->assessment_id)
             ->where('student_id', Auth::id())
-            ->orderByDesc('submitted_at')->get(['id', 'score', 'total_questions', 'is_passed', 'submitted_at']);
+            ->whereIn('status', ['passed', 'failed', 'submitted'])
+            ->orderByDesc('submitted_at')->get(['id', 'uuid', 'score', 'total_questions', 'is_passed', 'submitted_at']);
 
-        return view('student.scores.show', compact('score', 'review', 'attempts'));
+        $bestScore = (int) $attempts->max('score');
+
+        // Retake vs Back-to-Assessments (recomputed from finished attempts, not a stale count).
+        $summary = $availability->summarize($score->assessment, Auth::id());
+
+        return view('student.scores.show', compact('score', 'review', 'attempts', 'bestScore', 'summary'));
     }
 }

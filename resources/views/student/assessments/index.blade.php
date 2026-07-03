@@ -7,7 +7,7 @@
 @section('content')
     @include('admin._status')
 
-    {{-- Filter bar: search left, filters + view toggle as one right-aligned cluster (ms-auto). --}}
+    {{-- Filter bar: search + filters on the left, grid/list view toggle pushed to the far right. --}}
     <div id="assessment_filters" class="flex flex-wrap items-center gap-2.5 mb-5">
         <div class="w-full md:w-80 max-w-full">
             <label class="kt-input">
@@ -15,7 +15,7 @@
                 <input type="text" data-assessment-search placeholder="Search assessments" />
             </label>
         </div>
-        <div class="flex flex-wrap items-center gap-2.5 md:ms-auto">
+        <div class="flex flex-wrap items-center gap-2.5">
             <select class="kt-select w-40" data-assessment-subject>
                 <option value="">All subjects</option>
                 @foreach ($assessments->pluck('subject')->filter()->unique('id')->sortBy('subject_name') as $s)
@@ -43,15 +43,15 @@
                 <option value="Not Ready Yet">Not Ready Yet</option>
                 <option value="No Longer Available">No Longer Available</option>
             </select>
-            {{-- Grid/list view toggle (teams.html data-kt-tabs pattern): shows/hides the two containers. --}}
-            <div class="kt-toggle-group" data-kt-tabs="true">
-                <a class="kt-btn kt-btn-icon active" data-kt-tab-toggle="#assessment_grid" href="#" aria-label="Grid view">
-                    <i class="ki-filled ki-category"></i>
-                </a>
-                <a class="kt-btn kt-btn-icon" data-kt-tab-toggle="#assessment_list" href="#" aria-label="List view">
-                    <i class="ki-filled ki-row-horizontal"></i>
-                </a>
-            </div>
+        </div>
+        {{-- Grid/list view toggle (teams.html data-kt-tabs pattern), pushed to the far right. --}}
+        <div class="kt-toggle-group ms-auto" data-kt-tabs="true">
+            <a class="kt-btn kt-btn-icon active" data-kt-tab-toggle="#assessment_grid" href="#" aria-label="Grid view">
+                <i class="ki-filled ki-category"></i>
+            </a>
+            <a class="kt-btn kt-btn-icon" data-kt-tab-toggle="#assessment_list" href="#" aria-label="List view">
+                <i class="ki-filled ki-row-horizontal"></i>
+            </a>
         </div>
     </div>
 

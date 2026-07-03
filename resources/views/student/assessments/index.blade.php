@@ -7,15 +7,15 @@
 @section('content')
     @include('admin._status')
 
-    {{-- Filter bar: search + filters on the left, grid/list view toggle pushed to the far right. --}}
+    {{-- Filter bar: search + filters grouped on the left, grid/list toggle alone on the far right. --}}
     <div id="assessment_filters" class="flex flex-wrap items-center gap-2.5 mb-5">
-        <div class="w-full md:w-80 max-w-full">
-            <label class="kt-input">
-                <i class="ki-filled ki-magnifier"></i>
-                <input type="text" data-assessment-search placeholder="Search assessments" />
-            </label>
-        </div>
         <div class="flex flex-wrap items-center gap-2.5">
+            <div class="w-full md:w-80 max-w-full">
+                <label class="kt-input">
+                    <i class="ki-filled ki-magnifier"></i>
+                    <input type="text" data-assessment-search placeholder="Search assessments" />
+                </label>
+            </div>
             <select class="kt-select w-40" data-assessment-subject>
                 <option value="">All subjects</option>
                 @foreach ($assessments->pluck('subject')->filter()->unique('id')->sortBy('subject_name') as $s)

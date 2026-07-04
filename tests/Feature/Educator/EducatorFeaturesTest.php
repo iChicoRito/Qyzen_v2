@@ -335,6 +335,43 @@ class EducatorFeaturesTest extends TestCase
         $this->assertSame(0, Quiz::where('assessment_id', $assessment->id)->count());
     }
 
+    // ---- G7 scores: task 26 organization (student column + filters, owner-scoped) ----
+
+    public function test_scores_index_shows_student_columns_filters_and_stays_scoped(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $section = Section::find($subject->sections_id);
+        $this->student->update(['given_name' => 'Ann', 'surname' => 'Zamora']);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'assessment_id' => $assessment->id,
+            'subject_id' => $subject->id, 'section_id' => $section->id, 'score' => 8, 'total_questions' => 10,
+            'student_answer' => [], 'status' => 'passed', 'is_passed' => true, 'submitted_at' => now(),
+        ]);
+
+        // eduB's score must never leak into eduA's view (visibleTo).
+        $subjectB = $this->subject($this->eduB);
+        $assessmentB = Assessment::create([
+            'educator_id' => $this->eduB->id, 'subject_id' => $subjectB->id, 'section_id' => $subjectB->sections_id,
+            'assessment_code' => 'ZZTOP', 'time_limit' => '30', 'term' => $this->term->id,
+            'start_date' => '2026-07-01', 'end_date' => '2026-07-02', 'start_time' => '08:00', 'end_time' => '09:00',
+        ]);
+        Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduB->id, 'assessment_id' => $assessmentB->id,
+            'subject_id' => $subjectB->id, 'section_id' => $subjectB->sections_id, 'score' => 1, 'total_questions' => 10,
+            'student_answer' => [], 'status' => 'failed', 'is_passed' => false, 'submitted_at' => now(),
+        ]);
+
+        $res = $this->actingAs($this->eduA)->get(route('educator.scores.index'))->assertOk();
+
+        $res->assertSee('Zamora')->assertSee('Ann');                 // student-info first column
+        $res->assertSee($subject->subject_code)->assertSee($section->section_name); // subject/section columns
+        $res->assertSee('data-filter="subject"', false)              // new filter selects present
+            ->assertSee('data-filter="section"', false)
+            ->assertSee('data-filter="term"', false);
+        $res->assertDontSee('ZZTOP');                                // eduB's assessment never shown
+    }
+
     // ---- helpers ----
 
     private function makeUser(string $type, string $roleName): User

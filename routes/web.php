@@ -135,11 +135,13 @@ Route::middleware(['auth', 'verified', 'role:educator'])
 
         // G7 scores (read-only) + grant retake.
         Route::get('scores', [ScoreController::class, 'index'])->name('scores.index');
-        Route::get('scores/{score}', [ScoreController::class, 'show'])->name('scores.show');
-        Route::post('scores/retake', [ScoreController::class, 'grantRetake'])->name('scores.grant-retake');
-        // G8 export.
+        // G8/Task 27 export — registered above the {score} wildcard so these literal-prefix
+        // routes aren't shadowed by it.
+        Route::get('scores/export/preview/{assessment}', [ScoreController::class, 'exportPreview'])->name('scores.export.preview');
         Route::get('scores/export/{assessment}', [ScoreController::class, 'export'])->name('scores.export');
         Route::get('scores/export-bulk/run', [ScoreController::class, 'exportBulk'])->name('scores.export-bulk');
+        Route::get('scores/{score}', [ScoreController::class, 'show'])->name('scores.show');
+        Route::post('scores/retake', [ScoreController::class, 'grantRetake'])->name('scores.grant-retake');
 
         // G9 materials + signed download.
         Route::get('materials/{material}/download', [MaterialController::class, 'download'])->name('materials.download');

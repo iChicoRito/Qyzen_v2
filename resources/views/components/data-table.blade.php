@@ -9,8 +9,16 @@
     'search' => true,
     'searchPlaceholder' => 'Search',
 ])
+@unless ($search)
+    {{-- .kt-card-header's own component CSS hardcodes justify-content:space-between, which (with
+         no search box to balance against) shoves the filters to the far right. Override by id —
+         a utility class can't win here since .kt-card-header's rule comes later in the bundle. --}}
+    <style nonce="{{ $cspNonce ?? '' }}">
+        #{{ $id }}_header { justify-content: flex-start; }
+    </style>
+@endunless
 <div class="kt-card kt-card-grid min-w-full">
-    <div class="kt-card-header flex-wrap items-center gap-2 py-5 justify-between">
+    <div id="{{ $id }}_header" class="kt-card-header flex-wrap items-center gap-2 py-5 {{ $search ? 'justify-between' : '' }}">
         @if ($search)
             <div class="w-80 max-w-full shrink-0">
                 <label class="kt-input">
@@ -18,10 +26,8 @@
                     <input data-kt-datatable-search="#{{ $id }}" placeholder="{{ $searchPlaceholder }}" type="text" value="" />
                 </label>
             </div>
-        @else
-            <span></span>
         @endif
-        @isset($filters)<div class="flex flex-wrap gap-2.5 shrink-0">{{ $filters }}</div>@endisset
+        @isset($filters)<div class="flex flex-wrap gap-2.5 {{ $search ? 'shrink-0' : 'w-full' }}">{{ $filters }}</div>@endisset
     </div>
     <div class="kt-card-content">
         <div class="grid" data-kt-datatable="true" data-kt-datatable-state-save="false" data-kt-datatable-page-size="{{ $pageSize }}" id="{{ $id }}">
@@ -61,6 +67,24 @@
              innerHTML — so we must (a) re-query tbody/rows live each time, never cache them, and
              (b) keep the match token INSIDE a cell as <span data-filter-value hidden>. --}}
         var selects = card ? card.querySelectorAll('select[data-filter]') : [];
+        {{-- KTDataTable's own pagination only ever renders ONE page's worth of <tr> at a time —
+             our filter can only toggle .hidden on rows already in the DOM, so a match sitting on
+             another page is invisible no matter what. Fix: while any dropdown filter is active,
+             force the table onto a single unpaginated "page" (so every row is in the DOM and our
+             filter can actually see all of them); restore the original page size once every
+             filter is cleared back to "All". --}}
+        var originalPageSize = parseInt(wrap.getAttribute('data-kt-datatable-page-size'), 10) || 10;
+        var UNPAGINATED_SIZE = 1000000;
+        function hasActiveFilter() {
+            return Array.prototype.some.call(selects, function (sel) { return !!sel.value; });
+        }
+        function syncPageSize() {
+            if (typeof KTDataTable === 'undefined') return;
+            var dt = KTDataTable.getInstance(wrap);
+            if (!dt || typeof dt.setPageSize !== 'function' || typeof dt.getState !== 'function') return;
+            var want = hasActiveFilter() ? UNPAGINATED_SIZE : originalPageSize;
+            if (dt.getState().pageSize !== want) dt.setPageSize(want);
+        }
         function rowMatches(row) {
             var ok = true;
             selects.forEach(function (sel) {
@@ -79,7 +103,12 @@
                 row.classList.toggle('hidden', !rowMatches(row));
             });
         }
-        selects.forEach(function (sel) { sel.addEventListener('change', applyFilters); });
+        selects.forEach(function (sel) {
+            sel.addEventListener('change', function () {
+                syncPageSize(); // triggers its own redraw + 'drew' -> applyFilters() when size changes
+                applyFilters(); // also re-apply directly: switching between two active filters doesn't
+            });               // change pageSize, so no redraw would otherwise happen
+        });
 
         {{-- KTDataTable re-renders tbody on search/sort/paginate, dropping per-row dropdown
              instances and our hidden state. Re-init dropdowns + re-apply filters after each 'drew'. --}}

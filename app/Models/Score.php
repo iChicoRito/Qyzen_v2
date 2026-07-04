@@ -60,4 +60,14 @@ class Score extends Model
     {
         return $this->belongsTo(Assessment::class, 'assessment_id');
     }
+
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(Subject::class, 'subject_id');
+    }
+
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(Section::class, 'section_id');
+    }
 }

@@ -7,6 +7,7 @@ use App\Models\AcademicYear;
 use App\Models\Assessment;
 use App\Models\Enrolled;
 use App\Models\Permission;
+use App\Models\Quiz;
 use App\Models\Role;
 use App\Models\Section;
 use App\Models\Subject;
@@ -14,9 +15,9 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
-// Task 15: bulk BSIT dataset — 100 Filipino students, 5 sections, 5 subjects,
-// 4 empty assessments per subject/section, 20 disjoint students enrolled each.
-// Questions are left blank (no tbl_quizzes rows) for later upload. Run standalone:
+// Task 15/28: bulk BSIT dataset — 100 Filipino students (distinct surnames), 5 sections,
+// 5 subjects, 4 assessments per subject/section (Quiz #1-3: 10 questions each, Long Quiz:
+// 30 questions — 300 tbl_quizzes rows total), 20 disjoint students enrolled each. Run standalone:
 //   php artisan db:seed --class=BulkClassSeeder
 // Idempotent-ish via firstOrCreate; run after migrate:fresh for clean counts.
 class BulkClassSeeder extends Seeder
@@ -41,11 +42,19 @@ class BulkClassSeeder extends Seeder
         'Arturo', 'Remedios', 'Nestor', 'Soledad', 'Efren', 'Perla', 'Gregorio', 'Marilou', 'Salvador', 'Divina',
     ];
 
+    // 105 unique surnames so all 100 students get a genuinely distinct one (task 28).
     private const SURNAMES = [
         'Santos', 'Reyes', 'Cruz', 'Bautista', 'Ocampo', 'Garcia', 'Mendoza', 'Torres', 'Tolentino', 'Flores',
         'Villanueva', 'Ramos', 'Aquino', 'Del Rosario', 'Castillo', 'Gonzales', 'Rivera', 'Aguilar', 'Fernandez', 'Domingo',
         'Salazar', 'Mercado', 'Navarro', 'Pascual', 'Dela Cruz', 'Bonifacio', 'Marasigan', 'Alcantara', 'Espinosa', 'Guerrero',
         'Lim', 'Tan', 'Sy', 'Chua', 'Lopez', 'Manalo', 'Panganiban', 'Soriano', 'Valdez', 'Yandoc',
+        'Ramirez', 'De Leon', 'Cabrera', 'Manalastas', 'Ignacio', 'Custodio', 'Villareal', 'Bermudez', 'Gatchalian', 'Abad',
+        'Buenaventura', 'Cortez', 'Del Mundo', 'Dizon', 'Enriquez', 'Faustino', 'Galang', 'Hernandez', 'Isidro', 'Jimenez',
+        'Katigbak', 'Laurel', 'Macapagal', 'Nolasco', 'Ongpin', 'Padilla', 'Quimpo', 'Roxas', 'Serrano', 'Tagle',
+        'Uy', 'Velasco', 'Wong', 'Yulo', 'Zamora', 'Abrigo', 'Barrientos', 'Cayetano', 'Dimayuga', 'Estrada',
+        'Fajardo', 'Gozon', 'Herrera', 'Jamora', 'Kalaw', 'Lacson', 'Montenegro', 'Nazareno', 'Olivar', 'Pangilinan',
+        'Quezon', 'Rosales', 'Sandoval', 'Trillo', 'Umali', 'Vergara', 'Ynares', 'Zaragoza', 'Aranda', 'Basilio',
+        'Cabahug', 'Dagohoy', 'Escudero', 'Fabella', 'Gomez',
     ];
 
     public function run(): void
@@ -84,16 +93,18 @@ class BulkClassSeeder extends Seeder
                 );
 
                 foreach (self::ASSESSMENTS as $assessmentCode) {
-                    Assessment::firstOrCreate(
+                    $assessment = Assessment::firstOrCreate(
                         ['assessment_code' => $assessmentCode, 'subject_id' => $subject->id, 'section_id' => $section->id, 'term' => $term->id],
                         [
                             'educator_id' => $educator->id, 'time_limit' => '30', 'cheating_attempts' => 3,
                             'is_shuffle' => true, 'is_active' => true,
                             'start_date' => now()->subDay()->toDateString(), 'end_date' => now()->addWeek()->toDateString(),
                             'start_time' => '00:00', 'end_time' => '23:59',
-                            // questions left blank — no tbl_quizzes rows created.
                         ],
                     );
+
+                    $count = str_contains($assessmentCode, 'Long') ? 30 : 10;
+                    $this->generateQuestions($assessment, $subject, $section, $educator, $count);
                 }
 
                 foreach ($groups[$i] ?? [] as $student) {
@@ -107,7 +118,7 @@ class BulkClassSeeder extends Seeder
         });
 
         $this->assertCounts($educator);
-        $this->command?->info('BulkClassSeeder: 100 students, 5 sections/subjects, 20 assessments, 100 enrollments. Educator: prof@qyzen.edu.ph / "password".');
+        $this->command?->info('BulkClassSeeder: 100 students, 5 sections/subjects, 20 assessments, 300 questions, 100 enrollments. Educator: prof@qyzen.edu.ph / "password".');
     }
 
     /** @return Role[] [admin, educator, student] */
@@ -138,7 +149,7 @@ class BulkClassSeeder extends Seeder
         $students = [];
         for ($i = 1; $i <= 100; $i++) {
             $given = self::GIVEN_NAMES[($i - 1) % count(self::GIVEN_NAMES)];
-            $surname = self::SURNAMES[intdiv($i - 1, count(self::GIVEN_NAMES)) % count(self::SURNAMES)];
+            $surname = self::SURNAMES[($i - 1) % count(self::SURNAMES)]; // one distinct surname per student
 
             $slug = fn (string $s) => strtolower(str_replace(' ', '', $s));
             $email = "{$slug($surname)}.{$slug($given)}@qyzen.edu.ph";
@@ -167,6 +178,42 @@ class BulkClassSeeder extends Seeder
         return $user;
     }
 
+    // Generic templated arithmetic MC questions (task 28) — matches DemoSeeder's existing
+    // question-content convention, scaled to the required count. Skips if already seeded.
+    private function generateQuestions(Assessment $assessment, Subject $subject, Section $section, User $educator, int $count): void
+    {
+        if (Quiz::where('assessment_id', $assessment->id)->exists()) {
+            return;
+        }
+
+        $ops = ['+' => fn ($a, $b) => $a + $b, '-' => fn ($a, $b) => $a - $b, '×' => fn ($a, $b) => $a * $b];
+        $letters = ['A', 'B', 'C', 'D'];
+
+        for ($n = 0; $n < $count; $n++) {
+            $a = rand(1, 12);
+            $b = rand(1, 12);
+            $op = array_rand($ops);
+            $correct = $ops[$op]($a, $b);
+
+            $values = [$correct];
+            while (count($values) < 4) {
+                $candidate = $correct + rand(-5, 5);
+                if (! in_array($candidate, $values, true)) {
+                    $values[] = $candidate;
+                }
+            }
+            shuffle($values);
+            $choices = array_combine($letters, $values);
+
+            Quiz::create([
+                'assessment_id' => $assessment->id, 'subject_id' => $subject->id, 'section_id' => $section->id,
+                'educator_id' => $educator->id, 'question' => "What is {$a} {$op} {$b}?",
+                'quiz_type' => 'multiple_choice', 'choices' => $choices,
+                'correct_answer' => array_search($correct, $choices, true),
+            ]);
+        }
+    }
+
     private function assertCounts(User $educator): void
     {
         $counts = [
@@ -175,8 +222,9 @@ class BulkClassSeeder extends Seeder
             'subjects' => Subject::where('educator_id', $educator->id)->count(),
             'assessments' => Assessment::where('educator_id', $educator->id)->count(),
             'enrolled' => Enrolled::where('educator_id', $educator->id)->count(),
+            'quizzes' => Quiz::where('educator_id', $educator->id)->count(),
         ];
-        $expected = ['students' => 100, 'sections' => 5, 'subjects' => 5, 'assessments' => 20, 'enrolled' => 100];
+        $expected = ['students' => 100, 'sections' => 5, 'subjects' => 5, 'assessments' => 20, 'enrolled' => 100, 'quizzes' => 300];
         foreach ($expected as $key => $want) {
             if ($counts[$key] < $want) {
                 throw new \RuntimeException("BulkClassSeeder count check failed: {$key} = {$counts[$key]}, expected >= {$want}.");

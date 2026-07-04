@@ -17,7 +17,7 @@ class MaterialController extends Controller
         $this->authorize('viewAny', LearningMaterial::class);
 
         $groups = LearningMaterial::visibleTo(Auth::user())
-            ->with('subject:id,subject_code,subject_name')
+            ->with(['subject:id,subject_code,subject_name', 'section:id,section_name'])
             ->orderByDesc('id')->get()
             ->groupBy(fn ($m) => $m->subject_id.'::'.$m->section_id);
 

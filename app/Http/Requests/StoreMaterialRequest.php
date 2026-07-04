@@ -6,7 +6,8 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
-// G9: upload materials — files[] × selection (subject+section) owned by this educator.
+// G9: upload materials — files[] × subject_ids[] (each subject already carries its own
+// section) owned by this educator. One row per (file, subject) pair, storage object shared.
 class StoreMaterialRequest extends FormRequest
 {
     public function authorize(): bool
@@ -17,10 +18,10 @@ class StoreMaterialRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'files'      => ['required', 'array', 'min:1'],
-            'files.*'    => ['file', 'max:20480'], // 20MB/file
-            'subject_id' => ['required', Rule::exists('tbl_subjects', 'id')->where('educator_id', Auth::id())],
-            'section_id' => ['required', Rule::exists('tbl_sections', 'id')->where('educator_id', Auth::id())],
+            'files'         => ['required', 'array', 'min:1'],
+            'files.*'       => ['file', 'max:20480', 'mimes:pptx,ppsx,ppt,pdf,docx,doc,rtf'], // 20MB/file
+            'subject_ids'   => ['required', 'array', 'min:1'],
+            'subject_ids.*' => [Rule::exists('tbl_subjects', 'id')->where('educator_id', Auth::id())],
         ];
     }
 }

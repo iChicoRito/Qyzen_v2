@@ -7,7 +7,6 @@ use App\Http\Requests\StoreMaterialRequest;
 use App\Http\Requests\UpdateMaterialRequest;
 use App\Models\Enrolled;
 use App\Models\LearningMaterial;
-use App\Models\Section;
 use App\Models\Subject;
 use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
@@ -29,7 +28,7 @@ class MaterialController extends Controller
         $this->authorize('viewAny', LearningMaterial::class);
 
         $groups = LearningMaterial::visibleTo(Auth::user())
-            ->with(['subject:id,subject_code,subject_name'])
+            ->with(['subject:id,subject_code,subject_name', 'section:id,section_name'])
             ->orderByDesc('id')->get()
             ->groupBy(fn ($m) => $m->subject_id.'::'.$m->section_id);
 
@@ -42,7 +41,6 @@ class MaterialController extends Controller
 
         return view('educator.materials.create', [
             'subjects' => Subject::visibleTo(Auth::user())->orderBy('subject_code')->get(),
-            'sections' => Section::visibleTo(Auth::user())->orderBy('section_name')->get(),
         ]);
     }
 
@@ -51,33 +49,45 @@ class MaterialController extends Controller
         $this->authorize('create', LearningMaterial::class);
 
         $data = $request->validated();
-        $studentIds = $this->enrolledStudentIds($data['subject_id']);
+        $subjects = Subject::whereKey($data['subject_ids'])->get();
 
         $files = $request->file('files');
         foreach ($files as $file) {
+            // Store the physical file once; every selected subject reuses this same path.
             $path = $file->store("learning-materials/".Auth::id(), self::DISK);
-            LearningMaterial::create([
-                'educator_id' => Auth::id(),
-                'subject_id' => $data['subject_id'],
-                'section_id' => $data['section_id'],
-                'storage_bucket' => self::DISK,
-                'storage_path' => $path,
-                'file_name' => $file->getClientOriginalName(),
-                'file_extension' => $file->getClientOriginalExtension(),
-                'mime_type' => $file->getClientMimeType(),
-                'file_size' => $file->getSize(),
-                'is_active' => true,
-            ]);
+            foreach ($subjects as $subject) {
+                LearningMaterial::create([
+                    'educator_id' => Auth::id(),
+                    'subject_id' => $subject->id,
+                    'section_id' => $subject->sections_id,
+                    'storage_bucket' => self::DISK,
+                    'storage_path' => $path,
+                    'file_name' => $file->getClientOriginalName(),
+                    'file_extension' => $file->getClientOriginalExtension(),
+                    'mime_type' => $file->getClientMimeType(),
+                    'file_size' => $file->getSize(),
+                    'is_active' => true,
+                ]);
+            }
         }
 
-        // One message per student carrying the file count (not one per file).
+        // One message per student per subject (authorization checks enrollment per subject_id),
+        // carrying every uploaded file's real name/extension/size so the notification can render
+        // one attachment card per file (not one notification per file).
         $count = count($files);
-        $this->notifications->emitToMany(Auth::user(), 'learning_material_uploaded', $studentIds, [
-            'subject_id' => $data['subject_id'], 'section_id' => $data['section_id'],
-            'title' => $count === 1 ? 'New learning material' : "$count new learning materials",
-            'link_path' => route('student.materials.index'),
-            'metadata' => ['file_count' => $count],
-        ]);
+        $fileList = array_map(fn ($f) => [
+            'file_name' => $f->getClientOriginalName(),
+            'file_extension' => $f->getClientOriginalExtension(),
+            'file_size' => $f->getSize(),
+        ], $files);
+        foreach ($subjects as $subject) {
+            $this->notifications->emitToMany(Auth::user(), 'learning_material_uploaded', $this->enrolledStudentIds($subject->id), [
+                'subject_id' => $subject->id, 'section_id' => $subject->sections_id,
+                'title' => $count === 1 ? 'uploaded 1 attachment' : "uploaded $count attachments",
+                'link_path' => route('student.materials.index'),
+                'metadata' => ['file_count' => $count, 'files' => $fileList],
+            ]);
+        }
 
         return redirect()->route('educator.materials.index')->with('status', 'Material(s) uploaded.');
     }
@@ -107,8 +117,16 @@ class MaterialController extends Controller
         $sectionId = $material->section_id;
         $studentIds = $this->enrolledStudentIds($subjectId);
 
-        Storage::disk($material->storage_bucket ?? self::DISK)->delete($material->storage_path);
+        // Orphan cleanup: the same storage object may be shared by other subjects' rows —
+        // only delete it from storage once no row references it anymore.
+        $stillReferenced = LearningMaterial::where('id', '!=', $material->id)
+            ->where('storage_bucket', $material->storage_bucket)
+            ->where('storage_path', $material->storage_path)
+            ->exists();
         $material->delete();
+        if (! $stillReferenced) {
+            Storage::disk($material->storage_bucket ?? self::DISK)->delete($material->storage_path);
+        }
 
         $this->notifications->emitToMany(Auth::user(), 'learning_material_deleted', $studentIds, [
             'subject_id' => $subjectId, 'section_id' => $sectionId,

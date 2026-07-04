@@ -174,7 +174,7 @@ class NotificationWorkflowTest extends TestCase
         Storage::fake('local');
 
         $this->actingAs($this->educator)->post(route('educator.materials.store'), [
-            'subject_id' => $this->subject->id, 'section_id' => $this->section->id,
+            'subject_ids' => [$this->subject->id],
             'files' => [UploadedFile::fake()->create('a.pdf', 10), UploadedFile::fake()->create('b.pdf', 10)],
         ])->assertRedirect();
 

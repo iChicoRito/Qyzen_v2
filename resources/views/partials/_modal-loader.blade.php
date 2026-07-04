@@ -96,7 +96,12 @@
         var FILE_ICON_BASE = @json(asset('metronic-tailwind-html-demos/dist/assets/media/file-types'));
         function fileIcon(name) {
             var ext = (name.split('.').pop() || '').toLowerCase();
-            var known = { xlsx: 'xls', xls: 'xls', csv: 'xls' };
+            var known = {
+                xlsx: 'xls', xls: 'xls', csv: 'xls',
+                ppt: 'powerpoint', pptx: 'powerpoint', ppsx: 'powerpoint',
+                doc: 'word', docx: 'word',
+                rtf: 'text',
+            };
             return FILE_ICON_BASE + '/' + (known[ext] || 'text') + '.svg';
         }
         function renderFileList(input) {

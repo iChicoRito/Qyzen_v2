@@ -131,6 +131,7 @@ class AssessmentController extends Controller
         $this->notifications->emitToMany(Auth::user(), $event, $studentIds, [
             'subject_id' => $assessment->subject_id, 'assessment_id' => $assessment->id,
             'section_id' => $assessment->section_id, 'title' => $title,
+            'link_path' => route('student.assessments.index'),
         ]);
     }
 

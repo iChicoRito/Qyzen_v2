@@ -53,9 +53,10 @@ class MaterialController extends Controller
         $data = $request->validated();
         $studentIds = $this->enrolledStudentIds($data['subject_id']);
 
-        foreach ($request->file('files') as $file) {
+        $files = $request->file('files');
+        foreach ($files as $file) {
             $path = $file->store("learning-materials/".Auth::id(), self::DISK);
-            $material = LearningMaterial::create([
+            LearningMaterial::create([
                 'educator_id' => Auth::id(),
                 'subject_id' => $data['subject_id'],
                 'section_id' => $data['section_id'],
@@ -67,12 +68,16 @@ class MaterialController extends Controller
                 'file_size' => $file->getSize(),
                 'is_active' => true,
             ]);
-
-            $this->notifications->emitToMany(Auth::user(), 'learning_material_uploaded', $studentIds, [
-                'subject_id' => $material->subject_id, 'section_id' => $material->section_id,
-                'title' => 'New learning material',
-            ]);
         }
+
+        // One message per student carrying the file count (not one per file).
+        $count = count($files);
+        $this->notifications->emitToMany(Auth::user(), 'learning_material_uploaded', $studentIds, [
+            'subject_id' => $data['subject_id'], 'section_id' => $data['section_id'],
+            'title' => $count === 1 ? 'New learning material' : "$count new learning materials",
+            'link_path' => route('student.materials.index'),
+            'metadata' => ['file_count' => $count],
+        ]);
 
         return redirect()->route('educator.materials.index')->with('status', 'Material(s) uploaded.');
     }
@@ -97,8 +102,19 @@ class MaterialController extends Controller
     {
         $this->authorize('delete', $material);
 
+        // Capture recipients + context before the row is gone.
+        $subjectId = $material->subject_id;
+        $sectionId = $material->section_id;
+        $studentIds = $this->enrolledStudentIds($subjectId);
+
         Storage::disk($material->storage_bucket ?? self::DISK)->delete($material->storage_path);
         $material->delete();
+
+        $this->notifications->emitToMany(Auth::user(), 'learning_material_deleted', $studentIds, [
+            'subject_id' => $subjectId, 'section_id' => $sectionId,
+            'title' => 'Learning material removed',
+            'link_path' => route('student.materials.index'),
+        ]);
 
         return redirect()->route('educator.materials.index')->with('status', 'Material deleted.');
     }

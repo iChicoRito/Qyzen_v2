@@ -8,12 +8,9 @@
        </button>
        <!-- End of Search -->
        <!-- Notifications -->
-       <button class="relative kt-btn kt-btn-ghost kt-btn-icon size-9 rounded-full hover:bg-primary/10 hover:[&_i]:text-primary" data-kt-drawer-toggle="#notifications_drawer" id="notifications_bell_btn">
+       <button class="kt-btn kt-btn-ghost kt-btn-icon size-9 rounded-full hover:bg-primary/10 hover:[&_i]:text-primary" data-kt-drawer-toggle="#notifications_drawer">
         <i class="ki-filled ki-notification-status text-lg">
         </i>
-        @if (($unreadCount ?? 0) > 0)
-        <span class="absolute top-1 -end-1 flex items-center justify-center size-[18px] rounded-full bg-destructive text-white text-[10px] font-semibold leading-none" id="notifications_bell_dot">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
-        @endif
        </button>
        <!--Notifications Drawer-->
        <div class="hidden kt-drawer kt-drawer-end card flex-col max-w-[90%] w-[450px] top-5 bottom-5 end-5 rounded-xl border border-border" data-kt-drawer="true" data-kt-drawer-container="body" id="notifications_drawer">
@@ -137,75 +134,276 @@
         </div>
         <div class="grow flex flex-col" id="notifications_tab_all">
          <div class="grow kt-scrollable-y-auto" data-kt-scrollable="true" data-kt-scrollable-dependencies="#header" data-kt-scrollable-max-height="auto" data-kt-scrollable-offset="150px">
-          <div class="grow flex flex-col gap-5 pt-3 pb-4 divider-y divider-border" id="notifications_list">
-           @include('layouts.partials._notification_items', ['notifications' => $notifications ?? []])
+          <div class="grow flex flex-col gap-5 pt-3 pb-4 divider-y divider-border">
+           <div class="flex grow gap-2.5 px-5">
+            <div class="kt-avatar size-8">
+             <div class="kt-avatar-image">
+              <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-4.png') }}"/>
+             </div>
+             <div class="kt-avatar-indicator -end-2 -bottom-2">
+              <div class="kt-avatar-status kt-avatar-status-online size-2.5">
+              </div>
+             </div>
+            </div>
+            <div class="flex flex-col gap-3.5">
+             <div class="flex flex-col gap-1">
+              <div class="text-sm font-medium">
+               <a class="hover:text-primary text-mono font-semibold" href="#">
+                Joe Lincoln
+               </a>
+               <span class="text-secondary-foreground">
+                mentioned you in
+               </span>
+               <a class="hover:text-primary text-primary" href="#">
+                Latest Trends
+               </a>
+               <span class="text-secondary-foreground">
+                topic
+               </span>
+              </div>
+              <span class="flex items-center text-xs font-medium text-muted-foreground">
+               18 mins ago
+               <span class="rounded-full size-1 bg-mono/30 mx-1.5">
+               </span>
+               Web Design 2024
+              </span>
+             </div>
+             <div class="kt-card shadow-none flex flex-col gap-2.5 p-3.5 rounded-lg bg-muted/70">
+              <div class="text-sm font-semibold text-secondary-foreground mb-px">
+               <a class="hover:text-primary text-mono font-semibold" href="#">
+                @Cody
+               </a>
+               <span class="text-secondary-foreground font-medium">
+                For an expert opinion, check out what Mike has to say on this topic!
+               </span>
+              </div>
+              <div class="kt-input">
+               <input placeholder="Reply" type="text" value=""/>
+               <button class="kt-btn kt-btn-ghost kt-btn-icon size-6 -me-1.5">
+                <i class="ki-filled ki-picture">
+                </i>
+               </button>
+              </div>
+             </div>
+            </div>
+           </div>
+           <div class="border-b border-b-border">
+           </div>
+           <div class="flex grow gap-2.5 px-5">
+            <div class="kt-avatar size-8">
+             <div class="kt-avatar-image">
+              <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-5.png') }}"/>
+             </div>
+             <div class="kt-avatar-indicator -end-2 -bottom-2">
+              <div class="kt-avatar-status kt-avatar-status-online size-2.5">
+              </div>
+             </div>
+            </div>
+            <div class="flex flex-col gap-3.5">
+             <div class="flex flex-col gap-1">
+              <div class="text-sm font-medium mb-px">
+               <a class="hover:text-primary text-mono font-semibold" href="#">
+                Leslie Alexander
+               </a>
+               <span class="text-secondary-foreground">
+                added new tags to
+               </span>
+               <a class="hover:text-primary text-primary" href="#">
+                Web Redesign 2024
+               </a>
+              </div>
+              <span class="flex items-center text-xs font-medium text-muted-foreground">
+               53 mins ago
+               <span class="rounded-full size-1 bg-mono/30 mx-1.5">
+               </span>
+               ACME
+              </span>
+             </div>
+             <div class="flex flex-wrap gap-2.5">
+              <span class="kt-badge kt-badge-sm kt-badge-info kt-badge-outline">
+               Client-Request
+              </span>
+              <span class="kt-badge kt-badge-sm kt-badge-warning kt-badge-outline">
+               Figma
+              </span>
+              <span class="kt-badge kt-badge-sm kt-badge-secondary kt-badge-outline">
+               Redesign
+              </span>
+             </div>
+            </div>
+           </div>
+           <div class="border-b border-b-border">
+           </div>
+           <div class="flex grow gap-2.5 px-5" id="notification_request_3">
+            <div class="kt-avatar size-8">
+             <div class="kt-avatar-image">
+              <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-27.png') }}"/>
+             </div>
+             <div class="kt-avatar-indicator -end-2 -bottom-2">
+              <div class="kt-avatar-status kt-avatar-status-online size-2.5">
+              </div>
+             </div>
+            </div>
+            <div class="flex flex-col gap-3.5">
+             <div class="flex flex-col gap-1">
+              <div class="text-sm font-medium mb-px">
+               <a class="hover:text-primary text-mono font-semibold" href="#">
+                Guy Hawkins
+               </a>
+               <span class="text-secondary-foreground">
+                requested access to
+               </span>
+               <a class="hover:text-primary text-primary" href="#">
+                AirSpace
+               </a>
+               <span class="text-secondary-foreground">
+                project
+               </span>
+              </div>
+              <span class="flex items-center text-xs font-medium text-muted-foreground">
+               14 hours ago
+               <span class="rounded-full size-1 bg-mono/30 mx-1.5">
+               </span>
+               Dev Team
+              </span>
+             </div>
+             <div class="flex flex-wrap gap-2.5">
+              <button class="kt-btn kt-btn-outline kt-btn-sm" data-kt-dismiss="#notification_request_3">
+               Decline
+              </button>
+              <button class="kt-btn kt-btn-mono kt-btn-sm" data-kt-dismiss="#notification_request_3">
+               Accept
+              </button>
+             </div>
+            </div>
+           </div>
+           <div class="border-b border-b-border">
+           </div>
+           <div class="flex grow gap-2.5 px-5">
+            <div class="kt-avatar size-8">
+             <div class="kt-avatar-image">
+              <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-10.png') }}"/>
+             </div>
+             <div class="kt-avatar-indicator -end-2 -bottom-2">
+              <div class="kt-avatar-status kt-avatar-status-offline size-2.5">
+              </div>
+             </div>
+            </div>
+            <div class="flex flex-col gap-3.5 grow">
+             <div class="flex flex-col gap-1">
+              <div class="text-sm font-medium mb-px">
+               <a class="hover:text-primary text-mono font-semibold" href="#">
+                Jane Perez
+               </a>
+               <span class="text-secondary-foreground">
+                invites you to review a file.
+               </span>
+              </div>
+              <span class="flex items-center text-xs font-medium text-muted-foreground">
+               3 hours ago
+               <span class="rounded-full size-1 bg-mono/30 mx-1.5">
+               </span>
+               742kb
+              </span>
+             </div>
+             <div class="kt-card shadow-none flex items-center flex-row gap-1.5 p-2.5 rounded-lg bg-muted/70">
+              <img class="h-5" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/file-types/pdf.svg') }}"/>
+              <a class="hover:text-primary font-medium text-secondary-foreground text-xs me-1" href="#">
+               Launch_nov24.pptx
+              </a>
+              <span class="font-medium text-muted-foreground text-xs">
+               Edited 39 mins ago
+              </span>
+             </div>
+            </div>
+           </div>
+           <div class="border-b border-b-border">
+           </div>
+           <div class="flex grow gap-2.5 px-5">
+            <div class="kt-avatar size-8">
+             <div class="kt-avatar-image">
+              <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-11.png') }}">
+              </img>
+             </div>
+             <div class="kt-avatar-indicator -end-2 -bottom-2">
+              <div class="kt-avatar-status kt-avatar-status-online size-2.5">
+              </div>
+             </div>
+            </div>
+            <div class="flex flex-col gap-1">
+             <div class="text-sm font-medium mb-px">
+              <a class="hover:text-primary text-mono font-semibold" href="#">
+               Raymond Pawell
+              </a>
+              <span class="text-secondary-foreground">
+               posted a new article
+              </span>
+              <a class="hover:text-primary text-primary" href="#">
+               2024 Roadmap
+              </a>
+             </div>
+             <span class="flex items-center text-xs font-medium text-muted-foreground">
+              1 hour ago
+              <span class="rounded-full size-1 bg-mono/30 mx-1.5">
+              </span>
+              Roadmap
+             </span>
+            </div>
+           </div>
+           <div class="border-b border-b-border">
+           </div>
+           <div class="flex grow gap-2.5 px-5">
+            <div class="kt-avatar size-8">
+             <div class="kt-avatar-image">
+              <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-14.png') }}"/>
+             </div>
+             <div class="kt-avatar-indicator -end-2 -bottom-2">
+              <div class="kt-avatar-status kt-avatar-status-offline size-2.5">
+              </div>
+             </div>
+            </div>
+            <div class="flex flex-col gap-3.5 grow">
+             <div class="flex flex-col gap-1">
+              <div class="text-sm font-medium mb-px">
+               <a class="hover:text-primary text-mono font-semibold" href="#">
+                Tyler Hero
+               </a>
+               <span class="text-secondary-foreground">
+                wants to view your design project
+               </span>
+              </div>
+              <span class="flex items-center text-xs font-medium text-muted-foreground">
+               3 day ago
+               <span class="rounded-full size-1 bg-mono/30 mx-1.5">
+               </span>
+               Metronic Launcher mockups
+              </span>
+             </div>
+             <div class="kt-card shadow-none flex items-center flex-row gap-1.5 p-2.5 rounded-lg bg-muted/70">
+              <div class="flex items-center justify-center w-[26px] h-[30px] shrink-0 bg-background rounded-sm border border-border">
+               <img class="h-5" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/file-types/figma.svg') }}"/>
+              </div>
+              <a class="hover:text-primary font-medium text-secondary-foreground text-xs me-1" href="#">
+               Launcher-UIkit.fig
+              </a>
+              <span class="font-medium text-muted-foreground text-xs">
+               Edited 2 mins ago
+              </span>
+             </div>
+            </div>
+           </div>
           </div>
          </div>
          <div class="border-b border-b-border">
          </div>
-         <div class="grid grid-cols-1 p-5 gap-2.5" id="notifications_all_footer">
-          <form action="{{ route('notifications.read-all') }}" method="POST" id="notifications_mark_all_form" @class(['hidden' => (($unreadCount ?? 0) === 0)])>
-           @csrf
-           <button class="kt-btn kt-btn-outline justify-center w-full" type="submit">
-            Mark all as read
-           </button>
-          </form>
+         <div class="grid grid-cols-2 p-5 gap-2.5" id="notifications_all_footer">
+          <button class="kt-btn kt-btn-outline justify-center">
+           Archive all
+          </button>
+          <button class="kt-btn kt-btn-outline justify-center">
+           Mark all as read
+          </button>
          </div>
-         <script nonce="{{ $cspNonce ?? '' }}">
-          (function () {
-           var indexUrl = '{{ route('notifications.index') }}';
-           var readAllUrl = '{{ route('notifications.read-all') }}';
-           var btn = document.getElementById('notifications_bell_btn');
-           var form = document.getElementById('notifications_mark_all_form');
-           var list = document.getElementById('notifications_list');
-           var badgeCls = 'absolute top-1 -end-1 flex items-center justify-center size-[18px] rounded-full bg-destructive text-white text-[10px] font-semibold leading-none';
-
-           function setBadge(count) {
-            var dot = document.getElementById('notifications_bell_dot');
-            if (!count || count < 1) { if (dot) { dot.remove(); } return; }
-            if (!dot) {
-             dot = document.createElement('span');
-             dot.id = 'notifications_bell_dot';
-             dot.className = badgeCls;
-             if (btn) { btn.appendChild(dot); }
-            }
-            dot.textContent = count > 9 ? '9+' : String(count);
-           }
-
-           function setFormVisible(v) { if (form) { form.classList.toggle('hidden', !v); } }
-
-           if (form) {
-            form.addEventListener('submit', function (e) {
-             e.preventDefault();
-             var token = form.querySelector('input[name=_token]').value;
-             fetch(readAllUrl, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': token, 'Accept': 'application/json' } })
-              .then(function (r) { if (!r.ok) throw r; return r.json(); })
-              .then(function () {
-               document.querySelectorAll('[data-kt-notif-item]').forEach(function (el) {
-                el.classList.remove('bg-primary/5');
-                var d = el.querySelector('.kt-avatar-status');
-                if (d) { d.classList.remove('kt-avatar-status-online'); d.classList.add('kt-avatar-status-offline'); }
-               });
-               setBadge(0); setFormVisible(false);
-              })
-              .catch(function () { form.submit(); });
-            });
-           }
-
-           // ponytail: dumb 30s polling reusing the server-rendered fragment; swap to Reverb only if this ever matters.
-           function poll() {
-            fetch(indexUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
-             .then(function (r) { if (!r.ok) throw r; return r.json(); })
-             .then(function (data) {
-              if (list && typeof data.html === 'string') { list.innerHTML = data.html; }
-              setBadge(data.unread_count);
-              setFormVisible(data.unread_count > 0);
-             })
-             .catch(function () {});
-           }
-           setInterval(poll, 30000);
-          })();
-         </script>
         </div>
         <div class="grow flex flex-col hidden" id="notifications_tab_inbox">
          <div class="grow kt-scrollable-y-auto" data-kt-scrollable="true" data-kt-scrollable-dependencies="#header" data-kt-scrollable-max-height="auto" data-kt-scrollable-offset="150px">

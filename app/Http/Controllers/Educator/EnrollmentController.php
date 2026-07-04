@@ -80,6 +80,7 @@ class EnrollmentController extends Controller
                     $created++;
                     $this->notifications->emit(Auth::user(), 'enrollment_created', (int) $studentId, [
                         'subject_id' => (int) $subjectId, 'title' => 'Enrolled in a new subject',
+                        'link_path' => route('student.assessments.index'),
                     ]);
                 }
             }
@@ -106,6 +107,7 @@ class EnrollmentController extends Controller
         $enrolled->update($request->validated());
         $this->notifications->emit(Auth::user(), 'enrollment_updated', $enrolled->student_id, [
             'subject_id' => $enrolled->subject_id, 'title' => 'Enrollment updated',
+            'link_path' => route('student.assessments.index'),
         ]);
 
         return redirect()->route('educator.enrollment.index')->with('status', 'Enrollment updated.');
@@ -121,6 +123,7 @@ class EnrollmentController extends Controller
         // enrollment_deleted: the row is gone, authorizer verifies by subject ownership.
         $this->notifications->emit(Auth::user(), 'enrollment_deleted', $studentId, [
             'subject_id' => $subjectId, 'title' => 'Unenrolled from a subject',
+            'link_path' => route('student.assessments.index'),
         ]);
 
         return redirect()->route('educator.enrollment.index')->with('status', 'Enrollment removed.');

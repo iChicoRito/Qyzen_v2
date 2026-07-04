@@ -175,7 +175,8 @@ class StudentFeaturesTest extends TestCase
         ]);
         $score = Score::where('student_id', $this->student->id)->first();
 
-        $this->actingAs($this->otherStudent)->get(route('student.scores.show', $score))->assertForbidden();
+        // 404 (not 403): non-owned attempts resolve to "Result not found" without leaking existence.
+        $this->actingAs($this->otherStudent)->get(route('student.scores.show', $score))->assertNotFound();
     }
 
     // ---- helper ----

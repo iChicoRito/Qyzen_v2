@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\OAuthController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Educator\AssessmentController;
 use App\Http\Controllers\Educator\ChatController;
 use App\Http\Controllers\Educator\DashboardController as EducatorDashboardController;
@@ -72,6 +73,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+
+    // Task 25 — notification bell read/delivery (owner-scoped; polling JSON, no live transport yet).
+    // Shared group: the `role` middleware takes one role, and owner-scoping already isolates recipients.
+    // read-all precedes {notification}/read so the literal segment isn't captured as an id.
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
 });
 
 // Stage F — Admin features. One route group per role (CONVENTIONS.md); every action behind

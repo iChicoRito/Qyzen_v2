@@ -60,6 +60,7 @@ class ScoreController extends Controller
         $this->notifications->emit(Auth::user(), 'retake_updated', (int) $data['student_id'], [
             'assessment_id' => (int) $data['assessment_id'], 'title' => 'Retake granted',
             'subject_id' => Assessment::find($data['assessment_id'])?->subject_id,
+            'link_path' => route('student.assessments.index'),
         ]);
 
         return back()->with('status', 'Retake granted.');

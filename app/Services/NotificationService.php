@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Notification;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 // Write-path companion to NotificationAuthorizer (D5): authorizes then inserts.
 // Emit is best-effort — a denied or failed notification never blocks the feature action
@@ -28,19 +29,29 @@ class NotificationService
             return null;
         }
 
-        return Notification::create([
-            'recipient_user_id' => $recipientId,
-            'actor_user_id' => $actor->id,
-            'event_type' => $eventType,
-            'title' => $payload['title'] ?? $eventType,
-            'message' => $payload['message'] ?? '',
-            'link_path' => $payload['link_path'] ?? null,
-            'assessment_id' => $payload['assessment_id'] ?? null,
-            'subject_id' => $payload['subject_id'] ?? null,
-            'section_id' => $payload['section_id'] ?? null,
-            'metadata' => $payload['metadata'] ?? null,
-            'is_read' => false,
-        ]);
+        // Best-effort: a failed insert is logged and swallowed, never propagated to the caller —
+        // notifying must not undo or block the real action (incl. emits inside a grading transaction).
+        try {
+            return Notification::create([
+                'recipient_user_id' => $recipientId,
+                'actor_user_id' => $actor->id,
+                'event_type' => $eventType,
+                'title' => $payload['title'] ?? $eventType,
+                'message' => $payload['message'] ?? '',
+                'link_path' => $payload['link_path'] ?? null,
+                'assessment_id' => $payload['assessment_id'] ?? null,
+                'subject_id' => $payload['subject_id'] ?? null,
+                'section_id' => $payload['section_id'] ?? null,
+                'metadata' => $payload['metadata'] ?? null,
+                'is_read' => false,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Notification emit failed', [
+                'event_type' => $eventType, 'recipient_user_id' => $recipientId, 'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     /** Emit the same event to many recipients (e.g. all enrolled students). */

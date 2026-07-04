@@ -51,6 +51,7 @@ class EnrollmentsImport implements ToCollection, WithHeadingRow, WithChunkReadin
                 $this->created++;
                 $this->notifications->emit($this->educator, 'enrollment_created', $student->id, [
                     'subject_id' => $subject->id, 'title' => 'Enrolled in a new subject',
+                    'link_path' => route('student.assessments.index'),
                 ]);
             } else {
                 $this->skipped++;

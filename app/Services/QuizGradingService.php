@@ -95,13 +95,16 @@ class QuizGradingService
                 'subject_id' => $assessment->subject_id,
                 'section_id' => $assessment->section_id,
                 'title' => 'A student submitted an assessment',
+                'link_path' => route('educator.scores.index'),
             ]);
 
             return $score;
         });
     }
 
-    private function isCorrect(Quiz $quiz, string $given): bool
+    // public so the results/review screen reuses the exact grading rule (incl. JSON-array
+    // identification answers) — review and grading must never disagree.
+    public function isCorrect(Quiz $quiz, string $given): bool
     {
         $correct = $quiz->correct_answer;
 

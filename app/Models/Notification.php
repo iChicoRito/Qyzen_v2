@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -21,6 +22,26 @@ class Notification extends Model
         'read_at' => 'datetime',
     ];
 
+    /** Relations the bell renders (actor name/avatar + context for badges / file card). */
+    public const BELL_WITH = [
+        'actor:id,given_name,surname,profile_picture',
+        'subject:id,subject_code,subject_name',
+        'section:id,section_name',
+        'assessment:id,assessment_code',
+    ];
+
+    /** Owner-scoping boundary: every read/count/mark query filters to the signed-in user. */
+    public function scopeForRecipient(Builder $query, int $userId): Builder
+    {
+        return $query->where('recipient_user_id', $userId);
+    }
+
+    /** The recent set shown in the bell — used by the view composer and the poll endpoint. */
+    public static function recentForBell(int $userId, int $limit = 10)
+    {
+        return static::forRecipient($userId)->with(self::BELL_WITH)->latest()->limit($limit)->get();
+    }
+
     public function recipient(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recipient_user_id');
@@ -29,5 +50,21 @@ class Notification extends Model
     public function actor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'actor_user_id');
+    }
+
+    // Context for the bell's detail badges / file card (may be null — e.g. deleted assessment).
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(Subject::class, 'subject_id');
+    }
+
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(Section::class, 'section_id');
+    }
+
+    public function assessment(): BelongsTo
+    {
+        return $this->belongsTo(Assessment::class, 'assessment_id');
     }
 }

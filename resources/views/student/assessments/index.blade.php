@@ -74,9 +74,10 @@
                         <div class="flex justify-center items-center size-14 rounded-full ring-1 ring-input bg-accent/60">
                             <i class="ki-filled ki-questionnaire-tablet text-2xl text-muted-foreground"></i>
                         </div>
-                        <div class="grid place-items-center">
-                            <span class="text-base font-medium text-mono mb-px">{{ optional($a->subject)->subject_name ?? 'Subject' }}</span>
-                            <span class="text-sm text-secondary-foreground text-center">{{ $a->assessment_code }}{{ optional($a->section)->section_name ? ' · '.$a->section->section_name : '' }}</span>
+                        <div class="grid place-items-center gap-1.5">
+                            <span class="kt-badge kt-badge-sm kt-badge-outline kt-badge-primary">{{ $a->assessment_code }}</span>
+                            <span class="text-base font-medium text-mono">{{ optional($a->subject)->subject_name ?? 'Subject' }}</span>
+                            <span class="text-sm text-secondary-foreground text-center">{{ optional($a->section)->section_name ?? '—' }}</span>
                         </div>
                     </div>
                     {{-- Label / value rows with dashed dividers --}}

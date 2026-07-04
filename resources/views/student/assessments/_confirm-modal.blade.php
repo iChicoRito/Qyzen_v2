@@ -6,8 +6,8 @@
     $color = $a->status_color;
     $fmtTime = fn ($t) => $t ? \Carbon\Carbon::parse($t)->format('g:i A') : '—';
 @endphp
-<div class="kt-modal" data-kt-modal="true" id="kt_take_{{ $a->id }}">
-    <div class="kt-modal-content top-[7%]" style="width: 100%; max-width: min(92vw, 600px); max-height: 86vh;">
+<div class="kt-modal kt-modal-center" data-kt-modal="true" id="kt_take_{{ $a->id }}">
+    <div class="kt-modal-content" style="width: 100%; max-width: min(92vw, 600px); max-height: 86vh;">
         <div class="kt-modal-header">
             <h3 class="kt-modal-title">Take Assessment</h3>
             <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0" data-kt-modal-dismiss="true"><i class="ki-filled ki-cross"></i></button>

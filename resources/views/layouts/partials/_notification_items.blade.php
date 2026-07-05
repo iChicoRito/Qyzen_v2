@@ -30,7 +30,7 @@
     $isMaterial = \Illuminate\Support\Str::startsWith($n->event_type, 'learning_material');
     $files = $n->metadata['files'] ?? null;
 @endphp
-<a class="flex grow gap-2.5 px-5 py-1 {{ $n->is_read ? '' : 'bg-primary/5' }}" href="{{ $n->link_path ?? '#' }}" data-kt-notif-item>
+<a class="flex grow gap-2.5 px-5 py-1 {{ $n->is_read ? '' : 'bg-primary/5' }}" href="{{ $n->link_href }}" data-kt-notif-item>
  <div class="kt-avatar size-8">
   @if ($n->actor && $n->actor->profile_picture)
   <div class="kt-avatar-image">

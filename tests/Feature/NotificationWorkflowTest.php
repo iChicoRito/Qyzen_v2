@@ -135,6 +135,20 @@ class NotificationWorkflowTest extends TestCase
         $res->assertSee($this->section->section_name); // A1 badge
     }
 
+    // Regression: link_path stored as an absolute URL (route() default) must render as a host-less
+    // path so a notification created under one host (e.g. 127.0.0.1:8000) still works on another.
+    public function test_bell_link_renders_host_relative_path(): void
+    {
+        $this->makeNotif($this->student->id, [
+            'title' => 'Go here', 'link_path' => 'http://127.0.0.1:8000/student/assessments',
+        ]);
+
+        $res = $this->actingAs($this->student)->get(route('student.assessments.index'))->assertOk();
+
+        $res->assertSee('href="/student/assessments"', false);      // path kept
+        $res->assertDontSee('http://127.0.0.1:8000/student', false); // baked-in host dropped
+    }
+
     public function test_bell_material_upload_shows_file_card(): void
     {
         $this->makeNotif($this->student->id, [

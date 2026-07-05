@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
     <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet" />
     <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/css/styles.css') }}" rel="stylesheet" />
+    @stack('styles')
 </head>
 <body class="antialiased flex h-full text-base text-foreground bg-background">
 <script nonce="{{ $cspNonce ?? '' }}">
@@ -26,8 +27,11 @@
 </script>
 
 <div class="flex items-center justify-center grow">
-    <div class="kt-card max-w-96 w-full">
-        @yield('card')
+    <div class="flex flex-col items-center gap-4 w-full max-w-96">
+        <div class="kt-card w-full">
+            @yield('card')
+        </div>
+        @yield('below_card')
     </div>
 </div>
 
@@ -35,5 +39,6 @@
 <script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/ktui/ktui.min.js') }}"></script>
 @include('partials._toasts')
 @include('partials._form-submit-spinner')
+@stack('scripts')
 </body>
 </html>

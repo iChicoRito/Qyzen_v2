@@ -144,8 +144,9 @@ return [
     */
 
     // ponytail: 2FA dropped — not in Qyzen's feature set (FEATURE_MATRIX). Add back if required.
+    // Task 36: public registration removed — accounts are created only by an institutional
+    // admin (no self-service sign-up), so the registration feature/route/view are disabled.
     'features' => [
-        Features::registration(),
         Features::resetPasswords(),
         Features::emailVerification(),
         Features::updateProfileInformation(),

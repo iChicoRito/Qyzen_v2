@@ -8,8 +8,7 @@
     <div class="text-center mb-2.5">
       <h3 class="text-lg font-medium text-mono leading-none mb-2.5">Sign in</h3>
       <div class="flex items-center justify-center font-medium">
-        <span class="text-sm text-secondary-foreground me-1.5">Not a member yet?</span>
-        <a class="text-sm kt-link" href="{{ route('register') }}">Sign up</a>
+        <span class="text-sm text-secondary-foreground">Use your institution account</span>
       </div>
     </div>
 
@@ -51,4 +50,8 @@
       Sign in with Google
     </a>
   </form>
+@endsection
+
+@section('below_card')
+  @include('auth._legal')
 @endsection

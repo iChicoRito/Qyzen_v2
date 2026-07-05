@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ConversationActivity;
 use App\Http\Requests\StoreConversationMessageRequest;
 use App\Http\Requests\UpdateConversationMessageRequest;
 use App\Models\Conversation;
@@ -83,6 +84,9 @@ class MessagingController extends Controller
 
         $this->conversations->markRead($conversation, Auth::id());
 
+        // Read receipt changed — let the other party's open thread flip its sent-message ticks live.
+        $this->pingOtherParticipant($conversation);
+
         return response()->json(['status' => 'ok']);
     }
 
@@ -92,6 +96,8 @@ class MessagingController extends Controller
         $this->authorize('send', $conversation);
 
         $this->conversations->sendMessage($conversation, Auth::user(), $request->validated('content'));
+
+        $this->pingOtherParticipant($conversation);
 
         $thread = $this->conversations->threadFor($conversation, Auth::user());
 
@@ -110,6 +116,8 @@ class MessagingController extends Controller
 
         $this->conversations->editMessage($message, $request->validated('content'));
 
+        $this->pingOtherParticipant($message->conversation);
+
         $thread = $this->conversations->threadFor($message->conversation, Auth::user());
 
         return response()->json([
@@ -127,6 +135,8 @@ class MessagingController extends Controller
 
         $this->conversations->deleteMessage($message);
 
+        $this->pingOtherParticipant($message->conversation);
+
         $thread = $this->conversations->threadFor($message->conversation, Auth::user());
 
         return response()->json([
@@ -135,5 +145,14 @@ class MessagingController extends Controller
                 'thread' => $thread,
             ])->render(),
         ]);
+    }
+
+    // Task 33: notify the OTHER participant that this thread changed. The acting user already gets
+    // fresh HTML from its own response, so only the counterparty needs the push.
+    private function pingOtherParticipant(Conversation $conversation): void
+    {
+        $recipient = $conversation->otherParticipant(Auth::id());
+
+        broadcast(new ConversationActivity($recipient->id, $conversation->id));
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Events\ConversationActivity;
 use App\Models\AcademicTerm;
 use App\Models\AcademicYear;
 use App\Models\Conversation;
@@ -12,6 +13,7 @@ use App\Models\Section;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 // Task 30 — private 1:1 student/educator messaging. Headline assertions: enrollment (subject-
@@ -202,6 +204,21 @@ class PrivateMessagingTest extends TestCase
 
         $this->actingAs($this->educator)->getJson(route('messaging.conversations.show', $foreignConversation))->assertForbidden();
         $this->actingAs($this->educator)->deleteJson(route('messaging.messages.destroy', $foreignMessage))->assertForbidden();
+    }
+
+    public function test_sending_a_message_broadcasts_to_the_other_participant_only(): void
+    {
+        Event::fake([ConversationActivity::class]);
+
+        $conversation = Conversation::create(['student_id' => $this->enrolledStudent->id, 'educator_id' => $this->educator->id]);
+
+        $this->actingAs($this->enrolledStudent)
+            ->postJson(route('messaging.messages.send', $conversation), ['content' => 'Ping'])
+            ->assertOk();
+
+        // Recipient is the educator (the OTHER party), not the sending student.
+        Event::assertDispatched(ConversationActivity::class, fn (ConversationActivity $e) => $e->recipientId === $this->educator->id
+            && $e->conversationId === $conversation->id);
     }
 
     private function makeUser(string $type, string $roleName): User

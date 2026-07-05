@@ -15,6 +15,8 @@
     <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/apexcharts/apexcharts.css') }}" rel="stylesheet" />
     <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet" />
     <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/css/styles.css') }}" rel="stylesheet" />
+    {{-- Task 33: Laravel Echo (Reverb) bundle for real-time messaging. --}}
+    @vite(['resources/js/app.js'])
 </head>
 <body class="antialiased flex h-full text-base text-foreground bg-background demo1 kt-sidebar-fixed kt-header-fixed">
 <script nonce="{{ $cspNonce ?? '' }}">
@@ -27,6 +29,7 @@
         if (themeMode === 'system') { themeMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
         document.documentElement.classList.add(themeMode);
     }
+    window.qyzenUserId = {{ (int) auth()->id() }}; // Task 33: current user id for the Echo private channel.
 </script>
 
 @php $u = auth()->user(); $initial = strtoupper(mb_substr($u->given_name ?? ($u->name ?? '?'), 0, 1)); @endphp

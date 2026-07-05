@@ -926,7 +926,6 @@
           var threadTitle = document.getElementById('chat_drawer_thread_title');
           var input = document.getElementById('chat_drawer_input');
           var currentId = null;
-          var threadInterval = null;
 
           function showOnly(target) {
            [listState, threadState, contactsState].forEach(function (s) { s.classList.add('hidden'); });
@@ -964,13 +963,8 @@
             .catch(function () {});
           }
 
-          function stopThreadPoll() {
-           if (threadInterval) { clearInterval(threadInterval); threadInterval = null; }
-          }
-
-          // ponytail: dumb 5s polling on the open thread only (started/stopped with it), same
-          // fragment-swap strategy as the notification bell's 30s poll; swap to Reverb only if
-          // this ever matters.
+          // Task 33: pollThread/pollMessaging are now the render path, triggered by Reverb pushes
+          // (see subscribeRealtime) instead of timers — one fetch of the existing server-rendered fragment.
           function pollThread() {
            if (!currentId) { return; }
            fetch(baseUrl + '/' + currentId, { headers: headers() })
@@ -984,14 +978,11 @@
            threadTitle.textContent = name || '';
            showOnly(threadState);
            pollThread();
-           stopThreadPoll();
-           threadInterval = setInterval(pollThread, 5000);
            // Opening marks the thread read server-side; refresh the badges once that lands.
            setTimeout(pollMessaging, 1000);
           }
 
           function backToList() {
-           stopThreadPoll();
            currentId = null;
            showOnly(listState);
            pollMessaging();
@@ -1132,11 +1123,18 @@
            if (e.target && e.target.id === 'chat_drawer_subject_filter') { applyContactFilter(); }
           });
 
-          document.querySelectorAll('[data-kt-drawer-dismiss]').forEach(function (btn) {
-           if (btn.closest('#chat_drawer')) { btn.addEventListener('click', stopThreadPoll); }
-          });
-
-          setInterval(pollMessaging, 30000);
+          // Task 33: real-time via Reverb — subscribe to this user's private channel; the server
+          // pushes a "thread.updated" ping and the existing fragment fetches do the render. No timers.
+          // ponytail: no fallback poll — Echo auto-reconnects; add a slow 60s reconcile only if drops show.
+          function subscribeRealtime() {
+           if (!window.Echo || !window.qyzenUserId) { return; }
+           window.Echo.private('messaging.' + window.qyzenUserId).listen('.thread.updated', function (e) {
+            pollMessaging();
+            if (e && String(e.conversationId) === String(currentId)) { pollThread(); }
+           });
+          }
+          // Echo loads as a deferred Vite ES module, so window.Echo is ready by the 'load' event.
+          if (window.Echo) { subscribeRealtime(); } else { window.addEventListener('load', subscribeRealtime); }
          })();
         </script>
        </div>

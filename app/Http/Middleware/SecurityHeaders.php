@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,6 +19,8 @@ class SecurityHeaders
         // Generate the nonce BEFORE the view renders so Blade can use it.
         $nonce = Str::random(24);
         View::share('cspNonce', $nonce);
+        // Task 33: make @vite-emitted script/style tags carry the same nonce (strict-dynamic CSP).
+        Vite::useCspNonce($nonce);
 
         /** @var Response $response */
         $response = $next($request);
@@ -56,10 +59,27 @@ class SecurityHeaders
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: https:",
             "font-src 'self' data:",
-            "connect-src 'self'",
+            "connect-src 'self'".$this->reverbOrigin(),
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'",
         ]);
+    }
+
+    // Task 33: the Reverb WebSocket lives on its own host:port (a different origin), so the browser
+    // needs it explicitly in connect-src. Built from config so dev (ws://localhost:8080) and prod
+    // (wss://…) differ automatically; empty when Reverb isn't configured.
+    private function reverbOrigin(): string
+    {
+        $options = config('broadcasting.connections.reverb.options');
+        $host = $options['host'] ?? null;
+
+        if (! $host) {
+            return '';
+        }
+
+        $scheme = ($options['scheme'] ?? 'https') === 'https' ? 'wss' : 'ws';
+
+        return ' '.$scheme.'://'.$host.':'.($options['port'] ?? 443);
     }
 }

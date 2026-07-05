@@ -9,7 +9,7 @@
     $last = $row->lastMessage;
     $unread = $row->unreadCount > 0;
 @endphp
-<a href="#" class="flex grow gap-2.5 px-5 py-2 {{ $unread ? 'bg-primary/5' : '' }}" data-conversation-item data-conversation-id="{{ $row->conversation->id }}">
+<a href="#" class="flex grow gap-2.5 px-5 py-3 {{ $unread ? 'bg-primary/5' : '' }}" data-conversation-item data-conversation-id="{{ $row->conversation->id }}">
  <div class="kt-avatar size-8">
   @if ($other->profile_picture)
   <div class="kt-avatar-image">
@@ -23,6 +23,12 @@
   <div class="flex items-center justify-between gap-2">
    <span class="text-sm font-medium text-mono {{ $unread ? 'font-semibold' : '' }}" data-conversation-name>{{ $other->name }}</span>
    <span class="text-xs font-medium text-muted-foreground shrink-0">{{ $row->lastActivityAt?->diffForHumans() }}</span>
+  </div>
+  <div class="flex items-center gap-1.5">
+   @if ($other->user_id)
+   <span class="text-xs font-medium text-muted-foreground">{{ $other->user_id }}</span>
+   @endif
+   <span class="kt-badge kt-badge-sm kt-badge-outline {{ $other->user_type === 'educator' ? 'kt-badge-primary' : 'kt-badge-info' }}">{{ ucfirst($other->user_type) }}</span>
   </div>
   <div class="flex items-center justify-between gap-2">
    <span class="text-xs font-medium text-secondary-foreground truncate">

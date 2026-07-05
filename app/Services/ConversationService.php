@@ -102,8 +102,8 @@ class ConversationService
         // read row. Unread counts are then one grouped query for all conversations (see below).
         $conversations = Conversation::forParticipant($user->id)
             ->with([
-                'student:id,given_name,surname,profile_picture',
-                'educator:id,given_name,surname,profile_picture',
+                'student:id,given_name,surname,profile_picture,user_type,user_id',
+                'educator:id,given_name,surname,profile_picture,user_type,user_id',
                 'latestMessage',
                 'reads' => fn ($q) => $q->where('user_id', $user->id),
             ])

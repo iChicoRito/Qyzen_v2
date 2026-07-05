@@ -25,7 +25,7 @@
           </i>
          </button>
         </div>
-        <div class="kt-tabs kt-tabs-line justify-between px-5 mb-2" data-kt-tabs="true" id="notifications_tabs">
+        <div class="kt-tabs kt-tabs-line justify-between px-5" data-kt-tabs="true" id="notifications_tabs">
          <div class="flex items-center gap-5">
           <button class="kt-tab-toggle py-3 active" data-kt-tab-toggle="#notifications_tab_all">
            All
@@ -138,7 +138,7 @@
         </div>
         <div class="grow flex flex-col" id="notifications_tab_all">
          <div class="grow kt-scrollable-y-auto" data-kt-scrollable="true" data-kt-scrollable-dependencies="#header" data-kt-scrollable-max-height="auto" data-kt-scrollable-offset="150px">
-          <div class="grow flex flex-col gap-5 pt-3 pb-4 divider-y divider-border" id="notifications_list">
+          <div class="grow flex flex-col" id="notifications_list">
            @include('layouts.partials._notification_items', ['notifications' => $notifications ?? []])
           </div>
          </div>
@@ -215,7 +215,7 @@
         </div>
         <div class="grow flex flex-col hidden" id="notifications_tab_inbox">
          <div class="grow kt-scrollable-y-auto" data-kt-scrollable="true" data-kt-scrollable-dependencies="#header" data-kt-scrollable-max-height="auto" data-kt-scrollable-offset="150px">
-          <div class="grow flex flex-col gap-5 pt-3 pb-4 divider-y divider-border" id="conversations_list">
+          <div class="grow flex flex-col" id="conversations_list">
            @include('layouts.partials._conversation_list_items', ['rows' => $conversations ?? []])
           </div>
          </div>
@@ -830,7 +830,16 @@
         @endif
        </button>
        <!--Chat Drawer-->
-       <div class="hidden kt-drawer kt-drawer-end card flex-col max-w-[90%] w-[450px] top-5 bottom-5 end-5 rounded-xl border border-border" data-kt-drawer="true" data-kt-drawer-container="body" id="chat_drawer">
+       <div class="hidden kt-drawer kt-drawer-end card flex flex-col max-w-[90%] w-[450px] top-5 bottom-5 end-5 rounded-xl border border-border" data-kt-drawer="true" data-kt-drawer-container="body" id="chat_drawer">
+        {{-- The static Metronic CSS bundle ships a pre-purged Tailwind build that OMITS the
+             `min-h-0` and `overflow-y-auto` utilities, so the flex-column scroll must be defined
+             here. `display:flex !important` also beats any inline display KTUI sets on open. This is
+             what keeps the thread scrolling with the input bar docked, at any message count or zoom. --}}
+        <style nonce="{{ $cspNonce ?? '' }}">
+         #chat_drawer:not(.hidden){display:flex !important;}
+         #chat_drawer_list_state,#chat_drawer_contacts_state,#chat_drawer_thread_state{min-height:0;}
+         #chat_drawer .chat-scroll{min-height:0;overflow-y:auto;}
+        </style>
         <div class="flex items-center justify-between gap-2.5 text-sm text-mono font-semibold px-5 py-3.5">
          Chat
          <button class="kt-btn kt-btn-sm kt-btn-icon kt-btn-dim shrink-0" data-kt-drawer-dismiss="true">
@@ -842,7 +851,7 @@
         </div>
         <input type="hidden" id="chat_csrf_token" value="{{ csrf_token() }}">
         <!-- Conversation list state -->
-        <div class="grow flex flex-col" id="chat_drawer_list_state">
+        <div class="grow flex flex-col min-h-0" id="chat_drawer_list_state">
          <div class="flex items-center justify-between gap-2.5 px-5 py-2.5 border-b border-b-border">
           <span class="text-sm font-semibold text-mono">Messages</span>
           <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" id="chat_drawer_compose">
@@ -850,14 +859,14 @@
            New message
           </button>
          </div>
-         <div class="grow kt-scrollable-y-auto" data-kt-scrollable="true" data-kt-scrollable-dependencies="#header" data-kt-scrollable-max-height="auto" data-kt-scrollable-offset="150px">
-          <div class="grow flex flex-col gap-5 pt-3 pb-4 divider-y divider-border" id="chat_drawer_list">
+         <div class="grow chat-scroll">
+          <div class="grow flex flex-col" id="chat_drawer_list">
            @include('layouts.partials._conversation_list_items', ['rows' => $conversations ?? []])
           </div>
          </div>
         </div>
         <!-- Compose / contacts state -->
-        <div class="grow flex flex-col hidden" id="chat_drawer_contacts_state">
+        <div class="grow flex flex-col min-h-0 hidden" id="chat_drawer_contacts_state">
          <div class="flex items-center gap-2.5 px-5 py-3 border-b border-b-border">
           <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" id="chat_drawer_contacts_back">
            <i class="ki-filled ki-left text-lg"></i>
@@ -870,12 +879,12 @@
            <input type="text" placeholder="Search people..." id="chat_drawer_contacts_search"/>
           </div>
          </div>
-         <div class="grow kt-scrollable-y-auto" data-kt-scrollable="true" data-kt-scrollable-dependencies="#header" data-kt-scrollable-max-height="auto" data-kt-scrollable-offset="210px">
-          <div class="grow flex flex-col gap-5 pt-3 pb-4 divider-y divider-border" id="chat_drawer_contacts"></div>
+         <div class="grow chat-scroll">
+          <div class="grow flex flex-col" id="chat_drawer_contacts"></div>
          </div>
         </div>
         <!-- Thread state -->
-        <div class="grow flex flex-col hidden" id="chat_drawer_thread_state">
+        <div class="grow flex flex-col min-h-0 hidden" id="chat_drawer_thread_state">
          <div class="flex items-center gap-2.5 px-5 py-3 border-b border-b-border">
           <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" id="chat_drawer_back">
            <i class="ki-filled ki-left text-lg">
@@ -884,16 +893,16 @@
           <span class="text-sm font-semibold text-mono" id="chat_drawer_thread_title">
           </span>
          </div>
-         <div class="kt-scrollable-y-auto grow" data-kt-scrollable="true" data-kt-scrollable-dependencies="#header" data-kt-scrollable-max-height="auto" data-kt-scrollable-offset="230px">
+         <div class="grow chat-scroll">
           <div id="chat_drawer_thread">
           </div>
          </div>
          <!--Chat Footer-->
-         <div class="mb-2.5">
-          <div class="relative grow mx-5">
+         <div class="border-t border-t-border px-5 py-3">
+          <div class="relative grow">
            <input class="kt-input h-auto py-4" placeholder="Write a message..." type="text" id="chat_drawer_input"/>
            <div class="flex items-center gap-2.5 absolute end-3 top-1/2 -translate-y-1/2">
-            <button class="kt-btn kt-btn-mono kt-btn-sm" type="button" id="chat_drawer_send">
+            <button class="kt-btn kt-btn-primary kt-btn-sm" type="button" id="chat_drawer_send">
              Send
             </button>
            </div>
@@ -1021,8 +1030,13 @@
             var notifDismiss = document.querySelector('#notifications_drawer [data-kt-drawer-dismiss]');
             var notifDrawer = document.getElementById('notifications_drawer');
             if (notifDismiss && notifDrawer && !notifDrawer.classList.contains('hidden')) { notifDismiss.click(); }
-            var chatToggle = document.querySelector('[data-kt-drawer-toggle="#chat_drawer"]');
-            if (chatToggle) { chatToggle.click(); }
+            // Only open the chat drawer if it's closed; if the item was clicked inside the already-open
+            // drawer, toggling here would close it (task 32).
+            var chatDrawer = document.getElementById('chat_drawer');
+            if (chatDrawer && chatDrawer.classList.contains('hidden')) {
+             var chatToggle = document.querySelector('[data-kt-drawer-toggle="#chat_drawer"]');
+             if (chatToggle) { chatToggle.click(); }
+            }
             return;
            }
 

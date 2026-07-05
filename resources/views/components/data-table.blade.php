@@ -20,17 +20,23 @@
 <div class="kt-card kt-card-grid min-w-full">
     <div id="{{ $id }}_header" class="kt-card-header flex-wrap items-center gap-2 py-5 {{ $search ? 'justify-between' : '' }}">
         @if ($search)
-            <div class="w-80 max-w-full shrink-0">
+            {{-- w-full on mobile (a fixed w-80=320px here is shrink-resistant and floors the
+                 whole page ~35px too wide); sm:w-80 restores the 320px box on real screens. --}}
+            <div class="w-full sm:w-80">
                 <label class="kt-input">
                     <i class="ki-filled ki-magnifier"></i>
                     <input data-kt-datatable-search="#{{ $id }}" placeholder="{{ $searchPlaceholder }}" type="text" value="" />
                 </label>
             </div>
         @endif
-        @isset($filters)<div class="flex flex-wrap gap-2.5 {{ $search ? 'shrink-0' : 'w-full' }}">{{ $filters }}</div>@endisset
+        {{-- max-w-full: cap the filters row at the card width so its selects wrap onto
+             new lines on mobile instead of overflowing the page. --}}
+        @isset($filters)<div class="flex flex-wrap gap-2.5 max-w-full {{ $search ? 'shrink-0' : 'w-full' }}">{{ $filters }}</div>@endisset
     </div>
     <div class="kt-card-content">
-        <div class="grid" data-kt-datatable="true" data-kt-datatable-state-save="false" data-kt-datatable-page-size="{{ $pageSize }}" id="{{ $id }}">
+        {{-- grid-cols-1 = minmax(0,1fr): caps the track at the container width so the
+             wide table scrolls INSIDE .kt-scrollable-x-auto instead of pushing the page. --}}
+        <div class="grid grid-cols-1" data-kt-datatable="true" data-kt-datatable-state-save="false" data-kt-datatable-page-size="{{ $pageSize }}" id="{{ $id }}">
             <div class="kt-scrollable-x-auto">
                 <table class="kt-table table-auto kt-table-border" data-kt-datatable-table="true">
                     {{ $head }}

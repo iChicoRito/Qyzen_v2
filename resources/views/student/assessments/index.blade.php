@@ -9,7 +9,7 @@
 
     {{-- Filter bar: search + filters grouped on the left, grid/list toggle alone on the far right. --}}
     <div id="assessment_filters" class="flex flex-wrap items-center gap-2.5 mb-5">
-        <div class="flex flex-wrap items-center gap-2.5">
+        <div class="flex flex-wrap items-center gap-2.5 max-w-full min-w-0">
             <div class="w-full md:w-80 max-w-full">
                 <label class="kt-input">
                     <i class="ki-filled ki-magnifier"></i>

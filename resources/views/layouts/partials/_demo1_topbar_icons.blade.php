@@ -927,6 +927,18 @@
           var input = document.getElementById('chat_drawer_input');
           var currentId = null;
 
+          // Optimized polling engine (replaces the task 33 Reverb subscription; BROADCAST_CONNECTION=log).
+          // Two loops, both paused when the tab is hidden: a steady badge/list poll, and an adaptive
+          // thread poll that runs fast (3s) right after activity and backs off to 10s when a thread is quiet.
+          var chatDrawerEl = document.getElementById('chat_drawer');
+          var BADGE_INTERVAL = 15000, THREAD_MIN = 3000, THREAD_MAX = 10000, THREAD_BACKOFF_AFTER = 3;
+          var badgeTimer = null, threadTimer = null;
+          var threadDelay = THREAD_MIN, threadIdleCycles = 0;
+          var lastThreadSig = null;   // change token of the open thread, last rendered
+          var lastListSig = null;     // change token of the badge/list poll, last rendered
+          function pageVisible() { return document.visibilityState === 'visible'; }
+          function threadActive() { return currentId && chatDrawerEl && !chatDrawerEl.classList.contains('hidden'); }
+
           function showOnly(target) {
            [listState, threadState, contactsState].forEach(function (s) { s.classList.add('hidden'); });
            target.classList.remove('hidden');
@@ -947,15 +959,17 @@
            dot.textContent = count > 9 ? '9+' : String(count);
           }
 
-          // ponytail: one 30s poll keeps the message-icon badge, the bell total, the Inbox tab, and
-          // the chat drawer list all in sync — same fragment-swap strategy as the notification bell.
-          function pollMessaging() {
+          // Keeps the message-icon badge, the bell total, the Inbox tab, and the chat drawer list in
+          // sync. Always refreshes the numeric badge; only re-renders the list HTML when the server
+          // signature moved (or force=true on explicit navigation) to avoid pointless reflow.
+          function pollMessaging(force) {
            fetch(baseUrl, { headers: headers() })
             .then(function (r) { return r.json(); })
             .then(function (data) {
              if (window.qyzenUnread) { window.qyzenUnread.msg = data.unread_count; if (window.qyzenRenderBell) { window.qyzenRenderBell(); } }
              setMsgBadge(data.unread_count);
-             if (typeof data.html === 'string') {
+             if (typeof data.html === 'string' && (force || data.signature !== lastListSig)) {
+              lastListSig = data.signature;
               if (inboxListEl) { inboxListEl.innerHTML = data.html; }
               if (!listState.classList.contains('hidden')) { listEl.innerHTML = data.html; }
              }
@@ -963,29 +977,55 @@
             .catch(function () {});
           }
 
-          // Task 33: pollThread/pollMessaging are now the render path, triggered by Reverb pushes
-          // (see subscribeRealtime) instead of timers — one fetch of the existing server-rendered fragment.
-          function pollThread() {
+          // Read-only thread poll (?peek=1 — no DB write) except when opts.markRead (open). Only swaps
+          // the HTML when the signature changed; on change it snaps back to the fast interval and, if a
+          // new message arrived while viewing, marks the thread read (one write, not per tick).
+          function pollThread(opts) {
            if (!currentId) { return; }
-           fetch(baseUrl + '/' + currentId, { headers: headers() })
+           var markRead = opts && opts.markRead;
+           fetch(baseUrl + '/' + currentId + (markRead ? '' : '?peek=1'), { headers: headers() })
             .then(function (r) { return r.json(); })
-            .then(function (data) { if (typeof data.html === 'string') { threadEl.innerHTML = data.html; } })
+            .then(function (data) {
+             var changed = data.signature !== lastThreadSig;
+             if (typeof data.html === 'string' && (changed || (opts && opts.force))) { threadEl.innerHTML = data.html; }
+             if (changed) {
+              if (lastThreadSig !== null && !markRead && threadActive() && pageVisible()) {
+               fetch(baseUrl + '/' + currentId + '/read', { method: 'POST', headers: headers() })
+                .then(function () { pollMessaging(); }).catch(function () {});
+              }
+              lastThreadSig = data.signature;
+              threadDelay = THREAD_MIN; threadIdleCycles = 0;
+             } else if (++threadIdleCycles >= THREAD_BACKOFF_AFTER) {
+              threadDelay = THREAD_MAX;
+             }
+            })
             .catch(function () {});
           }
 
+          // Self-scheduling adaptive loop: re-arms only while the thread is open and the tab is visible.
+          function threadTick() {
+           threadTimer = null;
+           if (!threadActive() || !pageVisible()) { return; }
+           pollThread();
+           threadTimer = setTimeout(threadTick, threadDelay);
+          }
+          function scheduleThreadPoll() { clearTimeout(threadTimer); threadTimer = setTimeout(threadTick, threadDelay); }
+
           function openThread(id, name) {
            currentId = id;
+           lastThreadSig = null; threadDelay = THREAD_MIN; threadIdleCycles = 0;
            threadTitle.textContent = name || '';
            showOnly(threadState);
-           pollThread();
-           // Opening marks the thread read server-side; refresh the badges once that lands.
-           setTimeout(pollMessaging, 1000);
+           pollThread({ markRead: true, force: true });  // opening marks read server-side + renders
+           setTimeout(pollMessaging, 1000);               // badges reflect the read once it lands
+           scheduleThreadPoll();
           }
 
           function backToList() {
-           currentId = null;
+           currentId = null; lastThreadSig = null;
+           clearTimeout(threadTimer); threadTimer = null;
            showOnly(listState);
-           pollMessaging();
+           pollMessaging(true);
           }
 
           function openCompose() {
@@ -1053,7 +1093,7 @@
              fetch('{{ url('/messaging/messages') }}/' + mid, {
               method: 'PUT', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ content: next }),
              }).then(function (r) { return r.json(); })
-              .then(function (data) { if (typeof data.html === 'string') { threadEl.innerHTML = data.html; } });
+              .then(function (data) { if (typeof data.html === 'string') { threadEl.innerHTML = data.html; } if (data.signature) { lastThreadSig = data.signature; } });
             }
             return;
            }
@@ -1064,7 +1104,7 @@
             if (window.confirm('Delete this message?')) {
              fetch('{{ url('/messaging/messages') }}/' + did, { method: 'DELETE', headers: headers() })
               .then(function (r) { return r.json(); })
-              .then(function (data) { if (typeof data.html === 'string') { threadEl.innerHTML = data.html; } });
+              .then(function (data) { if (typeof data.html === 'string') { threadEl.innerHTML = data.html; } if (data.signature) { lastThreadSig = data.signature; } });
             }
             return;
            }
@@ -1084,7 +1124,9 @@
            }).then(function (r) { return r.json(); })
             .then(function (data) {
              if (typeof data.html === 'string') { threadEl.innerHTML = data.html; }
+             if (data.signature) { lastThreadSig = data.signature; }
              input.value = '';
+             threadDelay = THREAD_MIN; threadIdleCycles = 0;  // expect a quick reply — poll fast
             });
           }
 
@@ -1123,18 +1165,19 @@
            if (e.target && e.target.id === 'chat_drawer_subject_filter') { applyContactFilter(); }
           });
 
-          // Task 33: real-time via Reverb — subscribe to this user's private channel; the server
-          // pushes a "thread.updated" ping and the existing fragment fetches do the render. No timers.
-          // ponytail: no fallback poll — Echo auto-reconnects; add a slow 60s reconcile only if drops show.
-          function subscribeRealtime() {
-           if (!window.Echo || !window.qyzenUserId) { return; }
-           window.Echo.private('messaging.' + window.qyzenUserId).listen('.thread.updated', function (e) {
-            pollMessaging();
-            if (e && String(e.conversationId) === String(currentId)) { pollThread(); }
-           });
+          // Start/stop the two poll loops. Hidden tabs make zero requests; becoming visible catches up
+          // immediately, then resumes. This is the whole "optimized polling" replacement for Reverb.
+          function startPolling() {
+           if (!badgeTimer) { badgeTimer = setInterval(function () { if (pageVisible()) { pollMessaging(); } }, BADGE_INTERVAL); }
+           pollMessaging();
+           if (threadActive()) { threadDelay = THREAD_MIN; threadIdleCycles = 0; scheduleThreadPoll(); }
           }
-          // Echo loads as a deferred Vite ES module, so window.Echo is ready by the 'load' event.
-          if (window.Echo) { subscribeRealtime(); } else { window.addEventListener('load', subscribeRealtime); }
+          function stopPolling() {
+           clearInterval(badgeTimer); badgeTimer = null;
+           clearTimeout(threadTimer); threadTimer = null;
+          }
+          document.addEventListener('visibilitychange', function () { if (pageVisible()) { startPolling(); } else { stopPolling(); } });
+          if (pageVisible()) { startPolling(); }
          })();
         </script>
        </div>

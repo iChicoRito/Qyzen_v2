@@ -81,16 +81,18 @@ class PrivateMessagingTest extends TestCase
         // Student sees the educator they're enrolled with, and not an unrelated educator.
         $otherEducator = $this->makeUser('educator', 'educator');
 
+        // Names are Blade-escaped in the fragment, so compare against e() — faker occasionally rolls a
+        // name with an apostrophe (O'Connell) which renders as &#039; and would fail a raw compare.
         $res = $this->actingAs($this->enrolledStudent)->getJson(route('messaging.contacts'))->assertOk();
         $html = $res->json('html');
-        $this->assertStringContainsString($this->educator->name, $html);
-        $this->assertStringNotContainsString($otherEducator->name, $html);
+        $this->assertStringContainsString(e($this->educator->name), $html);
+        $this->assertStringNotContainsString(e($otherEducator->name), $html);
 
         // Educator sees the enrolled student, not the un-enrolled one.
         $eduRes = $this->actingAs($this->educator)->getJson(route('messaging.contacts'))->assertOk();
         $eduHtml = $eduRes->json('html');
-        $this->assertStringContainsString($this->enrolledStudent->name, $eduHtml);
-        $this->assertStringNotContainsString($this->unenrolledStudent->name, $eduHtml);
+        $this->assertStringContainsString(e($this->enrolledStudent->name), $eduHtml);
+        $this->assertStringNotContainsString(e($this->unenrolledStudent->name), $eduHtml);
 
         // Each row shows the person's number + role badge; educator gets the subject/section filter.
         $this->assertStringContainsString($this->enrolledStudent->user_id, $eduHtml); // student number
@@ -171,6 +173,26 @@ class PrivateMessagingTest extends TestCase
 
         $after = $this->actingAs($this->enrolledStudent)->getJson(route('messaging.conversations'))->assertOk();
         $this->assertSame(0, $after->json('unread_count'));
+    }
+
+    public function test_peek_poll_reads_the_thread_without_marking_it_read(): void
+    {
+        $conversation = Conversation::create(['student_id' => $this->enrolledStudent->id, 'educator_id' => $this->educator->id]);
+        ConversationMessage::create(['conversation_id' => $conversation->id, 'sender_user_id' => $this->educator->id, 'content' => 'Hi']);
+
+        // The read-only polling path (?peek=1) returns the thread + a change signature but writes nothing.
+        $this->actingAs($this->enrolledStudent)
+            ->getJson(route('messaging.conversations.show', $conversation).'?peek=1')
+            ->assertOk()
+            ->assertJsonStructure(['signature', 'html']);
+        $this->assertDatabaseMissing('tbl_conversation_reads', [
+            'conversation_id' => $conversation->id, 'user_id' => $this->enrolledStudent->id,
+        ]);
+        $this->assertSame(1, $this->actingAs($this->enrolledStudent)->getJson(route('messaging.conversations'))->json('unread_count'));
+
+        // A real open (no peek) still marks it read.
+        $this->actingAs($this->enrolledStudent)->getJson(route('messaging.conversations.show', $conversation))->assertOk();
+        $this->assertSame(0, $this->actingAs($this->enrolledStudent)->getJson(route('messaging.conversations'))->json('unread_count'));
     }
 
     public function test_unread_message_lights_up_both_the_message_and_notification_icons(): void

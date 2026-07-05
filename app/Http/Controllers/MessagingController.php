@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\ConversationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
@@ -27,6 +28,8 @@ class MessagingController extends Controller
 
         return response()->json([
             'unread_count' => $rows->sum('unreadCount'),
+            // Cheap change token so the client skips the list re-render when nothing moved.
+            'signature' => $rows->map(fn ($row) => ($row->lastMessage->id ?? 0).':'.$row->unreadCount)->implode(','),
             'html' => view('layouts.partials._conversation_list_items', ['rows' => $rows])->render(),
         ]);
     }
@@ -60,21 +63,17 @@ class MessagingController extends Controller
         return response()->json(['conversation_id' => $conversation->id]);
     }
 
-    // GET /messaging/conversations/{conversation} — thread fragment; marks read as a side effect.
-    public function show(Conversation $conversation): JsonResponse
+    // GET /messaging/conversations/{conversation} — thread fragment. Marks read as a side effect
+    // UNLESS ?peek=1 (the read-only polling path), so frequent polls don't write on every tick.
+    public function show(Conversation $conversation, Request $request): JsonResponse
     {
         $this->authorize('view', $conversation);
 
-        $this->conversations->markRead($conversation, Auth::id());
+        if (! $request->boolean('peek')) {
+            $this->conversations->markRead($conversation, Auth::id());
+        }
 
-        $thread = $this->conversations->threadFor($conversation, Auth::user());
-
-        return response()->json([
-            'html' => view('layouts.partials._conversation_thread', [
-                'conversation' => $conversation,
-                'thread' => $thread,
-            ])->render(),
-        ]);
+        return $this->threadResponse($conversation);
     }
 
     // POST /messaging/conversations/{conversation}/read — explicit mark-read (also used by the thread poll).
@@ -99,14 +98,7 @@ class MessagingController extends Controller
 
         $this->pingOtherParticipant($conversation);
 
-        $thread = $this->conversations->threadFor($conversation, Auth::user());
-
-        return response()->json([
-            'html' => view('layouts.partials._conversation_thread', [
-                'conversation' => $conversation,
-                'thread' => $thread,
-            ])->render(),
-        ]);
+        return $this->threadResponse($conversation);
     }
 
     // PUT /messaging/messages/{message} — edit own message.
@@ -118,14 +110,7 @@ class MessagingController extends Controller
 
         $this->pingOtherParticipant($message->conversation);
 
-        $thread = $this->conversations->threadFor($message->conversation, Auth::user());
-
-        return response()->json([
-            'html' => view('layouts.partials._conversation_thread', [
-                'conversation' => $message->conversation,
-                'thread' => $thread,
-            ])->render(),
-        ]);
+        return $this->threadResponse($message->conversation);
     }
 
     // DELETE /messaging/messages/{message} — soft marker delete (content blanked, not row-removed).
@@ -137,14 +122,32 @@ class MessagingController extends Controller
 
         $this->pingOtherParticipant($message->conversation);
 
-        $thread = $this->conversations->threadFor($message->conversation, Auth::user());
+        return $this->threadResponse($message->conversation);
+    }
+
+    // Thread fragment + a cheap change token so a polling client can detect new messages, edits, and
+    // deletes, skip the HTML swap when nothing changed, and mark-read only when it actually did.
+    private function threadResponse(Conversation $conversation): JsonResponse
+    {
+        $thread = $this->conversations->threadFor($conversation, Auth::user());
 
         return response()->json([
+            'signature' => $this->threadSignature($thread),
             'html' => view('layouts.partials._conversation_thread', [
-                'conversation' => $message->conversation,
+                'conversation' => $conversation,
                 'thread' => $thread,
             ])->render(),
         ]);
+    }
+
+    // Newest message id + newest updated_at across the thread. Changes on send/edit/delete; stable
+    // otherwise — so the client compares it against the last value to decide whether to re-render.
+    private function threadSignature(Collection $thread): string
+    {
+        $last = $thread->last();
+        $maxTs = (int) $thread->max(fn ($row) => optional($row->message->updated_at)->getTimestamp());
+
+        return ($last ? $last->message->id : 0).':'.$maxTs;
     }
 
     // Task 33: notify the OTHER participant that this thread changed. The acting user already gets

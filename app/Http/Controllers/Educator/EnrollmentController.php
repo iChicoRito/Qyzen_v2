@@ -6,8 +6,9 @@ use App\Exports\EnrollmentImportTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreEnrollmentRequest;
 use App\Http\Requests\UpdateEnrollmentRequest;
-use App\Imports\EnrollmentsImport;
+use App\Jobs\ProcessEnrollmentImport;
 use App\Models\Enrolled;
+use App\Models\EnrollmentImport;
 use App\Models\Subject;
 use App\Models\User;
 use App\Services\NotificationService;
@@ -37,7 +38,9 @@ class EnrollmentController extends Controller
             ])
             ->orderBy('subject_code')->get();
 
-        return view('educator.enrollment.index', compact('subjects'));
+        $imports = EnrollmentImport::ownedBy(Auth::user())->latest()->take(6)->get();
+
+        return view('educator.enrollment.index', compact('subjects', 'imports'));
     }
 
     // Detail page: all students enrolled in one subject/section (mirrors scores.show).
@@ -79,7 +82,8 @@ class EnrollmentController extends Controller
                 if ($row->wasRecentlyCreated) {
                     $created++;
                     $this->notifications->emit(Auth::user(), 'enrollment_created', (int) $studentId, [
-                        'subject_id' => (int) $subjectId, 'title' => 'Enrolled in a new subject',
+                        'subject_id' => (int) $subjectId,
+                        'title' => 'Enrolled in a new subject',
                         'link_path' => route('student.assessments.index'),
                     ]);
                 }
@@ -106,7 +110,8 @@ class EnrollmentController extends Controller
 
         $enrolled->update($request->validated());
         $this->notifications->emit(Auth::user(), 'enrollment_updated', $enrolled->student_id, [
-            'subject_id' => $enrolled->subject_id, 'title' => 'Enrollment updated',
+            'subject_id' => $enrolled->subject_id,
+            'title' => 'Enrollment updated',
             'link_path' => route('student.assessments.index'),
         ]);
 
@@ -122,31 +127,63 @@ class EnrollmentController extends Controller
         $enrolled->delete();
         // enrollment_deleted: the row is gone, authorizer verifies by subject ownership.
         $this->notifications->emit(Auth::user(), 'enrollment_deleted', $studentId, [
-            'subject_id' => $subjectId, 'title' => 'Unenrolled from a subject',
+            'subject_id' => $subjectId,
+            'title' => 'Unenrolled from a subject',
             'link_path' => route('student.assessments.index'),
         ]);
 
         return redirect()->route('educator.enrollment.index')->with('status', 'Enrollment removed.');
     }
 
-    // G4 bulk import.
+    // Task 39 bulk import.
     public function importTemplate()
     {
         $this->authorize('create', Enrolled::class);
 
-        return Excel::download(new EnrollmentImportTemplateExport(), 'enrollment-import-template.xlsx');
+        return Excel::download(new EnrollmentImportTemplateExport, 'enrollment-upload-template.xlsx');
     }
 
     public function import(Request $request): RedirectResponse
     {
         $this->authorize('create', Enrolled::class);
 
-        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+        $request->validate([
+            'file' => ['required', 'array', 'min:1'],
+            'file.*' => ['required', 'file', 'mimes:xlsx'],
+        ]);
 
-        $import = new EnrollmentsImport(Auth::user(), $this->notifications);
-        Excel::import($import, $request->file('file'));
+        foreach ($request->file('file') as $file) {
+            $path = $file->storeAs('imports/uploads', uniqid('enrollments-', true).'.'.$file->getClientOriginalExtension(), 'local');
+
+            $import = EnrollmentImport::create([
+                'initiated_by_user_id' => $request->user()->id,
+                'original_filename' => $file->getClientOriginalName(),
+                'upload_path' => $path,
+                'status' => 'queued',
+            ]);
+
+            ProcessEnrollmentImport::dispatch($import);
+        }
+
+        $count = count($request->file('file'));
 
         return redirect()->route('educator.enrollment.index')
-            ->with('status', "Imported {$import->createdCount()} enrollment(s); {$import->skippedCount()} skipped.");
+            ->with('status', $count === 1 ? 'Enrollment import queued.' : "{$count} enrollment imports queued.");
+    }
+
+    public function importTimeline(Request $request): View
+    {
+        $this->authorize('create', Enrolled::class);
+
+        $imports = EnrollmentImport::ownedBy($request->user())->latest()->take(6)->get();
+
+        return view('educator.enrollment._import-timeline', compact('imports'));
+    }
+
+    public function showImport(EnrollmentImport $enrollmentImport): View
+    {
+        $this->authorize('view', $enrollmentImport);
+
+        return view('educator.enrollment.import-show', compact('enrollmentImport'));
     }
 }

@@ -1,0 +1,53 @@
+{{-- Task 30: message bubbles for one conversation thread, adapted from the real (formerly
+     static-demo) chat drawer markup — same kt-card/bg-primary/bg-accent classes, now data-driven.
+     Rendered on load AND returned as an HTML fragment by MessagingController for the 5s thread
+     poll and after send/edit/delete, so the drawer never reloads the page. --}}
+@php $myId = \Illuminate\Support\Facades\Auth::id(); @endphp
+<div class="flex flex-col gap-5 py-5" id="chat_drawer_messages" data-conversation-id="{{ $conversation->id }}">
+ @forelse (($thread ?? []) as $row)
+ @php
+     $message = $row->message;
+     $mine = $message->sender_user_id === $myId;
+     $deleted = $message->isDeleted();
+ @endphp
+ <div class="flex items-end {{ $mine ? 'justify-end' : '' }} gap-3.5 px-5" data-message-id="{{ $message->id }}">
+  @unless ($mine)
+  <div class="kt-avatar size-9">
+   @if ($message->sender?->profile_picture)
+   <div class="kt-avatar-image">
+    <img alt="avatar" src="{{ asset('storage/'.$message->sender->profile_picture) }}"/>
+   </div>
+   @else
+   <span class="inline-flex items-center justify-center size-9 rounded-full bg-primary/10 text-primary text-xs font-semibold">{{ strtoupper(substr($message->sender?->given_name ?? '?', 0, 1)) }}</span>
+   @endif
+  </div>
+  @endunless
+  <div class="flex flex-col gap-1.5 {{ $mine ? 'items-end' : '' }}">
+   <div class="kt-card shadow-none flex flex-col gap-2.5 p-3 text-2sm {{ $mine ? 'bg-primary rounded-be-none' : 'bg-accent/60 rounded-bs-none' }}">
+    <p class="{{ $mine ? 'text-primary-foreground' : '' }} {{ $deleted ? 'italic opacity-70' : '' }}">{{ $message->displayContent() }}</p>
+   </div>
+   <div class="flex items-center gap-2 relative {{ $mine ? 'justify-end' : '' }}">
+    <span class="text-xs font-medium text-muted-foreground">{{ $message->created_at->format('H:i') }}</span>
+    @if ($message->isEdited() && !$deleted)
+    <span class="text-xs font-medium text-muted-foreground italic">(edited)</span>
+    @endif
+    @if ($mine)
+    <i class="ki-filled ki-double-check text-lg {{ $row->isRead ? 'text-green-500' : 'text-muted-foreground' }}"></i>
+    @endif
+    @if ($mine && !$deleted)
+    <button type="button" class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost" data-message-edit="{{ $message->id }}" title="Edit">
+     <i class="ki-filled ki-notepad-edit text-sm"></i>
+    </button>
+    <button type="button" class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost" data-message-delete="{{ $message->id }}" title="Delete">
+     <i class="ki-filled ki-trash text-sm"></i>
+    </button>
+    @endif
+   </div>
+  </div>
+ </div>
+ @empty
+ <div class="flex flex-col items-center justify-center text-center gap-2 py-10 px-5">
+  <span class="text-sm font-medium text-secondary-foreground">No messages yet — say hello!</span>
+ </div>
+ @endforelse
+</div>

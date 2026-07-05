@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\OAuthController;
+use App\Http\Controllers\MessagingController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Educator\AssessmentController;
 use App\Http\Controllers\Educator\ChatController;
@@ -80,6 +81,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+
+    // Task 30 — private 1:1 student/educator messaging. Shared group: enrollment (subject-
+    // agnostic) is the access boundary, re-checked by ConversationPolicy on every action.
+    Route::get('/messaging/contacts', [MessagingController::class, 'contacts'])->name('messaging.contacts');
+    Route::get('/messaging/conversations', [MessagingController::class, 'conversations'])->name('messaging.conversations');
+    Route::post('/messaging/conversations', [MessagingController::class, 'store'])->name('messaging.conversations.store');
+    Route::get('/messaging/conversations/{conversation}', [MessagingController::class, 'show'])->name('messaging.conversations.show');
+    Route::post('/messaging/conversations/{conversation}/read', [MessagingController::class, 'markRead'])->name('messaging.conversations.read');
+    Route::post('/messaging/conversations/{conversation}/messages', [MessagingController::class, 'sendMessage'])->name('messaging.messages.send');
+    Route::put('/messaging/messages/{message}', [MessagingController::class, 'updateMessage'])->name('messaging.messages.update');
+    Route::delete('/messaging/messages/{message}', [MessagingController::class, 'destroyMessage'])->name('messaging.messages.destroy');
 });
 
 // Stage F — Admin features. One route group per role (CONVENTIONS.md); every action behind

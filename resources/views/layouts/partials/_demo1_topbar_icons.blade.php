@@ -8,11 +8,12 @@
        </button>
        <!-- End of Search -->
        <!-- Notifications -->
+       @php $bellTotal = ((int) ($unreadCount ?? 0)) + ((int) ($messageUnreadCount ?? 0)); @endphp
        <button class="relative kt-btn kt-btn-ghost kt-btn-icon size-9 rounded-full hover:bg-primary/10 hover:[&_i]:text-primary" data-kt-drawer-toggle="#notifications_drawer" id="notifications_bell_btn">
         <i class="ki-filled ki-notification-status text-lg">
         </i>
-        @if (($unreadCount ?? 0) > 0)
-        <span class="absolute top-1 -end-1 flex items-center justify-center size-[18px] rounded-full bg-destructive text-white text-[10px] font-semibold leading-none" id="notifications_bell_dot">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
+        @if ($bellTotal > 0)
+        <span class="absolute top-1 -end-1 flex items-center justify-center size-[18px] rounded-full bg-destructive text-white text-[10px] font-semibold leading-none" id="notifications_bell_dot">{{ $bellTotal > 9 ? '9+' : $bellTotal }}</span>
         @endif
        </button>
        <!--Notifications Drawer-->
@@ -160,6 +161,11 @@
            var list = document.getElementById('notifications_list');
            var badgeCls = 'absolute top-1 -end-1 flex items-center justify-center size-[18px] rounded-full bg-destructive text-white text-[10px] font-semibold leading-none';
 
+           // Shared unread state so the bell shows notifications + messages combined; the chat
+           // script (below) updates .msg. qyzenRenderBell is the single writer of the bell badge.
+           window.qyzenUnread = window.qyzenUnread || { notif: {{ (int) ($unreadCount ?? 0) }}, msg: {{ (int) ($messageUnreadCount ?? 0) }} };
+           window.qyzenRenderBell = function () { setBadge((window.qyzenUnread.notif || 0) + (window.qyzenUnread.msg || 0)); };
+
            function setBadge(count) {
             var dot = document.getElementById('notifications_bell_dot');
             if (!count || count < 1) { if (dot) { dot.remove(); } return; }
@@ -186,7 +192,7 @@
                 var d = el.querySelector('.kt-avatar-status');
                 if (d) { d.classList.remove('kt-avatar-status-online'); d.classList.add('kt-avatar-status-offline'); }
                });
-               setBadge(0); setFormVisible(false);
+               window.qyzenUnread.notif = 0; window.qyzenRenderBell(); setFormVisible(false);
               })
               .catch(function () { form.submit(); });
             });
@@ -198,7 +204,7 @@
              .then(function (r) { if (!r.ok) throw r; return r.json(); })
              .then(function (data) {
               if (list && typeof data.html === 'string') { list.innerHTML = data.html; }
-              setBadge(data.unread_count);
+              window.qyzenUnread.notif = data.unread_count; window.qyzenRenderBell();
               setFormVisible(data.unread_count > 0);
              })
              .catch(function () {});
@@ -209,286 +215,9 @@
         </div>
         <div class="grow flex flex-col hidden" id="notifications_tab_inbox">
          <div class="grow kt-scrollable-y-auto" data-kt-scrollable="true" data-kt-scrollable-dependencies="#header" data-kt-scrollable-max-height="auto" data-kt-scrollable-offset="150px">
-          <div class="flex flex-col gap-5 pt-3 pb-4">
-           <div class="flex grow gap-2.5 px-5" id="notification_request_13">
-            <div class="kt-avatar size-8">
-             <div class="kt-avatar-image">
-              <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-25.png') }}">
-              </img>
-             </div>
-             <div class="kt-avatar-indicator -end-2 -bottom-2">
-              <div class="kt-avatar-status kt-avatar-status-online size-2.5">
-              </div>
-             </div>
-            </div>
-            <div class="flex flex-col gap-3.5 grow">
-             <div class="flex flex-col gap-1">
-              <div class="text-sm font-medium mb-px">
-               <a class="hover:text-primary text-mono font-semibold" href="#">
-                Samuel Lee
-               </a>
-               <span class="text-secondary-foreground">
-                requested to add user to
-               </span>
-               <a class="hover:text-primary text-primary font-semibold" href="#">
-                TechSynergy
-               </a>
-              </div>
-              <span class="flex items-center text-xs font-medium text-muted-foreground">
-               22 hours ago
-               <span class="rounded-full size-1 bg-mono/30 mx-1.5">
-               </span>
-               Dev Team
-              </span>
-             </div>
-             <div class="kt-card shadow-none flex items-center flex-row justify-between gap-1.5 px-2.5 py-2 rounded-lg bg-muted/70">
-              <div class="flex flex-col">
-               <a class="hover:text-primary font-medium text-mono text-xs" href="#">
-                Ronald Richards
-               </a>
-               <a class="hover:text-primary text-muted-foreground font-medium text-xs" href="#">
-                ronald.richards@gmail.com
-               </a>
-              </div>
-              <a class="hover:text-primary text-secondary-foreground font-medium text-xs" href="#">
-               Go to profile
-              </a>
-             </div>
-             <div class="flex flex-wrap gap-2.5">
-              <button class="kt-btn kt-btn-outline kt-btn-sm" data-kt-dismiss="#notification_request_13">
-               Decline
-              </button>
-              <button class="kt-btn kt-btn-mono kt-btn-sm" data-kt-dismiss="#notification_request_13">
-               Accept
-              </button>
-             </div>
-            </div>
-           </div>
-           <div class="border-b border-b-border">
-           </div>
-           <div class="flex items-center grow gap-2.5 px-5">
-            <div class="flex items-center justify-center size-8 bg-green-50 rounded-full border border-green-200 dark:border-green-950">
-             <i class="ki-filled ki-check text-lg text-green-500">
-             </i>
-            </div>
-            <div class="flex flex-col gap-1">
-             <span class="text-sm font-medium text-secondary-foreground">
-              You have succesfully verified your account
-             </span>
-             <span class="font-medium text-muted-foreground text-xs">
-              2 days ago
-             </span>
-            </div>
-           </div>
-           <div class="border-b border-b-border">
-           </div>
-           <div class="flex grow gap-2.5 px-5">
-            <div class="kt-avatar size-8">
-             <div class="kt-avatar-image">
-              <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-34.png') }}"/>
-             </div>
-             <div class="kt-avatar-indicator -end-2 -bottom-2">
-              <div class="kt-avatar-status kt-avatar-status-online size-2.5">
-              </div>
-             </div>
-            </div>
-            <div class="flex flex-col gap-3.5 grow">
-             <div class="flex flex-col gap-1">
-              <div class="text-sm font-medium mb-px">
-               <a class="hover:text-primary text-mono font-semibold" href="#">
-                Ava Peterson
-               </a>
-               <span class="text-secondary-foreground">
-                uploaded attachment
-               </span>
-              </div>
-              <span class="flex items-center text-xs font-medium text-muted-foreground">
-               3 days ago
-               <span class="rounded-full size-1 bg-mono/30 mx-1.5">
-               </span>
-               ACME
-              </span>
-             </div>
-             <div class="kt-card shadow-none flex items-center justify-between flex-row gap-1.5 p-2.5 rounded-lg bg-muted/70">
-              <div class="flex items-center gap-1.5">
-               <img class="h-6" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/file-types/xls.svg') }}"/>
-               <div class="flex flex-col gap-0.5">
-                <a class="hover:text-primary font-medium text-secondary-foreground text-xs" href="#">
-                 Redesign-2024.xls
-                </a>
-                <span class="font-medium text-muted-foreground text-xs">
-                 2.6 MB
-                </span>
-               </div>
-              </div>
-              <button class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
-               <svg fill="none" height="14" viewbox="0 0 14 14" width="14" xmlns="http://www.w3.org/2000/svg">
-                <path clip-rule="evenodd" d="M6.63821 2.60467C4.81926 2.60467 3.32474 3.99623 3.16201 5.77252C3.1386 6.02803 2.92413 6.22253 2.66871 6.22227C1.74915 6.22149 0.976744 6.9868 0.976744 7.90442C0.976744 8.83344 1.72988 9.58657 2.65891 9.58657H3.09302C3.36274 9.58657 3.5814 9.80523 3.5814 10.0749C3.5814 10.3447 3.36274 10.5633 3.09302 10.5633H2.65891C1.19044 10.5633 0 9.37292 0 7.90442C0 6.58614 0.986948 5.48438 2.24496 5.27965C2.62863 3.20165 4.44941 1.62793 6.63821 1.62793C8.26781 1.62793 9.69282 2.50042 10.4729 3.80193C12.3411 3.72829 14 5.2564 14 7.18091C14 8.93508 12.665 10.3769 10.9552 10.5466C10.6868 10.5733 10.4476 10.3773 10.421 10.1089C10.3943 9.84052 10.5903 9.60135 10.8587 9.57465C12.0739 9.45406 13.0233 8.42802 13.0233 7.18091C13.0233 5.74002 11.6905 4.59666 10.2728 4.79968C10.0642 4.82957 9.85672 4.72382 9.76028 4.53181C9.18608 3.38796 8.00318 2.60467 6.63821 2.60467Z" fill="#99A1B7" fill-rule="evenodd">
-                </path>
-                <path clip-rule="evenodd" d="M6.99909 8.01611L8.28162 9.29864C8.47235 9.48937 8.78158 9.48937 8.97231 9.29864C9.16303 9.10792 9.16303 8.79874 8.97231 8.60802L7.57465 7.2103C7.25675 6.89247 6.74143 6.89247 6.42353 7.2103L5.02585 8.60802C4.83513 8.79874 4.83513 9.10792 5.02585 9.29864C5.21657 9.48937 5.5258 9.48937 5.71649 9.29864L6.99909 8.01611Z" fill="#99A1B7" fill-rule="evenodd">
-                </path>
-                <path clip-rule="evenodd" d="M7.00009 12.372C7.2698 12.372 7.48846 12.1533 7.48846 11.8836V7.97665C7.48846 7.70694 7.2698 7.48828 7.00009 7.48828C6.73038 7.48828 6.51172 7.70694 6.51172 7.97665V11.8836C6.51172 12.1533 6.73038 12.372 7.00009 12.372Z" fill="#99A1B7" fill-rule="evenodd">
-                </path>
-               </svg>
-              </button>
-             </div>
-            </div>
-           </div>
-           <div class="border-b border-b-border">
-           </div>
-           <div class="flex grow gap-2 px-5">
-            <div class="kt-avatar size-8">
-             <div class="kt-avatar-image">
-              <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-29.png') }}">
-              </img>
-             </div>
-             <div class="kt-avatar-indicator -end-2 -bottom-2">
-              <div class="kt-avatar-status kt-avatar-status-online size-2.5">
-              </div>
-             </div>
-            </div>
-            <div class="flex flex-col gap-3 grow">
-             <div class="flex flex-col gap-1">
-              <div class="text-sm font-medium mb-px">
-               <a class="hover:text-primary text-mono font-semibold" href="#">
-                Ethan Parker
-               </a>
-               <span class="text-secondary-foreground">
-                created a new tasks to
-               </span>
-               <a class="hover:text-primary text-primary" href="#">
-                Site Sculpt
-               </a>
-               <span class="text-secondary-foreground">
-                project
-               </span>
-              </div>
-              <span class="flex items-center text-xs font-medium text-muted-foreground">
-               3 days ago
-               <span class="rounded-full size-1 bg-mono/30 mx-1.5">
-               </span>
-               Web Designer
-              </span>
-             </div>
-             <div class="kt-card shadow-none p-3.5 gap-3.5 rounded-lg bg-muted/70">
-              <div class="flex items-center justify-between flex-wrap gap-2.5">
-               <div class="flex flex-col gap-1">
-                <span class="font-medium text-mono text-xs">
-                 Location history is erased after Logging In
-                </span>
-                <span class="font-medium text-muted-foreground text-xs">
-                 Due Date: 15 May, 2024
-                </span>
-               </div>
-               <div class="flex -space-x-2">
-                <div class="flex">
-                 <img class="hover:z-5 relative shrink-0 rounded-full ring-1 ring-background size-6" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-3.png') }}"/>
-                </div>
-                <div class="flex">
-                 <img class="hover:z-5 relative shrink-0 rounded-full ring-1 ring-background size-6" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-2.png') }}"/>
-                </div>
-               </div>
-              </div>
-              <div class="flex items-center gap-2.5">
-               <span class="kt-badge kt-badge-sm kt-badge-success kt-badge-outline">
-                Improvement
-               </span>
-               <span class="kt-badge kt-badge-sm kt-badge-destructive kt-badge-outline">
-                Bug
-               </span>
-              </div>
-             </div>
-            </div>
-           </div>
-           <div class="border-b border-b-border">
-           </div>
-           <div class="flex grow gap-2.5 px-5" id="notification_request_3">
-            <div class="kt-avatar size-8">
-             <div class="kt-avatar-image">
-              <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-30.png') }}">
-              </img>
-             </div>
-             <div class="kt-avatar-indicator -end-2 -bottom-2">
-              <div class="kt-avatar-status kt-avatar-status-online size-2.5">
-              </div>
-             </div>
-            </div>
-            <div class="flex flex-col gap-3.5">
-             <div class="flex flex-col gap-1">
-              <div class="text-sm font-medium mb-px">
-               <a class="hover:text-primary text-mono font-semibold" href="#">
-                Benjamin Harris
-               </a>
-               <span class="text-secondary-foreground">
-                requested to upgrade plan
-               </span>
-               <a class="hover:text-primary text-primary" href="#">
-               </a>
-               <span class="text-secondary-foreground">
-               </span>
-              </div>
-              <span class="flex items-center text-xs font-medium text-muted-foreground">
-               4 days ago
-               <span class="rounded-full size-1 bg-mono/30 mx-1.5">
-               </span>
-               Marketing
-              </span>
-             </div>
-             <div class="flex flex-wrap gap-2.5">
-              <button class="kt-btn kt-btn-outline kt-btn-sm" data-kt-dismiss="#notification_request_3">
-               Decline
-              </button>
-              <button class="kt-btn kt-btn-mono kt-btn-sm" data-kt-dismiss="#notification_request_3">
-               Accept
-              </button>
-             </div>
-            </div>
-           </div>
-           <div class="border-b border-b-border">
-           </div>
-           <div class="flex grow gap-2.5 px-5">
-            <div class="kt-avatar size-8">
-             <div class="kt-avatar-image">
-              <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-24.png') }}">
-              </img>
-             </div>
-             <div class="kt-avatar-indicator -end-2 -bottom-2">
-              <div class="kt-avatar-status kt-avatar-status-online size-2.5">
-              </div>
-             </div>
-            </div>
-            <div class="flex flex-col gap-1">
-             <div class="text-sm font-medium mb-px">
-              <a class="hover:text-primary text-mono font-semibold" href="#">
-               Isaac Morgan
-              </a>
-              <span class="text-secondary-foreground">
-               mentioned you in
-              </span>
-              <a class="hover:text-primary text-primary" href="#">
-               Data Transmission
-              </a>
-              topic
-             </div>
-             <span class="flex items-center text-xs font-medium text-muted-foreground">
-              6 days ago
-              <span class="rounded-full size-1 bg-mono/30 mx-1.5">
-              </span>
-              Dev Team
-             </span>
-            </div>
-           </div>
+          <div class="grow flex flex-col gap-5 pt-3 pb-4 divider-y divider-border" id="conversations_list">
+           @include('layouts.partials._conversation_list_items', ['rows' => $conversations ?? []])
           </div>
-         </div>
-         <div class="border-b border-b-border">
-         </div>
-         <div class="grid grid-cols-2 p-5 gap-2.5" id="notifications_inbox_footer">
-          <button class="kt-btn kt-btn-outline justify-center">
-           Archive all
-          </button>
-          <button class="kt-btn kt-btn-outline justify-center">
-           Mark all as read
-          </button>
          </div>
         </div>
         <div class="grow flex flex-col hidden" id="notifications_tab_team">
@@ -1093,328 +822,309 @@
        <!--End of Notifications Drawer-->
        <!-- End of Notifications -->
        <!-- Chat -->
-       <button class="kt-btn kt-btn-ghost kt-btn-icon size-9 rounded-full hover:bg-primary/10 hover:[&_i]:text-primary" data-kt-drawer-toggle="#chat_drawer">
+       <button class="relative kt-btn kt-btn-ghost kt-btn-icon size-9 rounded-full hover:bg-primary/10 hover:[&_i]:text-primary" data-kt-drawer-toggle="#chat_drawer" id="chat_bell_btn">
         <i class="ki-filled ki-messages text-lg">
         </i>
+        @if ((int) ($messageUnreadCount ?? 0) > 0)
+        <span class="absolute top-1 -end-1 flex items-center justify-center size-[18px] rounded-full bg-destructive text-white text-[10px] font-semibold leading-none" id="chat_bell_dot">{{ $messageUnreadCount > 9 ? '9+' : $messageUnreadCount }}</span>
+        @endif
        </button>
        <!--Chat Drawer-->
        <div class="hidden kt-drawer kt-drawer-end card flex-col max-w-[90%] w-[450px] top-5 bottom-5 end-5 rounded-xl border border-border" data-kt-drawer="true" data-kt-drawer-container="body" id="chat_drawer">
-        <div>
-         <div class="flex items-center justify-between gap-2.5 text-sm text-mono font-semibold px-5 py-3.5">
-          Chat
-          <button class="kt-btn kt-btn-sm kt-btn-icon kt-btn-dim shrink-0" data-kt-drawer-dismiss="true">
-           <i class="ki-filled ki-cross">
-           </i>
+        <div class="flex items-center justify-between gap-2.5 text-sm text-mono font-semibold px-5 py-3.5">
+         Chat
+         <button class="kt-btn kt-btn-sm kt-btn-icon kt-btn-dim shrink-0" data-kt-drawer-dismiss="true">
+          <i class="ki-filled ki-cross">
+          </i>
+         </button>
+        </div>
+        <div class="border-b border-b-border">
+        </div>
+        <input type="hidden" id="chat_csrf_token" value="{{ csrf_token() }}">
+        <!-- Conversation list state -->
+        <div class="grow flex flex-col" id="chat_drawer_list_state">
+         <div class="flex items-center justify-between gap-2.5 px-5 py-2.5 border-b border-b-border">
+          <span class="text-sm font-semibold text-mono">Messages</span>
+          <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" id="chat_drawer_compose">
+           <i class="ki-filled ki-message-add"></i>
+           New message
           </button>
          </div>
-         <div class="border-b border-b-border">
-         </div>
-         <div class="border-b border-border py-2.5">
-          <div class="flex items-center justify-between flex-wrap gap-2 px-5">
-           <div class="flex items-center flex-wrap gap-2">
-            <div class="flex items-center justify-center shrink-0 rounded-full bg-accent/60 border border-border size-11">
-             <img alt="" class="size-7" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/brand-logos/gitlab.svg') }}"/>
-            </div>
-            <div class="flex flex-col">
-             <a class="text-sm font-semibold text-mono hover:text-primary" href="#">
-              HR Team
-             </a>
-             <span class="text-xs font-medium italic text-muted-foreground">
-              Jessy is typing..
-             </span>
-            </div>
-           </div>
-           <div class="flex items-center gap-2.5">
-            <div class="flex -space-x-2">
-             <div class="flex">
-              <img class="hover:z-5 relative shrink-0 rounded-full ring-1 ring-background size-[30px]" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-4.png') }}"/>
-             </div>
-             <div class="flex">
-              <img class="hover:z-5 relative shrink-0 rounded-full ring-1 ring-background size-[30px]" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-1.png') }}"/>
-             </div>
-             <div class="flex">
-              <img class="hover:z-5 relative shrink-0 rounded-full ring-1 ring-background size-[30px]" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-2.png') }}"/>
-             </div>
-             <div class="flex">
-              <span class="hover:z-5 relative inline-flex items-center justify-center shrink-0 rounded-full ring-1 font-semibold leading-none text-2xs size-[30px] text-white size-6 ring-background bg-green-500">
-               +10
-              </span>
-             </div>
-            </div>
-            <div class="kt-menu" data-kt-menu="true">
-             <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click|lg:hover">
-              <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
-               <i class="ki-filled ki-dots-vertical text-lg">
-               </i>
-              </button>
-              <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
-               <div class="kt-menu-item">
-                <a class="kt-menu-link" href="html/demo1/account/members/teams.html">
-                 <span class="kt-menu-icon">
-                  <i class="ki-filled ki-users">
-                  </i>
-                 </span>
-                 <span class="kt-menu-title">
-                  Invite Users
-                 </span>
-                </a>
-               </div>
-               <div class="kt-menu-item" data-kt-menu-item-offset="-15px, 0" data-kt-menu-item-placement="right-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click|lg:hover">
-                <div class="kt-menu-link">
-                 <span class="kt-menu-icon">
-                  <i class="ki-filled ki-people">
-                  </i>
-                 </span>
-                 <span class="kt-menu-title">
-                  Team
-                 </span>
-                 <span class="kt-menu-arrow">
-                  <i class="ki-filled ki-right text-xs rtl:transform rtl:rotate-180">
-                  </i>
-                 </span>
-                </div>
-                <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]">
-                 <div class="kt-menu-item">
-                  <a class="kt-menu-link" href="html/demo1/account/members/import-members.html">
-                   <span class="kt-menu-icon">
-                    <i class="ki-filled ki-shield-search">
-                    </i>
-                   </span>
-                   <span class="kt-menu-title">
-                    Find Members
-                   </span>
-                  </a>
-                 </div>
-                 <div class="kt-menu-item">
-                  <a class="kt-menu-link" href="html/demo1/account/members/import-members.html">
-                   <span class="kt-menu-icon">
-                    <i class="ki-filled ki-calendar">
-                    </i>
-                   </span>
-                   <span class="kt-menu-title">
-                    Meetings
-                   </span>
-                  </a>
-                 </div>
-                 <div class="kt-menu-item">
-                  <a class="kt-menu-link" href="html/demo1/account/members/import-members.html">
-                   <span class="kt-menu-icon">
-                    <i class="ki-filled ki-filter-edit">
-                    </i>
-                   </span>
-                   <span class="kt-menu-title">
-                    Group Settings
-                   </span>
-                  </a>
-                 </div>
-                </div>
-               </div>
-               <div class="kt-menu-item">
-                <a class="kt-menu-link" href="html/demo1/account/security/privacy-settings.html">
-                 <span class="kt-menu-icon">
-                  <i class="ki-filled ki-setting-3">
-                  </i>
-                 </span>
-                 <span class="kt-menu-title">
-                  Settings
-                 </span>
-                </a>
-               </div>
-              </div>
-             </div>
-            </div>
-           </div>
+         <div class="grow kt-scrollable-y-auto" data-kt-scrollable="true" data-kt-scrollable-dependencies="#header" data-kt-scrollable-max-height="auto" data-kt-scrollable-offset="150px">
+          <div class="grow flex flex-col gap-5 pt-3 pb-4 divider-y divider-border" id="chat_drawer_list">
+           @include('layouts.partials._conversation_list_items', ['rows' => $conversations ?? []])
           </div>
          </div>
         </div>
-        <div class="kt-scrollable-y-auto grow" data-kt-scrollable="true" data-kt-scrollable-dependencies="#header" data-kt-scrollable-max-height="auto" data-kt-scrollable-offset="230px">
-         <div class="flex flex-col gap-5 py-5">
-          <div class="flex items-end gap-3.5 px-5">
-           <img alt="" class="rounded-full size-9" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-5.png') }}"/>
-           <div class="flex flex-col gap-1.5">
-            <div class="kt-card shadow-none flex flex-col bg-accent/60 gap-2.5 p-3 rounded-bs-none text-2sm">
-             Next week we are closing the project. Do You have questions?
-            </div>
-            <span class="text-xs font-medium text-muted-foreground">
-             14:04
-            </span>
-           </div>
+        <!-- Compose / contacts state -->
+        <div class="grow flex flex-col hidden" id="chat_drawer_contacts_state">
+         <div class="flex items-center gap-2.5 px-5 py-3 border-b border-b-border">
+          <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" id="chat_drawer_contacts_back">
+           <i class="ki-filled ki-left text-lg"></i>
+          </button>
+          <span class="text-sm font-semibold text-mono">New message</span>
+         </div>
+         <div class="px-5 py-2.5 border-b border-b-border">
+          <div class="kt-input">
+           <i class="ki-filled ki-magnifier"></i>
+           <input type="text" placeholder="Search people..." id="chat_drawer_contacts_search"/>
           </div>
-          <div class="flex items-end justify-end gap-3.5 px-5">
-           <div class="flex flex-col gap-1.5">
-            <div class="kt-card shadow-none flex bg-primary flex-col gap-2.5 p-3 rounded-be-none">
-             <p class="text-2sm font-medium text-primary-foreground">
-              This is excellent news!
-             </p>
-            </div>
-            <div class="flex items-center justify-end gap-2 relative">
-             <span class="text-xs font-medium text-secondary-foreground">
-              14:08
-             </span>
-             <i class="ki-filled ki-double-check text-lg absolute text-green-500">
-             </i>
-            </div>
-           </div>
-           <div class="relative shrink-0">
-            <div class="kt-avatar size-9">
-             <div class="kt-avatar-image">
-              <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-2.png') }}">
-              </img>
-             </div>
-             <div class="kt-avatar-indicator -end-2 -bottom-2">
-              <div class="kt-avatar-status kt-avatar-status-online size-2.5">
-              </div>
-             </div>
-            </div>
-           </div>
-          </div>
-          <div class="flex items-end gap-3.5 px-5">
-           <img alt="" class="rounded-full size-9" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-4.png') }}"/>
-           <div class="flex flex-col gap-1.5">
-            <div class="kt-card shadow-none flex flex-col bg-accent/60 gap-2.5 p-3 rounded-bs-none text-2sm">
-             I have checked the features, can not wait to demo them!
-            </div>
-            <span class="text-xs font-medium text-muted-foreground">
-             14:26
-            </span>
-           </div>
-          </div>
-          <div class="flex items-end gap-3.5 px-5">
-           <img alt="" class="rounded-full size-9" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-1.png') }}"/>
-           <div class="flex flex-col gap-1.5">
-            <div class="kt-card shadow-none flex flex-col bg-accent/60 gap-2.5 p-3 rounded-bs-none text-2sm">
-             I have looked over the rollout plan, and everything seems spot on.
-            </div>
-            <span class="text-xs font-medium text-muted-foreground">
-             15:09
-            </span>
-           </div>
-          </div>
-          <div class="flex items-end justify-end gap-3.5 px-5">
-           <div class="flex flex-col gap-1.5">
-            <div class="kt-card shadow-none flex bg-primary flex-col gap-2.5 p-3 rounded-be-none">
-             <p class="text-2sm font-medium text-primary-foreground">
-              Haven't seen the build yet, I'll look now.
-             </p>
-            </div>
-            <div class="flex items-center justify-end gap-2 relative">
-             <span class="text-xs font-medium text-secondary-foreground">
-              15:52
-             </span>
-             <i class="ki-filled ki-double-check text-lg absolute text-muted-foreground">
-             </i>
-            </div>
-           </div>
-           <div class="relative shrink-0">
-            <div class="kt-avatar size-9">
-             <div class="kt-avatar-image">
-              <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-2.png') }}">
-              </img>
-             </div>
-             <div class="kt-avatar-indicator -end-2 -bottom-2">
-              <div class="kt-avatar-status kt-avatar-status-online size-2.5">
-              </div>
-             </div>
-            </div>
-           </div>
-          </div>
-          <div class="flex items-end justify-end gap-3.5 px-5">
-           <div class="flex flex-col gap-1.5">
-            <div class="kt-card shadow-none flex bg-primary flex-col gap-2.5 p-3 rounded-be-none">
-             <p class="text-2sm font-medium text-primary-foreground">
-              Checking the build now
-             </p>
-            </div>
-            <div class="flex items-center justify-end gap-2 relative">
-             <span class="text-xs font-medium text-secondary-foreground">
-              15:52
-             </span>
-             <i class="ki-filled ki-double-check text-lg absolute text-muted-foreground">
-             </i>
-            </div>
-           </div>
-           <div class="relative shrink-0">
-            <div class="kt-avatar size-9">
-             <div class="kt-avatar-image">
-              <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-2.png') }}">
-              </img>
-             </div>
-             <div class="kt-avatar-indicator -end-2 -bottom-2">
-              <div class="kt-avatar-status kt-avatar-status-online size-2.5">
-              </div>
-             </div>
-            </div>
-           </div>
-          </div>
-          <div class="flex items-end gap-3.5 px-5">
-           <img alt="" class="rounded-full size-9" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-4.png') }}"/>
-           <div class="flex flex-col gap-1.5">
-            <div class="kt-card shadow-none flex flex-col bg-accent/60 gap-2.5 p-3 rounded-bs-none text-2sm">
-             Tomorrow, I will send the link for the meeting
-            </div>
-            <span class="text-xs font-medium text-muted-foreground">
-             17:40
-            </span>
-           </div>
-          </div>
+         </div>
+         <div class="grow kt-scrollable-y-auto" data-kt-scrollable="true" data-kt-scrollable-dependencies="#header" data-kt-scrollable-max-height="auto" data-kt-scrollable-offset="210px">
+          <div class="grow flex flex-col gap-5 pt-3 pb-4 divider-y divider-border" id="chat_drawer_contacts"></div>
          </div>
         </div>
-        <!--Chat Footer-->
-        <div class="mb-2.5">
-         <div class="flex grow gap-2 px-5 py-3.5 bg-accent/60 mb-2.5 border-y border-border" id="join_request">
-          <div class="kt-avatar size-9">
-           <div class="kt-avatar-image">
-            <img alt="avatar" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-14.png') }}">
-            </img>
-           </div>
-           <div class="kt-avatar-indicator -end-2 -bottom-2">
-            <div class="kt-avatar-status kt-avatar-status-online size-2.5">
-            </div>
-           </div>
-          </div>
-          <div class="flex items-center justify-between gap-3 grow">
-           <div class="flex flex-col">
-            <div class="text-sm mb-px">
-             <a class="hover:text-primary font-semibold text-mono" href="#">
-              Jane Perez
-             </a>
-             <span class="text-secondary-foreground">
-              wants to join chat
-             </span>
-            </div>
-            <span class="flex items-center text-xs font-medium text-muted-foreground">
-             1 day ago
-             <span class="rounded-full size-1 bg-mono/30 mx-1.5">
-             </span>
-             Design Team
-            </span>
-           </div>
-           <div class="flex gap-2.5">
-            <button class="kt-btn kt-btn-sm kt-btn-outline kt-btn-sm" data-kt-dismiss="#join_request">
-             Decline
-            </button>
-            <button class="kt-btn kt-btn-sm kt-btn-mono kt-btn-sm">
-             Accept
-            </button>
-           </div>
+        <!-- Thread state -->
+        <div class="grow flex flex-col hidden" id="chat_drawer_thread_state">
+         <div class="flex items-center gap-2.5 px-5 py-3 border-b border-b-border">
+          <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" id="chat_drawer_back">
+           <i class="ki-filled ki-left text-lg">
+           </i>
+          </button>
+          <span class="text-sm font-semibold text-mono" id="chat_drawer_thread_title">
+          </span>
+         </div>
+         <div class="kt-scrollable-y-auto grow" data-kt-scrollable="true" data-kt-scrollable-dependencies="#header" data-kt-scrollable-max-height="auto" data-kt-scrollable-offset="230px">
+          <div id="chat_drawer_thread">
           </div>
          </div>
-         <div class="relative grow mx-5">
-          <img alt="" class="rounded-full size-[30px] absolute start-0 top-2/4 -translate-y-2/4 ms-2.5" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/avatars/300-2.png') }}">
-           <input class="kt-input h-auto py-4 ps-12 bg-transparent" placeholder="Write a message..." type="text" value=""/>
+         <!--Chat Footer-->
+         <div class="mb-2.5">
+          <div class="relative grow mx-5">
+           <input class="kt-input h-auto py-4" placeholder="Write a message..." type="text" id="chat_drawer_input"/>
            <div class="flex items-center gap-2.5 absolute end-3 top-1/2 -translate-y-1/2">
-            <button class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
-             <i class="ki-filled ki-exit-up">
-             </i>
-            </button>
-            <a class="kt-btn kt-btn-mono kt-btn-sm" href="#">
+            <button class="kt-btn kt-btn-mono kt-btn-sm" type="button" id="chat_drawer_send">
              Send
-            </a>
+            </button>
            </div>
-          </img>
+          </div>
          </div>
+         <!--End of Chat Footer-->
         </div>
-        <!--End of Chat Footer-->
+        <script nonce="{{ $cspNonce ?? '' }}">
+         (function () {
+          var baseUrl = '{{ url('/messaging/conversations') }}';
+          var contactsUrl = '{{ route('messaging.contacts') }}';
+          var storeUrl = '{{ route('messaging.conversations.store') }}';
+          var token = document.getElementById('chat_csrf_token').value;
+          var listState = document.getElementById('chat_drawer_list_state');
+          var threadState = document.getElementById('chat_drawer_thread_state');
+          var contactsState = document.getElementById('chat_drawer_contacts_state');
+          var listEl = document.getElementById('chat_drawer_list');
+          var threadEl = document.getElementById('chat_drawer_thread');
+          var contactsEl = document.getElementById('chat_drawer_contacts');
+          var contactsSearch = document.getElementById('chat_drawer_contacts_search');
+          var threadTitle = document.getElementById('chat_drawer_thread_title');
+          var input = document.getElementById('chat_drawer_input');
+          var currentId = null;
+          var threadInterval = null;
+
+          function showOnly(target) {
+           [listState, threadState, contactsState].forEach(function (s) { s.classList.add('hidden'); });
+           target.classList.remove('hidden');
+          }
+
+          function headers(extra) {
+           return Object.assign({ 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-TOKEN': token }, extra || {});
+          }
+
+          var inboxListEl = document.getElementById('conversations_list'); // Inbox tab under the bell
+          var chatBadgeCls = 'absolute top-1 -end-1 flex items-center justify-center size-[18px] rounded-full bg-destructive text-white text-[10px] font-semibold leading-none';
+
+          function setMsgBadge(count) {
+           var btn = document.getElementById('chat_bell_btn');
+           var dot = document.getElementById('chat_bell_dot');
+           if (!count || count < 1) { if (dot) { dot.remove(); } return; }
+           if (!dot) { dot = document.createElement('span'); dot.id = 'chat_bell_dot'; dot.className = chatBadgeCls; if (btn) { btn.appendChild(dot); } }
+           dot.textContent = count > 9 ? '9+' : String(count);
+          }
+
+          // ponytail: one 30s poll keeps the message-icon badge, the bell total, the Inbox tab, and
+          // the chat drawer list all in sync — same fragment-swap strategy as the notification bell.
+          function pollMessaging() {
+           fetch(baseUrl, { headers: headers() })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+             if (window.qyzenUnread) { window.qyzenUnread.msg = data.unread_count; if (window.qyzenRenderBell) { window.qyzenRenderBell(); } }
+             setMsgBadge(data.unread_count);
+             if (typeof data.html === 'string') {
+              if (inboxListEl) { inboxListEl.innerHTML = data.html; }
+              if (!listState.classList.contains('hidden')) { listEl.innerHTML = data.html; }
+             }
+            })
+            .catch(function () {});
+          }
+
+          function stopThreadPoll() {
+           if (threadInterval) { clearInterval(threadInterval); threadInterval = null; }
+          }
+
+          // ponytail: dumb 5s polling on the open thread only (started/stopped with it), same
+          // fragment-swap strategy as the notification bell's 30s poll; swap to Reverb only if
+          // this ever matters.
+          function pollThread() {
+           if (!currentId) { return; }
+           fetch(baseUrl + '/' + currentId, { headers: headers() })
+            .then(function (r) { return r.json(); })
+            .then(function (data) { if (typeof data.html === 'string') { threadEl.innerHTML = data.html; } })
+            .catch(function () {});
+          }
+
+          function openThread(id, name) {
+           currentId = id;
+           threadTitle.textContent = name || '';
+           showOnly(threadState);
+           pollThread();
+           stopThreadPoll();
+           threadInterval = setInterval(pollThread, 5000);
+           // Opening marks the thread read server-side; refresh the badges once that lands.
+           setTimeout(pollMessaging, 1000);
+          }
+
+          function backToList() {
+           stopThreadPoll();
+           currentId = null;
+           showOnly(listState);
+           pollMessaging();
+          }
+
+          function openCompose() {
+           showOnly(contactsState);
+           if (contactsSearch) { contactsSearch.value = ''; }
+           contactsEl.innerHTML = '<div class="text-sm text-muted-foreground px-5 py-4">Loading…</div>';
+           fetch(contactsUrl, { headers: headers() })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+             if (typeof data.html === 'string') { contactsEl.innerHTML = data.html; }
+             // The subject filter is a KTUI searchable select injected after load — init it manually.
+             var sel = document.getElementById('chat_drawer_subject_filter');
+             if (sel && window.KTSelect) { window.KTSelect.getOrCreateInstance(sel); }
+            })
+            .catch(function () { contactsEl.innerHTML = '<div class="text-sm text-muted-foreground px-5 py-4">Could not load contacts.</div>'; });
+          }
+
+          // Start (or reopen) a conversation with the picked contact, then jump into its thread.
+          function startConversation(otherId, name) {
+           fetch(storeUrl, {
+            method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ other_user_id: otherId }),
+           }).then(function (r) { return r.json(); })
+            .then(function (data) { if (data && data.conversation_id) { openThread(data.conversation_id, name); } });
+          }
+
+          document.addEventListener('click', function (e) {
+           var item = e.target.closest('[data-conversation-item]');
+           if (item) {
+            e.preventDefault();
+            var name = item.querySelector('[data-conversation-name]');
+            openThread(item.getAttribute('data-conversation-id'), name ? name.textContent.trim() : '');
+            // If this item lives in the notifications drawer, close it so the chat drawer is visible.
+            var notifDismiss = document.querySelector('#notifications_drawer [data-kt-drawer-dismiss]');
+            var notifDrawer = document.getElementById('notifications_drawer');
+            if (notifDismiss && notifDrawer && !notifDrawer.classList.contains('hidden')) { notifDismiss.click(); }
+            var chatToggle = document.querySelector('[data-kt-drawer-toggle="#chat_drawer"]');
+            if (chatToggle) { chatToggle.click(); }
+            return;
+           }
+
+           if (e.target.closest('#chat_drawer_back')) { backToList(); return; }
+           if (e.target.closest('#chat_drawer_compose')) { openCompose(); return; }
+           if (e.target.closest('#chat_drawer_contacts_back')) { showOnly(listState); return; }
+
+           var contact = e.target.closest('[data-contact-item]');
+           if (contact) {
+            e.preventDefault();
+            var cName = contact.querySelector('[data-contact-name]');
+            startConversation(contact.getAttribute('data-contact-id'), cName ? cName.textContent.trim() : '');
+            return;
+           }
+
+           var editBtn = e.target.closest('[data-message-edit]');
+           if (editBtn && currentId) {
+            var mid = editBtn.getAttribute('data-message-edit');
+            var bubble = editBtn.closest('[data-message-id]');
+            var current = bubble ? bubble.querySelector('p').textContent : '';
+            var next = window.prompt('Edit message', current);
+            if (next !== null && next.trim() !== '') {
+             fetch('{{ url('/messaging/messages') }}/' + mid, {
+              method: 'PUT', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ content: next }),
+             }).then(function (r) { return r.json(); })
+              .then(function (data) { if (typeof data.html === 'string') { threadEl.innerHTML = data.html; } });
+            }
+            return;
+           }
+
+           var delBtn = e.target.closest('[data-message-delete]');
+           if (delBtn && currentId) {
+            var did = delBtn.getAttribute('data-message-delete');
+            if (window.confirm('Delete this message?')) {
+             fetch('{{ url('/messaging/messages') }}/' + did, { method: 'DELETE', headers: headers() })
+              .then(function (r) { return r.json(); })
+              .then(function (data) { if (typeof data.html === 'string') { threadEl.innerHTML = data.html; } });
+            }
+            return;
+           }
+          });
+
+          if (input) {
+           input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); sendMessage(); } });
+          }
+          var sendBtn = document.getElementById('chat_drawer_send');
+          if (sendBtn) { sendBtn.addEventListener('click', sendMessage); }
+
+          function sendMessage() {
+           var content = input.value.trim();
+           if (!content || !currentId) { return; }
+           fetch(baseUrl + '/' + currentId + '/messages', {
+            method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ content: content }),
+           }).then(function (r) { return r.json(); })
+            .then(function (data) {
+             if (typeof data.html === 'string') { threadEl.innerHTML = data.html; }
+             input.value = '';
+            });
+          }
+
+          // Client-side filter of the contact picker: search text AND (educator) subject/section.
+          function applyContactFilter() {
+           var q = contactsSearch ? contactsSearch.value.trim().toLowerCase() : '';
+           var sel = document.getElementById('chat_drawer_subject_filter');
+           var subj = '';
+           if (sel) {
+            subj = sel.value || '';
+            // KTUI keeps the native <select> synced, but prefer the instance value if exposed.
+            if (window.KTSelect) {
+             var inst = window.KTSelect.getInstance(sel);
+             if (inst && typeof inst.getValue === 'function') {
+              var v = inst.getValue();
+              subj = Array.isArray(v) ? (v[0] || '') : (v == null ? '' : String(v));
+             }
+            }
+           }
+           contactsEl.querySelectorAll('[data-contact-item]').forEach(function (row) {
+            var textMatch = row.getAttribute('data-contact-search').indexOf(q) !== -1;
+            var subjMatch = !subj || (row.getAttribute('data-subject-ids') || '').split(',').indexOf(subj) !== -1;
+            var show = textMatch && subjMatch;
+            row.classList.toggle('hidden', !show);
+            var divider = row.nextElementSibling;
+            if (divider && divider.classList.contains('border-b')) { divider.classList.toggle('hidden', !show); }
+           });
+          }
+          if (contactsSearch) { contactsSearch.addEventListener('input', applyContactFilter); }
+          // The subject dropdown is (re)rendered inside the fetched fragment, so bind via delegation.
+          // KTUI's searchable select emits 'ktselect.change'; a plain <select> emits native 'change'.
+          document.addEventListener('ktselect.change', function (e) {
+           if (e.target && e.target.id === 'chat_drawer_subject_filter') { applyContactFilter(); }
+          });
+          document.addEventListener('change', function (e) {
+           if (e.target && e.target.id === 'chat_drawer_subject_filter') { applyContactFilter(); }
+          });
+
+          document.querySelectorAll('[data-kt-drawer-dismiss]').forEach(function (btn) {
+           if (btn.closest('#chat_drawer')) { btn.addEventListener('click', stopThreadPoll); }
+          });
+
+          setInterval(pollMessaging, 30000);
+         })();
+        </script>
        </div>
        <!--End of Chat Drawer-->
        <!-- End of Chat -->

@@ -2,13 +2,21 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Jobs\DispatchStudentImport;
 use App\Models\AcademicTerm;
 use App\Models\AcademicYear;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\UserImport;
+use App\Notifications\AccountCreatedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 // Stage F: admin feature tests. Authz gate (non-admin 403) + per-module CRUD behavior.
@@ -18,6 +26,7 @@ class AdminFeaturesTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $educator;
 
     protected function setUp(): void
@@ -51,7 +60,7 @@ class AdminFeaturesTest extends TestCase
 
     // ---- F2 / F4 users ----
 
-    public function test_admin_creates_user_with_roles_and_sends_verification(): void
+    public function test_admin_creates_user_with_roles_and_sends_account_credentials(): void
     {
         Notification::fake();
 
@@ -64,6 +73,155 @@ class AdminFeaturesTest extends TestCase
         $user = User::where('user_id', '2026-12345')->firstOrFail();
         $this->assertSame('new.student@example.com', $user->email);
         $this->assertTrue($user->hasRole('student'));
+        $this->assertNotNull($user->password);
+        Notification::assertSentTo($user, AccountCreatedNotification::class, function (AccountCreatedNotification $notification) use ($user) {
+            $this->assertSame('Mr. Mark Adrianne Salunga', $notification->createdBy);
+            $this->assertTrue(Hash::check($notification->temporaryPassword, $user->fresh()->password));
+
+            return true;
+        });
+    }
+
+    public function test_admin_bulk_import_queues_student_import_and_stores_upload(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+
+        $file = UploadedFile::fake()->create('students.xlsx', 10, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        $this->actingAs($this->admin)->post(route('admin.users.import'), [
+            'file' => [$file],
+        ])->assertRedirect(route('admin.users.index'));
+
+        $import = UserImport::first();
+        $this->assertNotNull($import);
+        $this->assertSame('queued', $import->status);
+        $this->assertSame('students.xlsx', $import->original_filename);
+        Storage::disk('local')->assertExists($import->upload_path);
+        Queue::assertPushed(DispatchStudentImport::class, fn (DispatchStudentImport $job) => $job->userImport->is($import));
+    }
+
+    public function test_admin_bulk_import_rejects_non_xlsx_upload(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+
+        $csv = UploadedFile::fake()->create('students.csv', 10, 'text/csv');
+
+        $this->actingAs($this->admin)->post(route('admin.users.import'), [
+            'file' => [$csv],
+        ])->assertSessionHasErrors('file.0');
+
+        $this->assertNull(UserImport::first());
+        Queue::assertNothingPushed();
+    }
+
+    public function test_import_timeline_endpoint_returns_own_imports_with_active_flag(): void
+    {
+        UserImport::create([
+            'initiated_by_user_id' => $this->admin->id,
+            'original_filename' => 'students.xlsx',
+            'upload_path' => 'imports/uploads/students.xlsx',
+            'status' => 'processing',
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.users.imports.timeline'))
+            ->assertOk()
+            ->assertSee('students.xlsx')
+            ->assertSee('data-active="1"', false);
+    }
+
+    public function test_import_detail_modal_shows_failure_reasons_to_owner_only(): void
+    {
+        $import = UserImport::create([
+            'initiated_by_user_id' => $this->admin->id,
+            'original_filename' => 'students.xlsx',
+            'upload_path' => 'imports/uploads/students.xlsx',
+            'status' => 'completed',
+            'created_count' => 1,
+            'failed_count' => 1,
+            'failed_rows' => [['email' => 'bad@example.com', 'user_id' => '', 'error' => 'Row 3: invalid email.']],
+        ]);
+
+        $this->actingAs($this->makeUser('admin', 'admin'))
+            ->get(route('admin.users.imports.show', $import))
+            ->assertForbidden();
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.users.imports.show', ['userImport' => $import, 'modal' => 1]))
+            ->assertOk()
+            ->assertSee('students.xlsx')
+            ->assertSee('bad@example.com')
+            ->assertSee('Row 3: invalid email.');
+    }
+
+    public function test_admin_can_download_only_own_failed_import_report(): void
+    {
+        Storage::fake('local');
+
+        $otherAdmin = $this->makeUser('admin', 'admin');
+        $path = 'imports/reports/failed-student-rows.xlsx';
+        Storage::disk('local')->put($path, 'report');
+
+        $import = UserImport::create([
+            'initiated_by_user_id' => $this->admin->id,
+            'original_filename' => 'students.csv',
+            'upload_path' => 'imports/uploads/students.csv',
+            'status' => 'completed',
+            'total_rows' => 2,
+            'total_chunks' => 1,
+            'processed_chunks' => 1,
+            'created_count' => 1,
+            'failed_count' => 1,
+            'failed_report_path' => $path,
+        ]);
+
+        $this->actingAs($otherAdmin)
+            ->get(route('admin.users.import.report', $import))
+            ->assertForbidden();
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.users.import.report', $import))
+            ->assertOk()
+            ->assertHeader('content-disposition');
+    }
+
+    public function test_signed_account_confirm_link_marks_user_verified(): void
+    {
+        $user = User::factory()->create([
+            'user_type' => 'student',
+            'email_verified_at' => null,
+        ]);
+
+        $url = URL::temporarySignedRoute('account.activate', now()->addHour(), ['user' => $user]);
+
+        $this->get($url)
+            ->assertRedirect(route('login'));
+
+        $this->assertNotNull($user->fresh()->email_verified_at);
+    }
+
+    public function test_account_created_email_template_renders_credentials_and_creator(): void
+    {
+        $user = User::factory()->create([
+            'given_name' => 'New',
+            'surname' => 'Student',
+            'email' => 'new.student@example.com',
+        ]);
+
+        $html = view('emails.account-created', [
+            'user' => $user,
+            'createdBy' => 'Mr. Mark Adrianne Salunga',
+            'temporaryPassword' => 'TempPass123',
+            'confirmUrl' => 'https://example.test/account/activate/1',
+        ])->render();
+
+        $this->assertStringContainsString('Your account is ready.', $html);
+        $this->assertStringContainsString('Mr. Mark Adrianne Salunga', $html);
+        $this->assertStringContainsString('new.student@example.com', $html);
+        $this->assertStringContainsString('TempPass123', $html);
+        $this->assertStringContainsString('Confirm account', $html);
     }
 
     public function test_user_id_format_is_validated_per_type(): void

@@ -6,9 +6,8 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Auth\AccountActivationController;
 use App\Http\Controllers\Auth\OAuthController;
-use App\Http\Controllers\MessagingController;
-use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Educator\AssessmentController;
 use App\Http\Controllers\Educator\ChatController;
 use App\Http\Controllers\Educator\DashboardController as EducatorDashboardController;
@@ -19,6 +18,8 @@ use App\Http\Controllers\Educator\QuizController;
 use App\Http\Controllers\Educator\ScoreController;
 use App\Http\Controllers\Educator\SectionController;
 use App\Http\Controllers\Educator\SubjectController;
+use App\Http\Controllers\MessagingController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Student\ChatController as StudentChatController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
@@ -35,6 +36,7 @@ Route::get('/', function () {
 // C3: Google OAuth (Socialite)
 Route::get('/oauth/{provider}/redirect', [OAuthController::class, 'redirect'])->name('oauth.redirect');
 Route::get('/oauth/{provider}/callback', [OAuthController::class, 'callback'])->name('oauth.callback');
+Route::get('/account/activate/{user}', AccountActivationController::class)->name('account.activate');
 
 // C5: post-login bounce to the role dashboard (admin > educator > student).
 Route::get('/dashboard', fn () => redirect(Auth::user()->dashboardPath()))
@@ -103,6 +105,9 @@ Route::middleware(['auth', 'verified', 'role:admin'])
         // F3/F4 user-import + bulk routes must precede the {user} resource binding.
         Route::get('users/import/template', [UserController::class, 'importTemplate'])->name('users.import.template');
         Route::post('users/import', [UserController::class, 'import'])->name('users.import');
+        Route::get('users/imports/timeline', [UserController::class, 'importTimeline'])->name('users.imports.timeline');
+        Route::get('users/imports/{userImport}/report', [UserController::class, 'downloadImportReport'])->name('users.import.report');
+        Route::get('users/imports/{userImport}', [UserController::class, 'showImport'])->name('users.imports.show');
         Route::post('users/{user}/resend-verification', [UserController::class, 'resendVerification'])->name('users.resend-verification');
         Route::resource('users', UserController::class)->except(['edit', 'update']);
         Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');

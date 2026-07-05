@@ -2,24 +2,26 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Exports\FailedStudentRowsExport;
 use App\Exports\StudentImportTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
-use App\Imports\StudentsImport;
+use App\Jobs\DispatchStudentImport;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\UserImport;
+use App\Services\UserOnboardingService;
 use App\Services\UserService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
 
 // F2/F3/F4: admin user management.
 class UserController extends Controller
 {
-    public function __construct(private UserService $users) {}
+    public function __construct(private UserService $users, private UserOnboardingService $onboarding) {}
 
     public function index(Request $request): View
     {
@@ -37,7 +39,9 @@ class UserController extends Controller
         $users = $query->orderByDesc('id')->get();
         $roles = Role::orderBy('name')->get();
 
-        return view('admin.users.index', compact('users', 'roles'));
+        $imports = UserImport::ownedBy($request->user())->latest()->take(6)->get();
+
+        return view('admin.users.index', compact('users', 'roles', 'imports'));
     }
 
     public function create(): View
@@ -53,7 +57,7 @@ class UserController extends Controller
 
         $data = $request->validated();
         $user = $this->users->create($data, $data['role_names']);
-        $user->sendEmailVerificationNotification();
+        $this->onboarding->send($user);
 
         return redirect()->route('admin.users.index')->with('status', "User {$user->user_id} created.");
     }
@@ -115,29 +119,62 @@ class UserController extends Controller
     {
         $this->authorize('create', User::class);
 
-        return Excel::download(new StudentImportTemplateExport(), 'student-import-template.xlsx');
+        return Excel::download(new StudentImportTemplateExport, 'student-upload-template.xlsx');
     }
 
     public function import(Request $request): RedirectResponse
     {
         $this->authorize('create', User::class);
 
-        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+        $request->validate([
+            'file' => ['required', 'array', 'min:1'],
+            'file.*' => ['required', 'file', 'mimes:xlsx'],
+        ]);
 
-        $import = new StudentsImport($this->users);
-        Excel::import($import, $request->file('file'));
+        foreach ($request->file('file') as $file) {
+            $path = $file->storeAs('imports/uploads', uniqid('students-', true).'.'.$file->getClientOriginalExtension(), 'local');
 
-        $created = $import->createdCount();
-        $failed = $import->failedRows();
+            $import = UserImport::create([
+                'initiated_by_user_id' => $request->user()->id,
+                'original_filename' => $file->getClientOriginalName(),
+                'upload_path' => $path,
+                'status' => 'queued',
+            ]);
 
-        if (! empty($failed)) {
-            session()->flash('status', "Imported {$created} students; ".count($failed).' rows failed.');
-            // Hand back the failed rows as a downloadable file to retry.
-            session()->flash('failed_import', true);
-
-            return Excel::download(new FailedStudentRowsExport($failed), 'failed-student-rows.xlsx');
+            DispatchStudentImport::dispatch($import);
         }
 
-        return redirect()->route('admin.users.index')->with('status', "Imported {$created} students.");
+        $count = count($request->file('file'));
+
+        return redirect()->route('admin.users.index')
+            ->with('status', $count === 1 ? 'Student import queued.' : "{$count} student imports queued.");
+    }
+
+    // Polled by the users-index timeline for live import status (no page refresh).
+    public function importTimeline(Request $request)
+    {
+        $this->authorize('create', User::class);
+
+        $imports = UserImport::ownedBy($request->user())->latest()->take(6)->get();
+
+        return view('admin.users._import-timeline', compact('imports'));
+    }
+
+    // Detail fragment for the timeline: full status + per-row failure reasons (opened in the shared modal).
+    public function showImport(UserImport $userImport): View
+    {
+        $this->authorize('view', $userImport);
+
+        return view('admin.users.import-show', compact('userImport'));
+    }
+
+    public function downloadImportReport(UserImport $userImport)
+    {
+        $this->authorize('view', $userImport);
+
+        abort_unless($userImport->failed_report_path, 404);
+        abort_unless(Storage::disk('local')->exists($userImport->failed_report_path), 404);
+
+        return Storage::disk('local')->download($userImport->failed_report_path, 'student-upload-failed.xlsx');
     }
 }

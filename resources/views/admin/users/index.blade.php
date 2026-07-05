@@ -14,7 +14,15 @@
 @section('content')
     @include('admin._status')
 
-    <x-data-table id="users_table" search-placeholder="Search users">
+    {{-- Two-panel split: flexible table + fixed-width timeline. The static Metronic bundle has no
+         col-span-4, so an arbitrary wide/narrow ratio is set with a nonce'd grid-template override. --}}
+    <style nonce="{{ $cspNonce ?? '' }}">
+        @media (min-width: 1024px) { #users_layout { grid-template-columns: minmax(0, 1fr) 300px; } }
+    </style>
+    <div id="users_layout" class="grid gap-5 lg:gap-7.5">
+        {{-- Left panel: users table (flexible width). --}}
+        <div class="min-w-0">
+            <x-data-table id="users_table" search-placeholder="Search users">
         <x-slot:filters>
             <select data-filter="status" class="kt-select w-36">
                 <option value="">All statuses</option>
@@ -110,7 +118,15 @@
         @empty
             <tr><td colspan="7" class="text-center text-secondary-foreground py-5">No users.</td></tr>
         @endforelse
-    </x-data-table>
+            </x-data-table>
+        </div>
+
+        {{-- Right panel: student upload timeline (fixed width). Polled live (see script below) so
+             queued → processing → completed updates land without a page refresh. --}}
+        <div class="min-w-0" id="import_timeline">
+            @include('admin.users._import-timeline')
+        </div>
+    </div>
 
     {{-- View-details modal (AJAX-loaded fragment) --}}
     <x-modal id="form_modal" width="640px" />
@@ -127,8 +143,8 @@
                     </button>
                 </div>
                 <div class="kt-modal-body flex flex-col gap-3">
-                    <p class="text-sm text-secondary-foreground">Columns: user_id, given_name, surname, email, status.</p>
-                    <input type="file" name="file" accept=".xlsx,.xls,.csv" class="kt-input" required>
+                    <p class="text-sm text-secondary-foreground">Columns: user_id, given_name, surname, email, role_names. You can select multiple .xlsx files.</p>
+                    <input type="file" name="file[]" accept=".xlsx" class="kt-input" multiple required>
                 </div>
                 <div class="kt-modal-footer justify-end">
                     <button type="submit" class="kt-btn kt-btn-primary">Import</button>
@@ -261,6 +277,32 @@
                 }
             });
         });
+
+        // Live upload timeline: while any import is queued/processing, re-fetch the panel every 4s
+        // (polling — the project's chosen transport; Reverb stays dormant) so status lands without a refresh.
+        (function () {
+            var panel = document.getElementById('import_timeline');
+            if (!panel) return;
+            var url = '{{ route('admin.users.imports.timeline') }}';
+            var timer = null;
+
+            function isActive() {
+                var root = panel.querySelector('[data-import-timeline]');
+                return root && root.dataset.active === '1';
+            }
+            function schedule() {
+                clearTimeout(timer);
+                if (isActive()) timer = setTimeout(poll, 4000);
+            }
+            function poll() {
+                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' })
+                    .then(function (r) { return r.ok ? r.text() : null; })
+                    .then(function (html) { if (html !== null) panel.innerHTML = html; })
+                    .catch(function () { /* transient error — retry next tick */ })
+                    .finally(schedule);
+            }
+            schedule();
+        })();
     </script>
     @endpush
 @endsection

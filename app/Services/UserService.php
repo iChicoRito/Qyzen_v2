@@ -13,11 +13,10 @@ class UserService
     /** @param array{user_type:string,user_id:string,given_name:string,surname:string,email:string,is_active:bool} $data */
     public function create(array $data, array $roleNames): User
     {
-        $user = new User();
+        $user = new User;
         $this->applyLockedColumns($user, $data);
         $user->given_name = $data['given_name'];
         $user->surname = $data['surname'];
-        // No password → force-reset on first login (Stage C/E decision).
         $user->save();
 
         $this->syncRolesByName($user, $roleNames);
@@ -41,8 +40,8 @@ class UserService
     {
         $user->forceFill([
             'user_type' => $data['user_type'],
-            'user_id'   => $data['user_id'],
-            'email'     => $data['email'],
+            'user_id' => $data['user_id'],
+            'email' => $data['email'],
             'is_active' => $data['is_active'],
         ]);
     }

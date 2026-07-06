@@ -21,6 +21,9 @@ class HardeningTest extends TestCase
         $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
         $this->assertNotNull($response->headers->get('Content-Security-Policy'));
         $this->assertStringContainsString("frame-ancestors 'none'", $response->headers->get('Content-Security-Policy'));
+        // The Google OAuth email-change flow POSTs then 302s to Google; form-action must allow it
+        // or the browser cancels the redirect and the modal hangs. (Task 44)
+        $this->assertStringContainsString("form-action 'self' https://accounts.google.com", $response->headers->get('Content-Security-Policy'));
     }
 
     public function test_csp_includes_a_script_nonce_and_layout_uses_it(): void

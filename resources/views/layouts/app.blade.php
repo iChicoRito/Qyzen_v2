@@ -110,7 +110,8 @@
                 </div>
                 <!-- End of Mobile Logo -->
 
-                @include('layouts.partials._demo1_megamenu')
+                {{-- @include('layouts.partials._demo1_megamenu') --}}
+                <div class="grow"></div>{{-- ponytail: spacer replacing hidden megamenu; delete when megamenu is restored --}}
 
                 @include('layouts.partials._demo1_topbar_icons')
                     <!-- User -->
@@ -126,18 +127,18 @@
                         </div>
                         <div class="kt-dropdown-menu w-[250px]" data-kt-dropdown-menu="true">
                             <div class="flex items-center justify-between px-2.5 py-1.5 gap-1.5">
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-2 min-w-0">
                                     @if ($u && $u->profile_picture)
                                         <img alt="user" class="size-9 shrink-0 rounded-full border-2 border-primary" src="{{ asset('storage/'.$u->profile_picture) }}" />
                                     @else
                                         <span class="inline-flex items-center justify-center size-9 rounded-full bg-primary/10 text-primary font-semibold shrink-0">{{ $initial }}</span>
                                     @endif
-                                    <div class="flex flex-col gap-1.5">
-                                        <span class="text-sm text-foreground font-semibold leading-none">{{ $u->name ?? 'Guest' }}</span>
-                                        <span class="text-xs text-secondary-foreground font-medium leading-none">{{ $u->email ?? '' }}</span>
+                                    <div class="flex flex-col gap-1.5 min-w-0">
+                                        <span class="text-sm text-foreground font-semibold leading-none truncate">{{ $u->name ?? 'Guest' }}</span>
+                                        <span class="text-xs text-secondary-foreground font-medium leading-none truncate">{{ $u->email ?? '' }}</span>
                                     </div>
                                 </div>
-                                <span class="kt-badge kt-badge-sm kt-badge-primary kt-badge-outline text-capitalize">{{ $role ?? 'guest' }}</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-primary kt-badge-outline text-capitalize shrink-0">{{ $role ?? 'guest' }}</span>
                             </div>
                             <ul class="kt-dropdown-menu-sub">
                                 <li><div class="kt-dropdown-menu-separator"></div></li>

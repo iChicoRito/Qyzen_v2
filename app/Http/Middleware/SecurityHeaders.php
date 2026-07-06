@@ -62,7 +62,10 @@ class SecurityHeaders
             "connect-src 'self'".$this->reverbOrigin(),
             "frame-ancestors 'none'",
             "base-uri 'self'",
-            "form-action 'self'",
+            // form-action is checked against the redirect target of a form POST too, so the Google
+            // OAuth flow (Continue -> POST -> 302 to accounts.google.com) needs it allowlisted here,
+            // otherwise the browser silently cancels the redirect and the modal hangs. (Task 44)
+            "form-action 'self' https://accounts.google.com",
         ]);
     }
 

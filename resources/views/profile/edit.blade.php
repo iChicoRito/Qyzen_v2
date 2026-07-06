@@ -228,7 +228,10 @@
 
     {{-- Change email via Google --}}
     <div class="kt-modal" data-kt-modal="true" id="change_email_modal">
-        <div class="kt-modal-content max-w-[460px] top-[15%]">
+        {{-- Width via inline style: the static Metronic bundle ships no arbitrary max-w-[…] utility,
+             so max-w-[460px] compiled to nothing and the modal rendered full width. Matches the
+             standard modal pattern (see components/modal.blade.php, admin/users). (Task 44) --}}
+        <div class="kt-modal-content top-[15%]" style="width: 100%; max-width: min(92vw, 460px);">
             <div class="kt-modal-header">
                 <h3 class="kt-modal-title">Change email address</h3>
                 <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0" data-kt-modal-dismiss="true">

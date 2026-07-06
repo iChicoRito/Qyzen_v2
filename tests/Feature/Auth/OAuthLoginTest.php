@@ -95,6 +95,65 @@ class OAuthLoginTest extends TestCase
         $this->get(route('oauth.callback', 'github'))->assertNotFound();
     }
 
+    public function test_change_email_redirect_sets_intent_and_uses_socialite(): void
+    {
+        config([
+            'services.google.client_id' => 'google-client-id',
+            'services.google.client_secret' => 'google-client-secret',
+        ]);
+
+        $user = User::factory()->create(['email_verified_at' => now(), 'is_active' => true]);
+
+        $provider = Mockery::mock();
+        $provider->shouldReceive('with')->once()->with(['prompt' => 'select_account'])->andReturnSelf();
+        $provider->shouldReceive('redirect')->once()->andReturn(redirect('https://accounts.google.com/o/oauth2/auth'));
+        Socialite::shouldReceive('driver')->once()->with('google')->andReturn($provider);
+
+        $this->actingAs($user)->post(route('profile.email.google'))
+            ->assertRedirect('https://accounts.google.com/o/oauth2/auth')
+            ->assertSessionHas('oauth_intent', 'change_email');
+    }
+
+    public function test_change_email_callback_swaps_email_on_success(): void
+    {
+        $user = User::factory()->create(['email' => 'old@example.com', 'is_active' => true]);
+        $this->mockGoogleUser('NEW@example.com');
+
+        $this->actingAs($user)->withSession(['oauth_intent' => 'change_email'])
+            ->get(route('oauth.callback', 'google'))
+            ->assertRedirect(route('profile.edit'))
+            ->assertSessionHas('status', 'This Google email is now your sign-in email.');
+
+        $this->assertSame('new@example.com', $user->fresh()->email);
+    }
+
+    public function test_change_email_callback_rejects_email_used_by_another_account(): void
+    {
+        $other = User::factory()->create(['email' => 'taken@example.com', 'is_active' => true]);
+        $user = User::factory()->create(['email' => 'mine@example.com', 'is_active' => true]);
+        $this->mockGoogleUser('taken@example.com');
+
+        $this->actingAs($user)->withSession(['oauth_intent' => 'change_email'])
+            ->get(route('oauth.callback', 'google'))
+            ->assertRedirect(route('profile.edit'))
+            ->assertSessionHas('error', 'That Google email is already used by another account.');
+
+        $this->assertSame('mine@example.com', $user->fresh()->email);
+    }
+
+    public function test_change_email_callback_rejects_when_email_is_already_yours(): void
+    {
+        $user = User::factory()->create(['email' => 'mine@example.com', 'is_active' => true]);
+        $this->mockGoogleUser('MINE@example.com');
+
+        $this->actingAs($user)->withSession(['oauth_intent' => 'change_email'])
+            ->get(route('oauth.callback', 'google'))
+            ->assertRedirect(route('profile.edit'))
+            ->assertSessionHas('error', 'That Google account is already your email. Pick a different one to switch.');
+
+        $this->assertSame('mine@example.com', $user->fresh()->email);
+    }
+
     private function mockGoogleUser(string $email): void
     {
         $oauthUser = Mockery::mock();

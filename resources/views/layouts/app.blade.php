@@ -145,7 +145,7 @@
                                 <li>
                                     <a class="kt-dropdown-menu-link" href="{{ route('profile.edit') }}">
                                         <i class="ki-filled ki-profile-circle"></i>
-                                        My Profile
+                                        Profile settings
                                     </a>
                                 </li>
                                 <li><div class="kt-dropdown-menu-separator"></div></li>

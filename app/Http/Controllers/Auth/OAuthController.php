@@ -15,6 +15,10 @@ class OAuthController extends Controller
     {
         abort_unless($provider === 'google', 404);
 
+        if (! config('services.google.client_id') || ! config('services.google.client_secret')) {
+            return redirect()->route('login')->withErrors(['email' => 'Google sign-in is not configured yet.']);
+        }
+
         return Socialite::driver('google')->redirect();
     }
 

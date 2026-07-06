@@ -42,12 +42,12 @@
         <div class="kt-sidebar-header hidden lg:flex items-center relative justify-between px-3 lg:px-6 shrink-0" id="sidebar_header">
             <div class="kt-sidebar-logo min-w-0">
                 <a class="dark:hidden" href="{{ url('/') }}">
-                    <img class="default-logo min-h-[22px] max-w-none" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/app/default-logo.svg') }}"/>
-                    <img class="small-logo min-h-[22px] max-w-none" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/app/mini-logo.svg') }}"/>
+                    <img alt="Qyzen" class="default-logo size-20 max-w-none" src="{{ asset('assets/img/logo-dark.png') }}"/>
+                    <img alt="Qyzen" class="small-logo size-20 max-w-none" src="{{ asset('assets/img/logo-dark.png') }}"/>
                 </a>
                 <a class="hidden dark:block" href="{{ url('/') }}">
-                    <img class="default-logo min-h-[22px] max-w-none" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/app/default-logo-dark.svg') }}"/>
-                    <img class="small-logo min-h-[22px] max-w-none" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/app/mini-logo.svg') }}"/>
+                    <img alt="Qyzen" class="default-logo size-20 max-w-none" src="{{ asset('assets/img/logo-light.png') }}"/>
+                    <img alt="Qyzen" class="small-logo size-20 max-w-none" src="{{ asset('assets/img/logo-light.png') }}"/>
                 </a>
             </div>
             <button class="kt-btn kt-btn-outline kt-btn-icon size-[30px] absolute start-full top-2/4 z-40 -translate-x-2/4 -translate-y-2/4 rtl:translate-x-2/4"
@@ -96,7 +96,8 @@
                 <!-- Mobile Logo -->
                 <div class="flex gap-2.5 lg:hidden items-center -ms-1">
                     <a class="shrink-0" href="{{ url('/') }}">
-                        <img class="max-h-[25px] w-full" src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/app/mini-logo.svg') }}"/>
+                        <img alt="Qyzen" class="dark:hidden size-9" src="{{ asset('assets/img/logo-dark.png') }}"/>
+                        <img alt="Qyzen" class="hidden dark:block size-9" src="{{ asset('assets/img/logo-light.png') }}"/>
                     </a>
                     <div class="flex items-center">
                         <button class="kt-btn kt-btn-icon kt-btn-ghost" data-kt-drawer-toggle="#sidebar">

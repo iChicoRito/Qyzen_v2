@@ -25,17 +25,19 @@
         .lp-lead { color: var(--muted-foreground); font-size: 1.02rem; line-height: 1.7; max-width: 62ch; }
 
         /* Top bar */
-        .lp-bar { position: fixed; inset: 0 0 auto 0; z-index: 30; height: 60px; display: flex; align-items: center;
+        .lp-bar { position: fixed; inset: 0 0 auto 0; z-index: 30; height: 72px; display: flex; align-items: center;
             border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--background) 78%, transparent);
             -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
         .lp-bar .lp-wrap { display: flex; align-items: center; justify-content: space-between; width: 100%; }
         .lp-brand { display: flex; align-items: center; gap: 10px; }
-        .lp-brand img { height: 24px; width: auto; display: block; }
-        .lp-brand span { font-weight: 600; font-size: 1.05rem; letter-spacing: -.01em; color: var(--foreground); }
+        .lp-brand img { height: 80px; width: auto; }
+        .lp-logo-dark-mode { display: none; }
+        .dark .lp-logo-light-mode { display: none; }
+        .dark .lp-logo-dark-mode { display: block; }
         .lp-toggle { display: flex; align-items: center; gap: 8px; color: var(--muted-foreground); cursor: pointer; }
 
         /* Hero */
-        .lp-hero { position: relative; overflow: hidden; padding-top: 148px; padding-bottom: 104px; }
+        .lp-hero { position: relative; overflow: hidden; padding-top: 160px; padding-bottom: 104px; }
         .lp-mist { position: absolute; inset: -20% -10% auto -10%; height: 620px; z-index: 0; pointer-events: none; filter: blur(90px); opacity: .55; }
         .lp-mist span { position: absolute; width: 380px; height: 380px; border-radius: 9999px; }
         .lp-mist .b1 { background: #4f7bff; top: 40px; left: 6%; }
@@ -131,8 +133,8 @@
     <header class="lp-bar">
         <div class="lp-wrap">
             <a class="lp-brand" href="{{ url('/') }}">
-                <img src="{{ asset('metronic-tailwind-html-demos/dist/assets/media/app/mini-logo.svg') }}" alt="Qyzen" />
-                <span>Qyzen</span>
+                <img class="lp-logo-light-mode" src="{{ asset('assets/img/logo-dark.png') }}" alt="Qyzen" />
+                <img class="lp-logo-dark-mode" src="{{ asset('assets/img/logo-light.png') }}" alt="Qyzen" />
             </a>
             <label class="lp-toggle">
                 <i class="ki-filled ki-moon"></i>

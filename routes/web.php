@@ -82,6 +82,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+    // Email is switched by picking a Google account (never typed) — sets the intent, then Socialite.
+    Route::post('/profile/email/google', [OAuthController::class, 'changeEmailRedirect'])->name('profile.email.google');
 
     // Task 25 — notification bell read/delivery (owner-scoped; polling JSON, no live transport yet).
     // Shared group: the `role` middleware takes one role, and owner-scoping already isolates recipients.

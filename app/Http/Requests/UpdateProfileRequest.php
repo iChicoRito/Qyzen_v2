@@ -4,13 +4,13 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 
 // H11: self-service profile update. Self-service column lock (was a Postgres trigger):
 //  - user_id / user_type / is_active are NEVER editable here (not even in $fillable).
 //  - given_name/surname editable by educators/admins; READ-ONLY for students (source rule:
 //    "students can update email and media only") — enforced by dropping those keys for students.
-//  - email editable by all (uniqueness enforced); picture/cover are media.
+//  - email is NOT changed here — it is switched only via the Google account flow (OAuthController).
+//  - picture/cover are media.
 class UpdateProfileRequest extends FormRequest
 {
     public function authorize(): bool
@@ -21,9 +21,10 @@ class UpdateProfileRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'email' => ['required', 'email', 'max:255', Rule::unique('tbl_users', 'email')->ignore(Auth::id())],
             'profile_picture' => ['nullable', 'image', 'mimes:png,jpeg,jpg,webp', 'max:2048'],
             'cover_photo' => ['nullable', 'image', 'mimes:png,jpeg,jpg,webp', 'max:2048'],
+            'remove_profile_picture' => ['nullable', 'boolean'],
+            'remove_cover_photo' => ['nullable', 'boolean'],
         ];
 
         // name editable only for non-students.
@@ -33,12 +34,5 @@ class UpdateProfileRequest extends FormRequest
         }
 
         return $rules;
-    }
-
-    protected function prepareForValidation(): void
-    {
-        if ($this->has('email')) {
-            $this->merge(['email' => strtolower(trim($this->input('email')))]);
-        }
     }
 }

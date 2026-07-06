@@ -39,8 +39,18 @@
             </thead>
         </x-slot:head>
         @forelse ($enrollments as $e)
+            @php $st = $e->student; $initial = strtoupper(mb_substr(optional($st)->given_name ?: (optional($st)->surname ?: '?'), 0, 1)); @endphp
             <tr>
-                <td class="text-mono font-medium text-sm">{{ optional($e->student)->user_id ?? '—' }}</td>
+                <td>
+                    <div class="flex items-center gap-2.5">
+                        @if ($st && $st->profile_picture)
+                            <img alt="{{ $st->name }}" class="rounded-full size-9 shrink-0" src="{{ asset('storage/'.$st->profile_picture) }}" />
+                        @else
+                            <span class="inline-flex items-center justify-center rounded-full size-9 shrink-0 bg-primary/10 text-primary text-sm font-semibold">{{ $initial }}</span>
+                        @endif
+                        <span class="text-mono font-medium text-sm">{{ optional($st)->user_id ?? '—' }}</span>
+                    </div>
+                </td>
                 <td class="text-mono text-sm">{{ optional($e->student)->surname ?? '—' }}</td>
                 <td class="text-mono text-sm">{{ optional($e->student)->given_name ?? '—' }}</td>
                 <td>
@@ -51,6 +61,8 @@
                 </td>
                 <td class="text-center">
                     <x-table-actions
+                        :view-modal="$st ? route('educator.enrollment.student', $st) : null"
+                        view-modal-title="Student"
                         :edit-modal="route('educator.enrollment.edit', $e)"
                         edit-modal-title="Edit enrollment"
                         :delete="route('educator.enrollment.destroy', $e)"

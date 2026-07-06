@@ -150,6 +150,7 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         Route::get('enrollment/imports/timeline', [EnrollmentController::class, 'importTimeline'])->name('enrollment.imports.timeline');
         Route::get('enrollment/imports/{enrollmentImport}', [EnrollmentController::class, 'showImport'])->name('enrollment.imports.show');
         Route::get('enrollment/subject/{subject}', [EnrollmentController::class, 'showSubject'])->name('enrollment.subject');
+        Route::get('enrollment/student/{user}', [EnrollmentController::class, 'showStudent'])->name('enrollment.student');
         Route::resource('enrollment', EnrollmentController::class)->except('show')->parameters(['enrollment' => 'enrolled']);
 
         Route::resource('assessments', AssessmentController::class)->except('show');

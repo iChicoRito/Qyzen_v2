@@ -51,10 +51,25 @@ class EnrollmentController extends Controller
 
         $subject->load('section:id,section_name');
         $enrollments = Enrolled::where('subject_id', $subject->id)->visibleTo(Auth::user())
-            ->with('student:id,given_name,surname,user_id')
+            ->with('student:id,given_name,surname,user_id,profile_picture')
             ->orderByDesc('id')->get();
 
         return view('educator.enrollment.show', compact('subject', 'enrollments'));
+    }
+
+    // Task 43: profile card fragment for one enrolled student, opened in the shared modal.
+    // Gated by enrollment ownership — an educator only sees students they actually teach.
+    public function showStudent(User $user): View
+    {
+        $this->authorize('viewAny', Enrolled::class);
+        abort_unless(
+            Enrolled::where('student_id', $user->id)->visibleTo(Auth::user())->exists(),
+            403
+        );
+
+        $user->load('roles:id,name');
+
+        return view('educator.enrollment.student', compact('user'));
     }
 
     public function create(): View

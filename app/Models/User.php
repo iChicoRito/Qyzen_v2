@@ -37,6 +37,7 @@ class User extends Authenticatable implements CanResetPasswordContract, MustVeri
             'is_active' => 'boolean',
             'password' => 'hashed',
             'email_verified_at' => 'datetime',
+            'must_change_password' => 'boolean',
         ];
     }
 

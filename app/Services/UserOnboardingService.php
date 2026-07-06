@@ -13,6 +13,7 @@ class UserOnboardingService
         $temporaryPassword = Str::password(12, true, true, false, false);
 
         $user->password = $temporaryPassword;
+        $user->must_change_password = true;
         $user->save();
 
         $user->notify(new AccountCreatedNotification($temporaryPassword));

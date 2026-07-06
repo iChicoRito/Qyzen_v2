@@ -74,6 +74,7 @@ class AdminFeaturesTest extends TestCase
         $this->assertSame('new.student@example.com', $user->email);
         $this->assertTrue($user->hasRole('student'));
         $this->assertNotNull($user->password);
+        $this->assertTrue($user->must_change_password);
         Notification::assertSentTo($user, AccountCreatedNotification::class, function (AccountCreatedNotification $notification) use ($user) {
             $this->assertSame('Mr. Mark Adrianne Salunga', $notification->createdBy);
             $this->assertTrue(Hash::check($notification->temporaryPassword, $user->fresh()->password));

@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\AccountActivationController;
+use App\Http\Controllers\Auth\ForcePasswordChangeController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\Educator\AssessmentController;
 use App\Http\Controllers\Educator\ChatController;
@@ -37,6 +38,11 @@ Route::get('/', function () {
 Route::get('/oauth/{provider}/redirect', [OAuthController::class, 'redirect'])->name('oauth.redirect');
 Route::get('/oauth/{provider}/callback', [OAuthController::class, 'callback'])->name('oauth.callback');
 Route::get('/account/activate/{user}', AccountActivationController::class)->name('account.activate');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/password/force-change', [ForcePasswordChangeController::class, 'edit'])->name('password.force.edit');
+    Route::put('/password/force-change', [ForcePasswordChangeController::class, 'update'])->name('password.force.update');
+});
 
 // C5: post-login bounce to the role dashboard (admin > educator > student).
 Route::get('/dashboard', fn () => redirect(Auth::user()->dashboardPath()))

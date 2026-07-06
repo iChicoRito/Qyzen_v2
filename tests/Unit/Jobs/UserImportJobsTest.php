@@ -121,7 +121,9 @@ class UserImportJobsTest extends TestCase
         Storage::disk('local')->assertExists($import->failed_report_path);
         Storage::disk('local')->assertMissing($import->upload_path);
         $this->assertTrue($user->hasRole('student'));
+        $this->assertTrue($user->must_change_password);
         $this->assertTrue($placeholder->hasRole('student'));
+        $this->assertTrue($placeholder->must_change_password);
         $this->assertStringStartsWith('Row 5:', $import->failed_rows[0]['error']);
         Notification::assertSentTo($user, AccountCreatedNotification::class, function (AccountCreatedNotification $notification) use ($user) {
             $this->assertSame('Mr. Mark Adrianne Salunga', $notification->createdBy);

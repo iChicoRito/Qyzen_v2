@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Models\Notification;
 use App\Services\ConversationService;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -23,6 +25,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        VerifyEmail::toMailUsing(fn (object $notifiable, string $url) => (new MailMessage)
+            ->subject('Verify your email address')
+            ->view('emails.verify-email', [
+                'user' => $notifiable,
+                'verifyUrl' => $url,
+            ]));
+
         // Task 25 bell: feed real data to the notifications drawer (All tab). Owner-scoped,
         // capped to the recent set. Static Team/Following tabs stay demo for now.
         // Task 30: Inbox tab + chat drawer conversation list, same composer.

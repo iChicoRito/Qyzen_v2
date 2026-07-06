@@ -29,10 +29,10 @@ class PermissionController extends Controller
             $string = $p['resource'].':'.$p['action'];
             Permission::create([
                 'resource' => $p['resource'],
-                'action'   => $p['action'],
+                'action' => $p['action'],
                 'permission_string' => $string,
-                'name'     => $p['name'] ?? $string,
-                'module'   => $p['module'] ?? $p['resource'],   // module/description are NOT NULL in schema
+                'name' => $p['name'] ?? $string,
+                'module' => $p['module'] ?? $p['resource'],   // module/description are NOT NULL in schema
                 'description' => $p['description'] ?? $string,
                 'is_active' => $p['is_active'],
             ]);

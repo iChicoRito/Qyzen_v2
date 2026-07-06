@@ -18,11 +18,11 @@ class StoreEnrollmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'student_ids'   => ['required', 'array', 'min:1'],
+            'student_ids' => ['required', 'array', 'min:1'],
             'student_ids.*' => [Rule::exists('tbl_users', 'id')->where('user_type', 'student')],
-            'subject_ids'   => ['required', 'array', 'min:1'],
+            'subject_ids' => ['required', 'array', 'min:1'],
             'subject_ids.*' => [Rule::exists('tbl_subjects', 'id')->where('educator_id', Auth::id())],
-            'is_active'     => ['required', 'boolean'],
+            'is_active' => ['required', 'boolean'],
         ];
     }
 }

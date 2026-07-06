@@ -59,6 +59,9 @@
                                 @if ($import->failed_report_path)
                                     <a href="{{ route('admin.users.import.report', $import) }}" class="kt-link kt-link-underlined kt-link-dashed text-sm mt-1">Download failed rows</a>
                                 @endif
+                                @if (! empty($import->created_credentials))
+                                    <a href="{{ route('admin.users.import.credentials', $import) }}" class="kt-link kt-link-underlined kt-link-dashed text-sm mt-1">Download credentials</a>
+                                @endif
                             </div>
                         </div>
                     @endforeach

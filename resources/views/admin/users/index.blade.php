@@ -14,6 +14,30 @@
 @section('content')
     @include('admin._status')
 
+    @if (session('created_credentials'))
+        <div class="kt-card mb-5">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">Offline credentials</h3>
+            </div>
+            <div class="kt-card-content">
+                <div class="grid gap-2">
+                    @foreach (session('created_credentials') as $credential)
+                        <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3">
+                            <div class="text-sm">
+                                <span class="font-medium text-mono">{{ $credential['name'] }}</span>
+                                <span class="text-secondary-foreground">({{ $credential['user_id'] }})</span>
+                            </div>
+                            <div class="text-sm">
+                                <span class="text-secondary-foreground">Password:</span>
+                                <span class="font-semibold text-mono">{{ $credential['temporary_password'] }}</span>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- Two-panel split: flexible table + fixed-width timeline. The static Metronic bundle has no
          col-span-4, so an arbitrary wide/narrow ratio is set with a nonce'd grid-template override. --}}
     <style nonce="{{ $cspNonce ?? '' }}">
@@ -110,6 +134,27 @@
                                     <span class="kt-menu-title">Resend verification</span>
                                 </a>
                                 <form method="POST" action="{{ route('admin.users.resend-verification', $u) }}" class="hidden">@csrf</form>
+                            </div>
+                            <div class="kt-menu-item">
+                                <a class="kt-menu-link" href="#" data-confirm="Mark this user as verified?" data-confirm-title="Verify user" data-confirm-button="Verify">
+                                    <span class="kt-menu-icon"><i class="ki-filled ki-check-circle"></i></span>
+                                    <span class="kt-menu-title">Mark verified</span>
+                                </a>
+                                <form method="POST" action="{{ route('admin.users.verification', $u) }}" class="hidden">
+                                    @csrf @method('PUT')
+                                    <input type="hidden" name="verified" value="1">
+                                </form>
+                            </div>
+                        @else
+                            <div class="kt-menu-item">
+                                <a class="kt-menu-link" href="#" data-confirm="Mark this user as unverified?" data-confirm-title="Unverify user" data-confirm-button="Unverify">
+                                    <span class="kt-menu-icon"><i class="ki-filled ki-cross-circle"></i></span>
+                                    <span class="kt-menu-title">Mark unverified</span>
+                                </a>
+                                <form method="POST" action="{{ route('admin.users.verification', $u) }}" class="hidden">
+                                    @csrf @method('PUT')
+                                    <input type="hidden" name="verified" value="0">
+                                </form>
                             </div>
                         @endif
                     </x-table-actions>

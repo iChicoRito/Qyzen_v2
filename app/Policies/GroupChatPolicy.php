@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\Enrolled;
 use App\Models\GroupChat;
 use App\Models\User;
 
@@ -21,7 +22,7 @@ class GroupChatPolicy
         }
 
         // student: enrolled in the chat's subject with the chat's educator.
-        return \App\Models\Enrolled::where('student_id', $user->id)
+        return Enrolled::where('student_id', $user->id)
             ->where('subject_id', $chat->subject_id)
             ->where('educator_id', $chat->educator_id)
             ->where('is_active', true)

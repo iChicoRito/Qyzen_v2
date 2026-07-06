@@ -166,7 +166,7 @@ class BulkClassSeeder extends Seeder
 
     private function user(string $type, string $userId, string $given, string $surname, string $email, Role $role): User
     {
-        $user = User::withTrashed()->where('email', $email)->first() ?? new User();
+        $user = User::withTrashed()->where('email', $email)->first() ?? new User;
         $user->forceFill([
             'user_type' => $type, 'user_id' => $userId, 'email' => $email, 'is_active' => true,
             'given_name' => $given, 'surname' => $surname,

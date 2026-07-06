@@ -19,7 +19,7 @@ class StoreQuizRequest extends FormRequest
     {
         // Create: add the same question to one or more assessments.
         return [
-            'assessment_ids'   => ['required', 'array', 'min:1'],
+            'assessment_ids' => ['required', 'array', 'min:1'],
             'assessment_ids.*' => [Rule::exists('tbl_assessments', 'id')->where('educator_id', Auth::id())],
         ] + $this->questionRules();
     }
@@ -30,14 +30,14 @@ class StoreQuizRequest extends FormRequest
         $isMc = $this->input('quiz_type') === 'multiple_choice';
 
         return [
-            'question'   => ['required', 'string'],
-            'quiz_type'  => ['required', Rule::in(['multiple_choice', 'identification'])],
+            'question' => ['required', 'string'],
+            'quiz_type' => ['required', Rule::in(['multiple_choice', 'identification'])],
             // MC: radio picks the correct choice key. Identification: repeatable accepted answers.
-            'choices'    => ['nullable', 'array'],
-            'choices.*'  => ['nullable', 'string'],
+            'choices' => ['nullable', 'array'],
+            'choices.*' => ['nullable', 'string'],
             'correct_answer' => [$isMc ? 'required' : 'nullable', 'string'],
-            'answers'    => [$isMc ? 'nullable' : 'required', 'array'],
-            'answers.*'  => ['nullable', 'string'],
+            'answers' => [$isMc ? 'nullable' : 'required', 'array'],
+            'answers.*' => ['nullable', 'string'],
         ];
     }
 

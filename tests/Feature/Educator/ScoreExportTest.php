@@ -91,7 +91,7 @@ class ScoreExportTest extends TestCase
         $tmp = tempnam(sys_get_temp_dir(), 'zip');
         file_put_contents($tmp, $bytes);
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         $this->assertTrue($zip->open($tmp) === true);
         $this->assertSame(1, $zip->numFiles);
 
@@ -121,7 +121,7 @@ class ScoreExportTest extends TestCase
 
         $tmp = tempnam(sys_get_temp_dir(), 'zip');
         file_put_contents($tmp, $response->streamedContent());
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         $zip->open($tmp);
         $this->assertSame(1, $zip->numFiles); // only eduA's one group, never eduB's ZZTOP
         $zip->close();

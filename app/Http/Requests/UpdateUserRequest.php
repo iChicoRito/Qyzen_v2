@@ -19,12 +19,12 @@ class UpdateUserRequest extends FormRequest
         $userId = $this->route('user')->id;
 
         return [
-            'user_type'  => ['required', Rule::in(['admin', 'student', 'educator'])],
-            'user_id'    => ['required', 'string', 'max:255', Rule::unique('tbl_users', 'user_id')->ignore($userId)],
+            'user_type' => ['required', Rule::in(['admin', 'student', 'educator'])],
+            'user_id' => ['required', 'string', 'max:255', Rule::unique('tbl_users', 'user_id')->ignore($userId)],
             'given_name' => ['required', 'string', 'max:255'],
-            'surname'    => ['required', 'string', 'max:255'],
-            'email'      => ['required', 'email', 'max:255', Rule::unique('tbl_users', 'email')->ignore($userId)],
-            'is_active'  => ['required', 'boolean'],
+            'surname' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('tbl_users', 'email')->ignore($userId)],
+            'is_active' => ['required', 'boolean'],
             'role_names' => ['required', 'array', 'min:1'],
             'role_names.*' => ['string', Rule::exists('tbl_roles', 'name')],
         ];

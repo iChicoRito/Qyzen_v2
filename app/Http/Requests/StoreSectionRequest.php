@@ -18,10 +18,10 @@ class StoreSectionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'section_name'      => ['required', 'string', 'max:255'],
+            'section_name' => ['required', 'string', 'max:255'],
             'academic_term_ids' => ['required', 'array', 'min:1'],
             'academic_term_ids.*' => [Rule::exists('tbl_academic_term', 'id')],
-            'is_active'         => ['required', 'boolean'],
+            'is_active' => ['required', 'boolean'],
         ];
     }
 

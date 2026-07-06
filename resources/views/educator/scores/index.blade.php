@@ -2,6 +2,8 @@
 @section('title', 'Scores')
 @section('heading', 'Scores')
 @section('toolbar')
+    <a href="{{ route('educator.scores.upload.template') }}" class="kt-btn kt-btn-sm kt-btn-outline">Download upload template</a>
+    <button type="button" class="kt-btn kt-btn-sm kt-btn-secondary" data-kt-modal-toggle="#score_upload_modal">Upload offline scores</button>
     <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" data-kt-modal-toggle="#export_modal">Download Grades</button>
 @endsection
 @section('content')
@@ -100,6 +102,40 @@
     </x-data-table>
 
     @include('educator.scores._export_modal')
+
+    <div class="kt-modal" data-kt-modal="true" id="score_upload_modal">
+        <div class="kt-modal-content top-[15%]" style="width: 100%; max-width: min(92vw, 500px);">
+            <form method="POST" action="{{ route('educator.scores.upload') }}" enctype="multipart/form-data">
+                @csrf
+                <div class="kt-modal-header">
+                    <h3 class="kt-modal-title">Upload offline scores</h3>
+                    <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0" data-kt-modal-dismiss="true">
+                        <i class="ki-filled ki-cross"></i>
+                    </button>
+                </div>
+                <div class="kt-modal-body flex flex-col gap-3">
+                    <div class="flex flex-col gap-1">
+                        <label class="kt-form-label">Assessment</label>
+                        <select name="assessment_uuid" class="kt-select" required>
+                            <option value="">Select assessment</option>
+                            @foreach ($exportOptions as $option)
+                                <option value="{{ $option['uuid'] }}">
+                                    {{ $option['subjectLabel'] }} - {{ $option['sectionLabel'] }} - {{ $option['assessmentCode'] }} - {{ $option['termLabel'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('assessment_uuid')<span class="text-xs text-destructive">{{ $message }}</span>@enderror
+                    </div>
+                    <p class="text-sm text-secondary-foreground">Columns: student_id, score, total_questions, submitted_at, warning_attempts.</p>
+                    <input type="file" name="file" accept=".xlsx,.xls,.csv" class="kt-input" required>
+                    @error('file')<span class="text-xs text-destructive">{{ $message }}</span>@enderror
+                </div>
+                <div class="kt-modal-footer justify-end">
+                    <button type="submit" class="kt-btn kt-btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <x-modal id="form_modal" width="760px" />
 @endsection

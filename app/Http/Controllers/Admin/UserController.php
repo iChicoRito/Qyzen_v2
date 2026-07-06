@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\CreatedCredentialsExport;
 use App\Exports\StudentImportTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Jobs\DispatchStudentImport;
 use App\Models\Role;
+use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\UserImport;
 use App\Services\UserOnboardingService;
@@ -56,8 +58,29 @@ class UserController extends Controller
         $this->authorize('create', User::class);
 
         $data = $request->validated();
+        $offline = SystemSetting::offlineRegistrationEnabled() && $data['user_type'] === 'student';
+        if ($offline) {
+            $data['is_active'] = true;
+        }
+
         $user = $this->users->create($data, $data['role_names']);
-        $this->onboarding->send($user);
+        if ($offline) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
+
+        $temporaryPassword = $this->onboarding->send($user, ! $offline);
+
+        if ($offline) {
+            return redirect()->route('admin.users.index')->with([
+                'status' => "User {$user->user_id} created.",
+                'created_credentials' => [[
+                    'user_id' => $user->user_id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'temporary_password' => $temporaryPassword,
+                ]],
+            ]);
+        }
 
         return redirect()->route('admin.users.index')->with('status', "User {$user->user_id} created.");
     }
@@ -112,6 +135,16 @@ class UserController extends Controller
         }
 
         return back()->with('status', 'User is already verified.');
+    }
+
+    public function updateVerification(Request $request, User $user): RedirectResponse
+    {
+        $this->authorize('update', $user);
+
+        $data = $request->validate(['verified' => ['required', 'boolean']]);
+        $user->forceFill(['email_verified_at' => $data['verified'] ? now() : null])->save();
+
+        return back()->with('status', $data['verified'] ? 'User marked as verified.' : 'User marked as unverified.');
     }
 
     // F3: bulk student import.
@@ -176,5 +209,14 @@ class UserController extends Controller
         abort_unless(Storage::disk('local')->exists($userImport->failed_report_path), 404);
 
         return Storage::disk('local')->download($userImport->failed_report_path, 'student-upload-failed.xlsx');
+    }
+
+    public function downloadImportCredentials(UserImport $userImport)
+    {
+        $this->authorize('view', $userImport);
+
+        abort_unless(! empty($userImport->created_credentials), 404);
+
+        return Excel::download(new CreatedCredentialsExport($userImport->created_credentials), 'student-import-credentials.xlsx');
     }
 }

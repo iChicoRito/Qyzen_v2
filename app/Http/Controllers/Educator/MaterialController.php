@@ -54,7 +54,7 @@ class MaterialController extends Controller
         $files = $request->file('files');
         foreach ($files as $file) {
             // Store the physical file once; every selected subject reuses this same path.
-            $path = $file->store("learning-materials/".Auth::id(), self::DISK);
+            $path = $file->store('learning-materials/'.Auth::id(), self::DISK);
             foreach ($subjects as $subject) {
                 LearningMaterial::create([
                     'educator_id' => Auth::id(),

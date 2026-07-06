@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Assessment extends Model
 {
@@ -14,7 +15,7 @@ class Assessment extends Model
     // Task 19: opaque route key — URLs bind by the random uuid, never the sequential id.
     protected static function booted(): void
     {
-        static::creating(fn (self $m) => $m->uuid ??= (string) \Illuminate\Support\Str::uuid());
+        static::creating(fn (self $m) => $m->uuid ??= (string) Str::uuid());
     }
 
     public function getRouteKeyName(): string

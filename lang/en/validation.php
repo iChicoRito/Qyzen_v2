@@ -15,45 +15,45 @@ return [
 
     // Missing one specific field (fires once per empty field → naturally
     // covers the "multiple fields" case as separate, specific toasts).
-    'required' => "Please provide your :attribute.",
-    'required_if' => "Please provide your :attribute.",
+    'required' => 'Please provide your :attribute.',
+    'required_if' => 'Please provide your :attribute.',
 
     // Incorrect format
-    'email' => "Please enter a valid :attribute.",
-    'regex' => "Please check the format of your :attribute.",
-    'date' => "Please choose a valid :attribute.",
-    'integer' => "Your :attribute should be a whole number.",
-    'numeric' => "Your :attribute should be a number.",
-    'boolean' => "Please choose an option for your :attribute.",
-    'in' => "Please choose a valid :attribute from the list.",
+    'email' => 'Please enter a valid :attribute.',
+    'regex' => 'Please check the format of your :attribute.',
+    'date' => 'Please choose a valid :attribute.',
+    'integer' => 'Your :attribute should be a whole number.',
+    'numeric' => 'Your :attribute should be a number.',
+    'boolean' => 'Please choose an option for your :attribute.',
+    'in' => 'Please choose a valid :attribute from the list.',
 
     // Uploads
-    'image' => "Your :attribute should be an image (JPG or PNG).",
-    'mimes' => "Your :attribute should be a :values file.",
+    'image' => 'Your :attribute should be an image (JPG or PNG).',
+    'mimes' => 'Your :attribute should be a :values file.',
     'max' => [
-        'string' => "Your :attribute should be :max characters or fewer.",
-        'file' => "Your :attribute should be under :max KB.",
-        'array' => "Please choose no more than :max for your :attribute.",
-        'numeric' => "Your :attribute should be :max or lower.",
+        'string' => 'Your :attribute should be :max characters or fewer.',
+        'file' => 'Your :attribute should be under :max KB.',
+        'array' => 'Please choose no more than :max for your :attribute.',
+        'numeric' => 'Your :attribute should be :max or lower.',
     ],
     'min' => [
         // multi-select "pick at least one" case
-        'array' => "Please choose at least :min for your :attribute.",
-        'string' => "Your :attribute should be at least :min characters.",
-        'numeric' => "Your :attribute should be at least :min.",
+        'array' => 'Please choose at least :min for your :attribute.',
+        'string' => 'Your :attribute should be at least :min characters.',
+        'numeric' => 'Your :attribute should be at least :min.',
     ],
     'between' => [
-        'numeric' => "Your :attribute should be between :min and :max.",
-        'string' => "Your :attribute should be between :min and :max characters.",
+        'numeric' => 'Your :attribute should be between :min and :max.',
+        'string' => 'Your :attribute should be between :min and :max characters.',
     ],
 
     // Uniqueness / references
-    'unique' => "That :attribute is already in use. Please choose another.",
-    'exists' => "Please choose a valid :attribute from the list.",
-    'confirmed' => "Your :attribute and its confirmation do not match.",
-    'same' => "Your :attribute should match :other.",
-    'array' => "Please choose your :attribute from the available options.",
-    'string' => "Your :attribute should be text.",
+    'unique' => 'That :attribute is already in use. Please choose another.',
+    'exists' => 'Please choose a valid :attribute from the list.',
+    'confirmed' => 'Your :attribute and its confirmation do not match.',
+    'same' => 'Your :attribute should match :other.',
+    'array' => 'Please choose your :attribute from the available options.',
+    'string' => 'Your :attribute should be text.',
 
     /*
     | Friendly, specific field labels. Keep these human — they slot straight
@@ -122,7 +122,7 @@ return [
 
     'custom' => [
         'password' => [
-            'confirmed' => "Your password and confirmation do not match.",
+            'confirmed' => 'Your password and confirmation do not match.',
         ],
     ],
 

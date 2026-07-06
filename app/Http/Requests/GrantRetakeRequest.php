@@ -18,7 +18,7 @@ class GrantRetakeRequest extends FormRequest
     {
         return [
             'assessment_id' => ['required', Rule::exists('tbl_assessments', 'id')->where('educator_id', Auth::id())],
-            'student_id'    => ['required', Rule::exists('tbl_users', 'id')->where('user_type', 'student')],
+            'student_id' => ['required', Rule::exists('tbl_users', 'id')->where('user_type', 'student')],
             'extra_retake_count' => ['required', 'integer', 'min:1', 'max:50'],
         ];
     }

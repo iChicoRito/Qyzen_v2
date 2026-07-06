@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\AcademicTerm;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,17 +17,17 @@ class UpdateAcademicTermRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'term_name'        => ['required', 'string', 'max:255'],
-            'semester'         => ['required', Rule::in(['1st Semester', '2nd Semester'])],
+            'term_name' => ['required', 'string', 'max:255'],
+            'semester' => ['required', Rule::in(['1st Semester', '2nd Semester'])],
             'academic_year_id' => ['required', Rule::exists('tbl_academic_year', 'id')],
-            'is_active'        => ['required', 'boolean'],
+            'is_active' => ['required', 'boolean'],
         ];
     }
 
     public function withValidator($validator): void
     {
         $validator->after(function ($v) {
-            $exists = \App\Models\AcademicTerm::where('term_name', $this->input('term_name'))
+            $exists = AcademicTerm::where('term_name', $this->input('term_name'))
                 ->where('semester', $this->input('semester'))
                 ->where('academic_year_id', $this->input('academic_year_id'))
                 ->where('id', '!=', $this->route('academic_term')->id)

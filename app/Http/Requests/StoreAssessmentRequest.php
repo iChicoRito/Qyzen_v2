@@ -18,23 +18,22 @@ class StoreAssessmentRequest extends FormRequest
     {
         return [
             'assessment_code' => ['required', 'string', 'max:255'],
-            'subject_ids'   => ['required', 'array', 'min:1'],
+            'subject_ids' => ['required', 'array', 'min:1'],
             'subject_ids.*' => [Rule::exists('tbl_subjects', 'id')->where('educator_id', Auth::id())],
-            'term'          => ['required', Rule::exists('tbl_academic_term', 'id')],
+            'term' => ['required', Rule::exists('tbl_academic_term', 'id')],
             'time_limit' => ['required', 'string', 'max:255'],
             'cheating_attempts' => ['nullable', 'integer', 'min:0'],
-            'is_shuffle'   => ['required', 'boolean'],
+            'is_shuffle' => ['required', 'boolean'],
             'allow_review' => ['required', 'boolean'],
             'allow_retake' => ['required', 'boolean'],
             'retake_count' => ['nullable', 'integer', 'min:0'],
-            'allow_hint'   => ['required', 'boolean'],
-            'hint_count'   => ['nullable', 'integer', 'min:0'],
-            'is_active'    => ['required', 'boolean'],
-            'start_date'   => ['required', 'date'],
-            'end_date'     => ['required', 'date', 'after_or_equal:start_date'],
-            'start_time'   => ['required'],
-            'end_time'     => ['required'],
+            'allow_hint' => ['required', 'boolean'],
+            'hint_count' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['required', 'boolean'],
+            'start_date' => ['required', 'date'],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'start_time' => ['required'],
+            'end_time' => ['required'],
         ];
     }
-
 }

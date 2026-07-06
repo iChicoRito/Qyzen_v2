@@ -24,9 +24,13 @@ class NotificationWorkflowTest extends TestCase
     use RefreshDatabase;
 
     private User $educator;
+
     private User $student;
+
     private User $otherStudent;
+
     private Subject $subject;
+
     private Section $section;
 
     protected function setUp(): void
@@ -145,8 +149,10 @@ class NotificationWorkflowTest extends TestCase
 
         $res = $this->actingAs($this->student)->get(route('student.assessments.index'))->assertOk();
 
-        $res->assertSee('href="/student/assessments"', false);      // path kept
-        $res->assertDontSee('http://127.0.0.1:8000/student', false); // baked-in host dropped
+        preg_match('/<a[^>]+data-kt-notif-item[^>]*>/', $res->getContent(), $matches);
+
+        $this->assertStringContainsString('href="/student/assessments"', $matches[0] ?? '');
+        $this->assertStringNotContainsString('http://127.0.0.1:8000/student/assessments', $matches[0] ?? '');
     }
 
     public function test_bell_material_upload_shows_file_card(): void

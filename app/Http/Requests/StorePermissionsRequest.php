@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Permission;
 use Illuminate\Foundation\Http\FormRequest;
 
 // F6: bulk-create permissions (repeater). permission_string = "resource:action" is
@@ -16,13 +17,13 @@ class StorePermissionsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'permissions'   => ['required', 'array', 'min:1'],
-            'permissions.*.resource'    => ['required', 'string', 'max:255', 'regex:/^[a-z_]+$/'],
-            'permissions.*.action'      => ['required', 'string', 'max:255', 'regex:/^[a-z_]+$/'],
-            'permissions.*.name'        => ['nullable', 'string', 'max:255'],
-            'permissions.*.module'      => ['nullable', 'string', 'max:255'],
+            'permissions' => ['required', 'array', 'min:1'],
+            'permissions.*.resource' => ['required', 'string', 'max:255', 'regex:/^[a-z_]+$/'],
+            'permissions.*.action' => ['required', 'string', 'max:255', 'regex:/^[a-z_]+$/'],
+            'permissions.*.name' => ['nullable', 'string', 'max:255'],
+            'permissions.*.module' => ['nullable', 'string', 'max:255'],
             'permissions.*.description' => ['nullable', 'string', 'max:1000'],
-            'permissions.*.is_active'   => ['required', 'boolean'],
+            'permissions.*.is_active' => ['required', 'boolean'],
         ];
     }
 
@@ -36,7 +37,7 @@ class StorePermissionsRequest extends FormRequest
                     $v->errors()->add("permissions.{$i}.action", "Duplicate permission '{$string}' in this batch.");
                 }
                 $seen[$string] = true;
-                if (\App\Models\Permission::where('permission_string', $string)->exists()) {
+                if (Permission::where('permission_string', $string)->exists()) {
                     $v->errors()->add("permissions.{$i}.action", "Permission '{$string}' already exists.");
                 }
             }

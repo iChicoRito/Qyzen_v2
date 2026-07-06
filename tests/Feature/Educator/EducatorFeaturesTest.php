@@ -6,6 +6,7 @@ use App\Models\AcademicTerm;
 use App\Models\AcademicYear;
 use App\Models\Assessment;
 use App\Models\Enrolled;
+use App\Models\Permission;
 use App\Models\Quiz;
 use App\Models\Role;
 use App\Models\Score;
@@ -13,6 +14,7 @@ use App\Models\Section;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Testing\File;
 use Tests\TestCase;
 
 // Stage G: educator feature tests. The critical concern is the OWNERSHIP GATE — educator A must
@@ -22,8 +24,11 @@ class EducatorFeaturesTest extends TestCase
     use RefreshDatabase;
 
     private User $eduA;
+
     private User $eduB;
+
     private User $student;
+
     private AcademicTerm $term;
 
     protected function setUp(): void
@@ -267,9 +272,9 @@ class EducatorFeaturesTest extends TestCase
         $a2 = Assessment::create(['assessment_code' => 'Q2'] + $this->assessmentModelData($subject));
 
         $csv = "question,quiz_type,choice_a,choice_b,choice_c,choice_d,correct_answer\n"
-            . "2+2?,multiple_choice,3,4,5,6,B\n"
-            . "Capital of PH?,identification,,,,,Manila\n";
-        $file = \Illuminate\Http\Testing\File::createWithContent('quiz.csv', $csv);
+            ."2+2?,multiple_choice,3,4,5,6,B\n"
+            ."Capital of PH?,identification,,,,,Manila\n";
+        $file = File::createWithContent('quiz.csv', $csv);
 
         $this->actingAs($this->eduA)->post(route('educator.quizzes.upload'), [
             'assessment_ids' => [$a1->id, $a2->id],
@@ -288,9 +293,9 @@ class EducatorFeaturesTest extends TestCase
 
         // Row 2 is valid, row 3 is invalid (bad quiz_type) → whole upload must be rejected.
         $csv = "question,quiz_type,choice_a,choice_b,choice_c,choice_d,correct_answer\n"
-            . "2+2?,multiple_choice,3,4,5,6,B\n"
-            . "Broken?,nonsense,,,,,X\n";
-        $file = \Illuminate\Http\Testing\File::createWithContent('quiz.csv', $csv);
+            ."2+2?,multiple_choice,3,4,5,6,B\n"
+            ."Broken?,nonsense,,,,,X\n";
+        $file = File::createWithContent('quiz.csv', $csv);
 
         $this->actingAs($this->eduA)->post(route('educator.quizzes.upload'), [
             'assessment_ids' => [$assessment->id],
@@ -306,7 +311,7 @@ class EducatorFeaturesTest extends TestCase
         $subject = $this->subject($this->eduA);
         $assessment = Assessment::create($this->assessmentModelData($subject));
 
-        $bad = \Illuminate\Http\Testing\File::createWithContent('notes.pdf', '%PDF-1.4 fake');
+        $bad = File::createWithContent('notes.pdf', '%PDF-1.4 fake');
 
         $this->actingAs($this->eduA)->post(route('educator.quizzes.upload'), [
             'assessment_ids' => [$assessment->id],
@@ -323,7 +328,7 @@ class EducatorFeaturesTest extends TestCase
 
         // A real CSV, but not the template — missing required columns.
         $csv = "name,email\nJuan,juan@example.com\n";
-        $file = \Illuminate\Http\Testing\File::createWithContent('contacts.csv', $csv);
+        $file = File::createWithContent('contacts.csv', $csv);
 
         $response = $this->actingAs($this->eduA)->post(route('educator.quizzes.upload'), [
             'assessment_ids' => [$assessment->id],
@@ -387,7 +392,7 @@ class EducatorFeaturesTest extends TestCase
         $eduRole = Role::where('name', 'educator')->first();
         foreach ($strings as $s) {
             [$resource, $action] = explode(':', $s);
-            $perm = \App\Models\Permission::create([
+            $perm = Permission::create([
                 'name' => $s, 'resource' => $resource, 'action' => $action,
                 'description' => $s, 'module' => $resource, 'is_active' => true, 'permission_string' => $s,
             ]);

@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AcademicYearController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\AccountActivationController;
 use App\Http\Controllers\Auth\ForcePasswordChangeController;
@@ -115,8 +116,10 @@ Route::middleware(['auth', 'verified', 'role:admin'])
         Route::post('users/import', [UserController::class, 'import'])->name('users.import');
         Route::get('users/imports/timeline', [UserController::class, 'importTimeline'])->name('users.imports.timeline');
         Route::get('users/imports/{userImport}/report', [UserController::class, 'downloadImportReport'])->name('users.import.report');
+        Route::get('users/imports/{userImport}/credentials', [UserController::class, 'downloadImportCredentials'])->name('users.import.credentials');
         Route::get('users/imports/{userImport}', [UserController::class, 'showImport'])->name('users.imports.show');
         Route::post('users/{user}/resend-verification', [UserController::class, 'resendVerification'])->name('users.resend-verification');
+        Route::put('users/{user}/verification', [UserController::class, 'updateVerification'])->name('users.verification');
         Route::resource('users', UserController::class)->except(['edit', 'update']);
         Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
         Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
@@ -133,6 +136,9 @@ Route::middleware(['auth', 'verified', 'role:admin'])
 
         Route::resource('academic-years', AcademicYearController::class);
         Route::resource('academic-terms', AcademicTermController::class);
+
+        Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
+        Route::put('settings', [SettingController::class, 'update'])->name('settings.update');
     });
 
 // Stage G — Educator features. Ownership-gated: every list query carries visibleTo, every
@@ -168,6 +174,8 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         Route::get('scores/export/preview/{assessment}', [ScoreController::class, 'exportPreview'])->name('scores.export.preview');
         Route::get('scores/export/{assessment}', [ScoreController::class, 'export'])->name('scores.export');
         Route::get('scores/export-bulk/run', [ScoreController::class, 'exportBulk'])->name('scores.export-bulk');
+        Route::get('scores/upload/template', [ScoreController::class, 'uploadTemplate'])->name('scores.upload.template');
+        Route::post('scores/upload', [ScoreController::class, 'upload'])->name('scores.upload');
         Route::get('scores/{score}', [ScoreController::class, 'show'])->name('scores.show');
         Route::post('scores/retake', [ScoreController::class, 'grantRetake'])->name('scores.grant-retake');
 

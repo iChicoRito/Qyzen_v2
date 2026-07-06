@@ -22,12 +22,14 @@ class UserImport extends Model
         'created_count',
         'failed_count',
         'failed_rows',
+        'created_credentials',
     ];
 
     protected function casts(): array
     {
         return [
             'failed_rows' => 'array',
+            'created_credentials' => 'array',
         ];
     }
 

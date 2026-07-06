@@ -23,8 +23,11 @@ class StudentFeaturesTest extends TestCase
     use RefreshDatabase;
 
     private User $educator;
+
     private User $student;
+
     private User $otherStudent;
+
     private Assessment $assessment;
 
     protected function setUp(): void
@@ -54,9 +57,9 @@ class StudentFeaturesTest extends TestCase
 
         // 4 questions: 3 MC + 1 identification.
         foreach ([['2+2', 'multiple_choice', ['A' => '3', 'B' => '4'], 'B'],
-                  ['3+3', 'multiple_choice', ['A' => '6', 'B' => '5'], 'A'],
-                  ['1+1', 'multiple_choice', ['A' => '2', 'B' => '3'], 'A'],
-                  ['Capital of France', 'identification', null, 'Paris']] as [$q, $type, $choices, $correct]) {
+            ['3+3', 'multiple_choice', ['A' => '6', 'B' => '5'], 'A'],
+            ['1+1', 'multiple_choice', ['A' => '2', 'B' => '3'], 'A'],
+            ['Capital of France', 'identification', null, 'Paris']] as [$q, $type, $choices, $correct]) {
             Quiz::create([
                 'assessment_id' => $this->assessment->id, 'subject_id' => $subject->id, 'section_id' => $section->id,
                 'educator_id' => $this->educator->id, 'question' => $q, 'quiz_type' => $type,

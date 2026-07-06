@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Imports\StudentRowsImport;
+use App\Models\SystemSetting;
 use App\Models\UserImport;
 use App\Services\StudentImportRowService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -45,22 +46,22 @@ class DispatchStudentImport implements ShouldQueue
             return;
         }
 
-        $this->dispatchChunks($import, $chunks);
+        $this->dispatchChunks($import, $chunks, SystemSetting::offlineRegistrationEnabled());
     }
 
-    public function dispatchChunks(UserImport $import, Collection $chunks): void
+    public function dispatchChunks(UserImport $import, Collection $chunks, bool $offlineRegistration = false): void
     {
-        foreach ($this->buildChunkJobs($import, $chunks) as $job) {
+        foreach ($this->buildChunkJobs($import, $chunks, $offlineRegistration) as $job) {
             dispatch($job);
         }
     }
 
-    public function buildChunkJobs(UserImport $import, Collection $chunks): array
+    public function buildChunkJobs(UserImport $import, Collection $chunks, bool $offlineRegistration = false): array
     {
         $jobs = [];
 
         foreach ($chunks as $index => $chunk) {
-            $jobs[] = (new ProcessStudentImportChunk($import, $chunk->all()))
+            $jobs[] = (new ProcessStudentImportChunk($import, $chunk->all(), $offlineRegistration))
                 ->delay(now()->addSeconds($index * StudentImportRowService::CHUNK_DELAY_SECONDS));
         }
 

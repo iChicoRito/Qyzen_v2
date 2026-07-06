@@ -18,7 +18,11 @@ class ProcessStudentImportChunk implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public UserImport $userImport, public array $rows) {}
+    public function __construct(
+        public UserImport $userImport,
+        public array $rows,
+        public bool $offlineRegistration = false,
+    ) {}
 
     public function handle(
         StudentImportRowService $rowService,
@@ -27,6 +31,7 @@ class ProcessStudentImportChunk implements ShouldQueue
     ): void {
         $created = 0;
         $failed = [];
+        $credentials = [];
 
         foreach ($this->rows as $row) {
             $validator = $rowService->validate($row);
@@ -42,20 +47,34 @@ class ProcessStudentImportChunk implements ShouldQueue
             }
 
             $user = $users->create($row, $row['role_names']);
-            $onboarding->send($user);
+            if ($this->offlineRegistration) {
+                $user->forceFill(['email_verified_at' => now(), 'is_active' => true])->save();
+            }
+            $temporaryPassword = $onboarding->send($user, ! $this->offlineRegistration);
+            if ($this->offlineRegistration) {
+                $credentials[] = [
+                    'user_id' => $user->user_id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'temporary_password' => $temporaryPassword,
+                ];
+            }
             $created++;
         }
 
-        DB::transaction(function () use ($created, $failed) {
+        DB::transaction(function () use ($created, $failed, $credentials) {
             /** @var UserImport $import */
             $import = UserImport::query()->lockForUpdate()->findOrFail($this->userImport->id);
             $failedRows = $import->failed_rows ?? [];
             $failedRows = array_merge($failedRows, $failed);
+            $createdCredentials = $import->created_credentials ?? [];
+            $createdCredentials = array_merge($createdCredentials, $credentials);
 
             $import->created_count += $created;
             $import->failed_count += count($failed);
             $import->processed_chunks += 1;
             $import->failed_rows = $failedRows;
+            $import->created_credentials = $createdCredentials;
 
             if ($import->processed_chunks >= $import->total_chunks) {
                 $import->status = 'completed';

@@ -70,6 +70,7 @@ class QuizController extends Controller
         }
 
         $n = $assessments->count();
+
         return redirect()->route('educator.quizzes.index')
             ->with('status', $n === 1 ? 'Question created.' : "Question added to {$n} assessments.");
     }
@@ -130,7 +131,7 @@ class QuizController extends Controller
     {
         $this->authorize('create', Quiz::class);
 
-        return Excel::download(new QuizUploadTemplateExport(), 'quiz-upload-template.xlsx');
+        return Excel::download(new QuizUploadTemplateExport, 'quiz-upload-template.xlsx');
     }
 
     public function upload(Request $request): RedirectResponse

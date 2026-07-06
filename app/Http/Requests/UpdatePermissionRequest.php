@@ -16,12 +16,12 @@ class UpdatePermissionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'resource'    => ['required', 'string', 'max:255', 'regex:/^[a-z_]+$/'],
-            'action'      => ['required', 'string', 'max:255', 'regex:/^[a-z_]+$/'],
-            'name'        => ['nullable', 'string', 'max:255'],
-            'module'      => ['nullable', 'string', 'max:255'],
+            'resource' => ['required', 'string', 'max:255', 'regex:/^[a-z_]+$/'],
+            'action' => ['required', 'string', 'max:255', 'regex:/^[a-z_]+$/'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'module' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'is_active'   => ['required', 'boolean'],
+            'is_active' => ['required', 'boolean'],
         ];
     }
 

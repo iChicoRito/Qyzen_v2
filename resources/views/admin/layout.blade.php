@@ -10,6 +10,7 @@
         ['heading' => 'Academic Settings'],
         ['label' => 'Academic Year', 'url' => route('admin.academic-years.index'), 'active' => request()->routeIs('admin.academic-years.*'),   'icon' => 'calendar'],
         ['label' => 'Academic Term', 'url' => route('admin.academic-terms.index'), 'active' => request()->routeIs('admin.academic-terms.*'),   'icon' => 'calendar-tick'],
+        ['label' => 'Settings',      'url' => route('admin.settings.index'),       'active' => request()->routeIs('admin.settings.*'),         'icon' => 'setting-2'],
     ];
 @endphp
 

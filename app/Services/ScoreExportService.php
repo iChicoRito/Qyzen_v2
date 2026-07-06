@@ -83,7 +83,7 @@ class ScoreExportService
         File::ensureDirectoryExists($tmpDir);
         $zipPath = $tmpDir.'/score-export-'.$educator->id.'-'.now()->timestamp.'.zip';
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 
         $usedPaths = [];

@@ -2,18 +2,23 @@
 
 namespace App\Http\Controllers\Educator;
 
+use App\Exports\ScoreUploadTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ExportScoresBulkRequest;
 use App\Http\Requests\GrantRetakeRequest;
+use App\Imports\OfflineScoresImport;
 use App\Models\Assessment;
 use App\Models\Score;
 use App\Models\StudentAssessmentRetake;
 use App\Services\NotificationService;
+use App\Services\OfflineScoreUploadService;
 use App\Services\ScoreExportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 // G7: scores are READ-ONLY for educators (they grade nothing manually — grading is server-side
@@ -23,6 +28,7 @@ class ScoreController extends Controller
     public function __construct(
         private NotificationService $notifications,
         private ScoreExportService $exporter,
+        private OfflineScoreUploadService $offlineUploads,
     ) {}
 
     public function index(): View
@@ -85,7 +91,7 @@ class ScoreController extends Controller
 
     public function grantRetake(GrantRetakeRequest $request): RedirectResponse
     {
-        $this->authorize('create', \App\Models\Assessment::class);
+        $this->authorize('create', Assessment::class);
 
         $data = $request->validated();
         StudentAssessmentRetake::updateOrCreate(
@@ -100,6 +106,34 @@ class ScoreController extends Controller
         ]);
 
         return back()->with('status', 'Retake granted.');
+    }
+
+    public function uploadTemplate()
+    {
+        $this->authorize('import', Score::class);
+
+        return Excel::download(new ScoreUploadTemplateExport, 'offline-score-upload-template.xlsx');
+    }
+
+    public function upload(Request $request): RedirectResponse
+    {
+        $this->authorize('import', Score::class);
+
+        $request->validate([
+            'assessment_uuid' => ['required', 'uuid'],
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+        ]);
+
+        $assessment = Assessment::visibleTo($request->user())
+            ->where('uuid', $request->input('assessment_uuid'))
+            ->firstOrFail();
+
+        $import = new OfflineScoresImport;
+        Excel::import($import, $request->file('file'));
+
+        $created = $this->offlineUploads->import($request->user(), $assessment, $import->rows);
+
+        return redirect()->route('educator.scores.index')->with('status', "Uploaded {$created} offline score(s).");
     }
 
     // Task 27: preview counts (enrolled/with-submission/without) shown before export.

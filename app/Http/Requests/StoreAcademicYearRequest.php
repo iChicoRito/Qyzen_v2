@@ -16,7 +16,7 @@ class StoreAcademicYearRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'year'      => ['required', 'string', 'regex:/^\d{4} - \d{4}$/', Rule::unique('tbl_academic_year', 'year')],
+            'year' => ['required', 'string', 'regex:/^\d{4} - \d{4}$/', Rule::unique('tbl_academic_year', 'year')],
             'is_active' => ['required', 'boolean'],
         ];
     }

@@ -21,9 +21,9 @@ class StoreSubjectRequest extends FormRequest
         return [
             'subject_code' => ['required', 'string', 'max:255'],
             'subject_name' => ['required', 'string', 'max:255'],
-            'section_ids'  => ['required', 'array', 'min:1'],
+            'section_ids' => ['required', 'array', 'min:1'],
             'section_ids.*' => [Rule::exists('tbl_sections', 'id')->where('educator_id', Auth::id())],
-            'is_active'    => ['required', 'boolean'],
+            'is_active' => ['required', 'boolean'],
         ];
     }
 
@@ -41,7 +41,7 @@ class StoreSubjectRequest extends FormRequest
                     ->when($this->ignoreRowIds(), fn ($q) => $q->whereNotIn('id', $this->ignoreRowIds()))
                     ->exists();
                 if ($exists) {
-                    $v->errors()->add('subject_code', "This code+name already exists in one of the selected sections.");
+                    $v->errors()->add('subject_code', 'This code+name already exists in one of the selected sections.');
 
                     return;
                 }

@@ -24,7 +24,9 @@ class PrivateMessagingTest extends TestCase
     use RefreshDatabase;
 
     private User $educator;
+
     private User $enrolledStudent;
+
     private User $unenrolledStudent;
 
     protected function setUp(): void

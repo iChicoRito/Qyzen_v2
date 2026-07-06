@@ -63,12 +63,12 @@ class QuizController extends Controller
     private function displayStatus(string $badge, int $questionCount): array
     {
         return match (true) {
-            $badge === 'Upcoming'       => ['Starts Soon', 'warning'],
-            $badge === 'Expired'        => ['No Longer Available', 'secondary'],
+            $badge === 'Upcoming' => ['Starts Soon', 'warning'],
+            $badge === 'Expired' => ['No Longer Available', 'secondary'],
             $badge === 'Schedule issue' => ['Not Ready Yet', 'secondary'],
-            $questionCount === 0        => ['Not Ready Yet', 'secondary'],
-            $badge === 'Reopened'       => ['Reopened', 'info'],
-            default                     => ['Available', 'success'],
+            $questionCount === 0 => ['Not Ready Yet', 'secondary'],
+            $badge === 'Reopened' => ['Reopened', 'info'],
+            default => ['Available', 'success'],
         };
     }
 

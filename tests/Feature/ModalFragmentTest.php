@@ -1,5 +1,7 @@
 <?php
+
 namespace Tests\Feature;
+
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -13,11 +15,12 @@ class ModalFragmentTest extends TestCase
 
     private function admin(): User
     {
-        foreach (['admin','educator','student'] as $n) {
+        foreach (['admin', 'educator', 'student'] as $n) {
             Role::firstOrCreate(['name' => $n], ['description' => $n, 'is_active' => true]);
         }
         $u = User::factory()->create(['user_type' => 'admin', 'email_verified_at' => now()]);
         $u->roles()->attach(Role::where('name', 'admin')->value('id'));
+
         return $u;
     }
 

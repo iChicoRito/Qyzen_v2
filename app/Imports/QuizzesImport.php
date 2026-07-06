@@ -53,18 +53,22 @@ class QuizzesImport implements ToCollection, WithHeadingRow
             // A fully blank row is an error too (no silent skipping).
             if ($question === '' && $type === '' && $correct === '') {
                 $this->errors[] = "{$this->fileLabel} row {$line}: the row is blank.";
+
                 continue;
             }
             if ($question === '') {
                 $this->errors[] = "{$this->fileLabel} row {$line}: question is missing.";
+
                 continue;
             }
             if (! in_array($type, ['multiple_choice', 'identification'], true)) {
                 $this->errors[] = "{$this->fileLabel} row {$line}: quiz_type must be 'multiple_choice' or 'identification'.";
+
                 continue;
             }
             if ($correct === '') {
                 $this->errors[] = "{$this->fileLabel} row {$line}: correct_answer is missing.";
+
                 continue;
             }
 
@@ -76,10 +80,12 @@ class QuizzesImport implements ToCollection, WithHeadingRow
                 ], fn ($c) => $c !== null && trim((string) $c) !== '');
                 if (count($choices) < 2) {
                     $this->errors[] = "{$this->fileLabel} row {$line}: multiple choice needs at least 2 choices.";
+
                     continue;
                 }
                 if (! array_key_exists($correct, $choices)) {
                     $this->errors[] = "{$this->fileLabel} row {$line}: correct_answer '{$correct}' must be one of the filled choice letters (A–D).";
+
                     continue;
                 }
             }

@@ -64,6 +64,7 @@ class AssessmentAvailabilityService
         if ($now->gt($end)) {
             return 'Expired';
         }
+
         // within window
         return $submitted > 0 && $remaining > 0 ? 'Reopened' : 'Available';
     }

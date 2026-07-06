@@ -16,11 +16,11 @@ class StoreRoleRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'        => ['required', 'string', 'max:255', 'regex:/^[a-z]+(_[a-z]+)*$/', Rule::unique('tbl_roles', 'name')],
+            'name' => ['required', 'string', 'max:255', 'regex:/^[a-z]+(_[a-z]+)*$/', Rule::unique('tbl_roles', 'name')],
             'description' => ['nullable', 'string', 'max:1000'],
-            'is_active'   => ['required', 'boolean'],
-            'is_system'   => ['required', 'boolean'],
-            'permission_ids'   => ['array'],
+            'is_active' => ['required', 'boolean'],
+            'is_system' => ['required', 'boolean'],
+            'permission_ids' => ['array'],
             'permission_ids.*' => [Rule::exists('tbl_permissions', 'id')],
         ];
     }

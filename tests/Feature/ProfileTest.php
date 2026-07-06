@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -29,8 +30,8 @@ class ProfileTest extends TestCase
     {
         $user = User::factory()->create(['user_type' => 'student', 'email_verified_at' => now()]);
         // no roles attached -> hasRole('student') is false; attach the student role so the lock applies.
-        \App\Models\Role::create(['name' => 'student', 'description' => 'student', 'is_active' => true]);
-        $user->roles()->attach(\App\Models\Role::where('name', 'student')->value('id'));
+        Role::create(['name' => 'student', 'description' => 'student', 'is_active' => true]);
+        $user->roles()->attach(Role::where('name', 'student')->value('id'));
 
         $this->actingAs($user)->get(route('profile.edit'))
             ->assertOk()

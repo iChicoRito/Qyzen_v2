@@ -32,6 +32,11 @@ class ScorePolicy
         return $user->hasRole('student');
     }
 
+    public function import(User $user): bool
+    {
+        return $user->hasRole('educator');
+    }
+
     public function update(User $user, Score $score): bool
     {
         // admin may correct; student may update only their own in-progress attempt.

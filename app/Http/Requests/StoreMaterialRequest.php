@@ -18,9 +18,9 @@ class StoreMaterialRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'files'         => ['required', 'array', 'min:1'],
-            'files.*'       => ['file', 'max:20480', 'mimes:pptx,ppsx,ppt,pdf,docx,doc,rtf'], // 20MB/file
-            'subject_ids'   => ['required', 'array', 'min:1'],
+            'files' => ['required', 'array', 'min:1'],
+            'files.*' => ['file', 'max:20480', 'mimes:pptx,ppsx,ppt,pdf,docx,doc,rtf'], // 20MB/file
+            'subject_ids' => ['required', 'array', 'min:1'],
             'subject_ids.*' => [Rule::exists('tbl_subjects', 'id')->where('educator_id', Auth::id())],
         ];
     }

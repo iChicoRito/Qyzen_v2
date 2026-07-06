@@ -9,7 +9,7 @@ class UpdateSubjectRequest extends StoreSubjectRequest
     public function rules(): array
     {
         return parent::rules() + [
-            'row_ids'   => ['required', 'array', 'min:1'],
+            'row_ids' => ['required', 'array', 'min:1'],
             'row_ids.*' => ['integer'],
         ];
     }

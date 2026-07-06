@@ -25,10 +25,10 @@ class DbMemoryAudit extends Command
     public function handle(): int
     {
         $pdo = DB::connection()->getPdo();
-        $db  = DB::connection()->getDatabaseName();
+        $db = DB::connection()->getDatabaseName();
 
         $kv = fn (string $sql) => $pdo->query($sql)->fetchAll(PDO::FETCH_KEY_PAIR);
-        $var    = $kv('SHOW GLOBAL VARIABLES');
+        $var = $kv('SHOW GLOBAL VARIABLES');
         $status = $kv('SHOW GLOBAL STATUS');
 
         $s = fn (string $k) => (float) ($status[$k] ?? 0);
@@ -41,9 +41,9 @@ class DbMemoryAudit extends Command
 
         $poolBytes = (float) $v('innodb_buffer_pool_size');
         $dataBytes = (float) $pdo->query(
-            "SELECT COALESCE(SUM(data_length+index_length),0)
+            'SELECT COALESCE(SUM(data_length+index_length),0)
                FROM information_schema.tables
-              WHERE table_schema = ".$pdo->quote($db)
+              WHERE table_schema = '.$pdo->quote($db)
         )->fetchColumn();
         $poolFitsData = $dataBytes > 0 && $poolBytes >= $dataBytes;
 
@@ -63,9 +63,9 @@ class DbMemoryAudit extends Command
 
         // --- 2. Is the pool big enough? ---------------------------------------
         $pagesTotal = $s('Innodb_buffer_pool_pages_total');
-        $pagesFree  = $s('Innodb_buffer_pool_pages_free');
+        $pagesFree = $s('Innodb_buffer_pool_pages_free');
         $pagesDirty = $s('Innodb_buffer_pool_pages_dirty');
-        $waitFree   = $s('Innodb_buffer_pool_wait_free');
+        $waitFree = $s('Innodb_buffer_pool_wait_free');
 
         $this->section('2. Buffer-pool sizing');
         $this->row('innodb_buffer_pool_size', $this->mb($poolBytes));
@@ -81,7 +81,7 @@ class DbMemoryAudit extends Command
         $this->row('instances', (string) $v('innodb_buffer_pool_instances'));
 
         // --- 3. Disk temp tables ----------------------------------------------
-        $tmp     = $s('Created_tmp_tables');
+        $tmp = $s('Created_tmp_tables');
         $tmpDisk = $s('Created_tmp_disk_tables');
         $this->section('3. Temp tables spilling to disk');
         $this->row('tmp tables (total / on-disk)', number_format($tmp).' / '.number_format($tmpDisk));
@@ -93,7 +93,7 @@ class DbMemoryAudit extends Command
             $this->mb((float) $v('tmp_table_size')).' / '.$this->mb((float) $v('max_heap_table_size')));
 
         // --- 4. Table-open cache ----------------------------------------------
-        $tcHit  = $s('Table_open_cache_hits');
+        $tcHit = $s('Table_open_cache_hits');
         $tcMiss = $s('Table_open_cache_misses');
         $this->section('4. Table-open cache');
         $this->row('hits / misses', number_format($tcHit).' / '.number_format($tcMiss));
@@ -113,13 +113,13 @@ class DbMemoryAudit extends Command
         // --- 6. Largest tables (what fills the pool) --------------------------
         $this->section('6. Largest tables (data+index)');
         $rows = $pdo->query(
-            "SELECT table_name AS name,
+            'SELECT table_name AS name,
                     ROUND((data_length+index_length)/1048576,2) AS mb,
                     table_rows AS approx_rows
                FROM information_schema.tables
-              WHERE table_schema = ".$pdo->quote($db)."
+              WHERE table_schema = '.$pdo->quote($db).'
               ORDER BY (data_length+index_length) DESC
-              LIMIT 12"
+              LIMIT 12'
         )->fetchAll(PDO::FETCH_ASSOC);
         $this->table(['table', 'MB', '~rows'], array_map(
             fn ($r) => [$r['name'], $r['mb'], number_format((float) $r['approx_rows'])],
@@ -168,7 +168,7 @@ class DbMemoryAudit extends Command
             $hit >= 99.9 => 'excellent — almost all from memory',
             $hit >= 99.0 => 'good',
             $hit >= 95.0 => 'marginal — enlarge buffer pool',
-            default      => 'POOR — disk-bound, enlarge buffer pool',
+            default => 'POOR — disk-bound, enlarge buffer pool',
         };
     }
 }

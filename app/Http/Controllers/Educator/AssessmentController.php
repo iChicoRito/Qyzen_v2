@@ -51,8 +51,8 @@ class AssessmentController extends Controller
         foreach ($subjects as $subject) {
             $assessment = Assessment::create($data + [
                 'educator_id' => Auth::id(),
-                'subject_id'  => $subject->id,
-                'section_id'  => $subject->sections_id,
+                'subject_id' => $subject->id,
+                'section_id' => $subject->sections_id,
             ]);
 
             // Publish-on-create: if created already active, notify enrolled students.
@@ -62,6 +62,7 @@ class AssessmentController extends Controller
         }
 
         $n = $subjects->count();
+
         return redirect()->route('educator.assessments.index')
             ->with('status', $n === 1 ? 'Assessment created.' : "{$n} assessments created.");
     }
@@ -98,8 +99,8 @@ class AssessmentController extends Controller
         foreach ($created as $subject) {
             $new = Assessment::create($data + [
                 'educator_id' => Auth::id(),
-                'subject_id'  => $subject->id,
-                'section_id'  => $subject->sections_id,
+                'subject_id' => $subject->id,
+                'section_id' => $subject->sections_id,
             ]);
             if ($new->is_active) {
                 $this->notifyEnrolled($new, 'assessment_created', 'New assessment published');
@@ -107,6 +108,7 @@ class AssessmentController extends Controller
         }
 
         $extra = $created->count();
+
         return redirect()->route('educator.assessments.index')
             ->with('status', $extra ? "Assessment updated; {$extra} added." : 'Assessment updated.');
     }

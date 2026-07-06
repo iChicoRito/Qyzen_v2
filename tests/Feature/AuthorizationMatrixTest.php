@@ -7,6 +7,7 @@ use App\Models\AcademicYear;
 use App\Models\Assessment;
 use App\Models\Enrolled;
 use App\Models\LearningMaterial;
+use App\Models\Permission;
 use App\Models\Quiz;
 use App\Models\Role;
 use App\Models\Score;
@@ -25,12 +26,19 @@ class AuthorizationMatrixTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $eduA;
+
     private User $eduB;
+
     private User $student;       // enrolled with eduA
+
     private User $otherStudent;  // enrolled with eduB
+
     private Subject $subjectA;
+
     private Section $sectionA;
+
     private Assessment $assessmentA;
 
     protected function setUp(): void
@@ -134,7 +142,7 @@ class AuthorizationMatrixTest extends TestCase
 
     public function test_notification_emit_rules(): void
     {
-        $auth = new NotificationAuthorizer();
+        $auth = new NotificationAuthorizer;
 
         // educator -> enrolled student, allowed event
         $this->assertTrue($auth->canEmit($this->eduA, 'assessment_created', $this->student->id, ['subject_id' => $this->subjectA->id]));
@@ -177,7 +185,7 @@ class AuthorizationMatrixTest extends TestCase
         $eduRole = Role::where('name', 'educator')->first();
         foreach ($strings as $s) {
             [$resource, $action] = explode(':', $s);
-            $perm = \App\Models\Permission::create([
+            $perm = Permission::create([
                 'name' => $s, 'resource' => $resource, 'action' => $action,
                 'description' => $s, 'module' => $resource, 'is_active' => true, 'permission_string' => $s,
             ]);

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Enrolled;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -19,7 +20,7 @@ class UpdateEnrollmentRequest extends FormRequest
         return [
             'student_id' => ['required', Rule::exists('tbl_users', 'id')->where('user_type', 'student')],
             'subject_id' => ['required', Rule::exists('tbl_subjects', 'id')->where('educator_id', Auth::id())],
-            'is_active'  => ['required', 'boolean'],
+            'is_active' => ['required', 'boolean'],
         ];
     }
 
@@ -29,7 +30,7 @@ class UpdateEnrollmentRequest extends FormRequest
             if ($v->errors()->isNotEmpty()) {
                 return;
             }
-            $dup = \App\Models\Enrolled::where('educator_id', Auth::id())
+            $dup = Enrolled::where('educator_id', Auth::id())
                 ->where('student_id', $this->input('student_id'))
                 ->where('subject_id', $this->input('subject_id'))
                 ->whereKeyNot($this->route('enrolled')->id)

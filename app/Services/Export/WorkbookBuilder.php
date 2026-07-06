@@ -2,7 +2,9 @@
 
 namespace App\Services\Export;
 
+use Illuminate\Support\Carbon;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
@@ -32,7 +34,7 @@ final class WorkbookBuilder
 
     public static function newWorkbook(): Spreadsheet
     {
-        $book = new Spreadsheet();
+        $book = new Spreadsheet;
         $book->removeSheetByIndex(0);
 
         return $book;
@@ -122,7 +124,7 @@ final class WorkbookBuilder
             ];
             foreach ($values as $c => $value) {
                 $col = Coordinate::stringFromColumnIndex($c + 1);
-                $sheet->setCellValueExplicit("{$col}{$r}", (string) ($value ?? ''), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                $sheet->setCellValueExplicit("{$col}{$r}", (string) ($value ?? ''), DataType::TYPE_STRING);
             }
             if ($i % 2 === 1) {
                 $sheet->getStyle("A{$r}:{$lastCol}{$r}")->applyFromArray([
@@ -184,7 +186,7 @@ final class WorkbookBuilder
             return 'Not submitted';
         }
 
-        return $value instanceof \Illuminate\Support\Carbon || $value instanceof \DateTimeInterface
+        return $value instanceof Carbon || $value instanceof \DateTimeInterface
             ? $value->format('Y-m-d H:i')
             : (string) $value;
     }

@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\ConversationRead;
+use App\Models\Enrolled;
+use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -35,7 +37,7 @@ class ConversationService
         $mineColumn = $isStudent ? 'student_id' : 'educator_id';   // rows where this user is a party
         $otherColumn = $isStudent ? 'educator_id' : 'student_id';  // the counterparties to list
 
-        $rows = \App\Models\Enrolled::where($mineColumn, $user->id)
+        $rows = Enrolled::where($mineColumn, $user->id)
             ->where('is_active', true)
             ->get([$otherColumn, 'subject_id']);
 
@@ -58,7 +60,7 @@ class ConversationService
             return collect();
         }
 
-        return \App\Models\Subject::where('educator_id', $user->id)
+        return Subject::where('educator_id', $user->id)
             ->with('section:id,section_name')
             ->orderBy('subject_code')
             ->get(['id', 'subject_code', 'subject_name', 'sections_id']);

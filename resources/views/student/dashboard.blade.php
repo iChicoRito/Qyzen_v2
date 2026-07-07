@@ -154,7 +154,12 @@
         </div>
     </div>
 
+    @push('styles')
+    <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/apexcharts/apexcharts.css') }}" rel="stylesheet" />
+    @endpush
+
     @push('scripts')
+    <script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/apexcharts/apexcharts.min.js') }}"></script>
     <script nonce="{{ $cspNonce ?? '' }}">
         document.addEventListener('DOMContentLoaded', function () {
             var donutEl = document.getElementById('student_donut_chart');

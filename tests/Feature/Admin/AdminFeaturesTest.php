@@ -252,6 +252,32 @@ class AdminFeaturesTest extends TestCase
         $this->assertTrue($target->hasRole('educator'));
     }
 
+    public function test_users_index_paginates_and_searches_on_the_server(): void
+    {
+        foreach (range(1, 12) as $i) {
+            $student = User::factory()->create([
+                'user_type' => 'student',
+                'given_name' => 'Paged',
+                'surname' => sprintf('Student%02d', $i),
+                'email_verified_at' => now(),
+            ]);
+            $student->roles()->attach(Role::where('name', 'student')->value('id'));
+        }
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.users.index', ['per_page' => 10, 'sort' => 'surname', 'direction' => 'asc']))
+            ->assertOk()
+            ->assertSee('Student01')
+            ->assertDontSee('Student11')
+            ->assertSee('per_page=10', false);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.users.index', ['search' => 'Student12', 'per_page' => 10]))
+            ->assertOk()
+            ->assertSee('Student12')
+            ->assertDontSee('Student01');
+    }
+
     public function test_admin_deletes_user(): void
     {
         $target = $this->makeUser('student', 'student');

@@ -84,6 +84,31 @@ class Assessment extends Model
         return $this->belongsTo(AcademicTerm::class, 'term');
     }
 
+    // Calendar event colours, keyed by subject so each subject reads as a distinct hue (prevents the
+    // "everything is one blue" confusion). Fixed hexes — Metronic exposes only --primary/--destructive
+    // as bare tokens, so the demo itself falls back to hardcoded colours; these read well light + dark.
+    private const CALENDAR_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899'];
+
+    // Dashboard calendars: map an assessment window to a FullCalendar event. Uses start/end
+    // datetimes so a multi-day window renders without the all-day exclusive-end off-by-one.
+    public function calendarEvent(): array
+    {
+        $start = $this->start_date?->toDateString();
+        $end = $this->end_date?->toDateString();
+        $color = self::CALENDAR_COLORS[$this->subject_id % count(self::CALENDAR_COLORS)];
+
+        return [
+            'title' => $this->assessment_code ?: 'Assessment',
+            'start' => $start ? ($this->start_time ? $start.'T'.$this->start_time : $start) : null,
+            'end' => $end ? ($this->end_time ? $end.'T'.$this->end_time : $end) : null,
+            'color' => $color, // per-subject hue for both the mini-calendar dots and the full block events
+            // FullCalendar copies unknown keys into event.extendedProps. subtitle is the second line;
+            // uuid builds the calendar-page detail-modal URL (opaque route key).
+            'subtitle' => $this->relationLoaded('subject') ? $this->subject?->subject_name : null,
+            'uuid' => $this->uuid,
+        ];
+    }
+
     public function quizzes(): HasMany
     {
         return $this->hasMany(Quiz::class, 'assessment_id');

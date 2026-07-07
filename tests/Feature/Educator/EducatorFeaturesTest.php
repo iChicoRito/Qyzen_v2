@@ -353,6 +353,13 @@ class EducatorFeaturesTest extends TestCase
             'subject_id' => $subject->id, 'section_id' => $section->id, 'score' => 8, 'total_questions' => 10,
             'student_answer' => [], 'status' => 'passed', 'is_passed' => true, 'submitted_at' => now(),
         ]);
+        $otherOwnStudent = $this->makeUser('student', 'student');
+        $otherOwnStudent->update(['given_name' => 'Ben', 'surname' => 'Alpha']);
+        Score::create([
+            'student_id' => $otherOwnStudent->id, 'educator_id' => $this->eduA->id, 'assessment_id' => $assessment->id,
+            'subject_id' => $subject->id, 'section_id' => $section->id, 'score' => 6, 'total_questions' => 10,
+            'student_answer' => [], 'status' => 'failed', 'is_passed' => false, 'submitted_at' => now(),
+        ]);
 
         // eduB's score must never leak into eduA's view (visibleTo).
         $subjectB = $this->subject($this->eduB);
@@ -367,13 +374,18 @@ class EducatorFeaturesTest extends TestCase
             'student_answer' => [], 'status' => 'failed', 'is_passed' => false, 'submitted_at' => now(),
         ]);
 
-        $res = $this->actingAs($this->eduA)->get(route('educator.scores.index'))->assertOk();
+        $res = $this->actingAs($this->eduA)->get(route('educator.scores.index', [
+            'search' => 'Zamora',
+            'subject' => $subject->id,
+            'per_page' => 10,
+        ]))->assertOk();
 
         $res->assertSee('Zamora')->assertSee('Ann');                 // student-info first column
         $res->assertSee($subject->subject_code)->assertSee($section->section_name); // subject/section columns
         $res->assertSee('data-filter="subject"', false)              // new filter selects present
             ->assertSee('data-filter="section"', false)
             ->assertSee('data-filter="term"', false);
+        $res->assertDontSee('Alpha');                                // server-side search, not client hiding
         $res->assertDontSee('ZZTOP');                                // eduB's assessment never shown
     }
 

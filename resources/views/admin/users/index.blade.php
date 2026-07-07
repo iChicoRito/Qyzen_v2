@@ -46,7 +46,7 @@
     <div id="users_layout" class="grid gap-5 lg:gap-7.5">
         {{-- Left panel: users table (flexible width). --}}
         <div class="min-w-0">
-            <x-data-table id="users_table" search-placeholder="Search users">
+            <x-data-table id="users_table" search-placeholder="Search users" :paginator="$users">
         <x-slot:filters>
             <select data-filter="status" class="kt-select w-36">
                 <option value="">All statuses</option>

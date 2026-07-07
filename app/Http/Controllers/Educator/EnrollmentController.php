@@ -12,6 +12,8 @@ use App\Models\EnrollmentImport;
 use App\Models\Subject;
 use App\Models\User;
 use App\Services\NotificationService;
+use App\Support\TableQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,19 +26,26 @@ class EnrollmentController extends Controller
 {
     public function __construct(private NotificationService $notifications) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', Enrolled::class);
 
         // One row per subject/section (grouped), not per enrollment. Students live on the detail page.
-        $subjects = Subject::visibleTo(Auth::user())
+        $query = Subject::visibleTo(Auth::user())
             ->has('enrollments')
             ->with('section:id,section_name')
             ->withCount([
                 'enrollments',
                 'enrollments as active_enrollments_count' => fn ($q) => $q->where('is_active', true),
-            ])
-            ->orderBy('subject_code')->get();
+            ]);
+        TableQuery::search($query, $request->query('search'), [
+            'subject_code',
+            'subject_name',
+            fn (Builder $q, string $term) => $q->orWhereHas('section', fn ($s) => $s->where('section_name', 'like', "%{$term}%")),
+        ]);
+        TableQuery::sort($query, $request, ['subject' => 'subject_code', 'enrolled' => 'enrollments_count'], 'subject');
+
+        $subjects = $query->paginate(TableQuery::perPage($request))->withQueryString();
 
         $imports = EnrollmentImport::ownedBy(Auth::user())->latest()->take(6)->get();
 
@@ -44,15 +53,24 @@ class EnrollmentController extends Controller
     }
 
     // Detail page: all students enrolled in one subject/section (mirrors scores.show).
-    public function showSubject(Subject $subject): View
+    public function showSubject(Request $request, Subject $subject): View
     {
         $this->authorize('viewAny', Enrolled::class);
         abort_unless(Subject::visibleTo(Auth::user())->whereKey($subject->getKey())->exists(), 403);
 
         $subject->load('section:id,section_name');
-        $enrollments = Enrolled::where('subject_id', $subject->id)->visibleTo(Auth::user())
-            ->with('student:id,given_name,surname,user_id,profile_picture')
-            ->orderByDesc('id')->get();
+        $query = Enrolled::where('subject_id', $subject->id)->visibleTo(Auth::user())
+            ->with('student:id,given_name,surname,user_id,profile_picture');
+        TableQuery::search($query, $request->query('search'), [
+            fn (Builder $q, string $term) => $q->orWhereHas('student', fn ($s) => $s
+                ->where('given_name', 'like', "%{$term}%")
+                ->orWhere('surname', 'like', "%{$term}%")
+                ->orWhere('user_id', 'like', "%{$term}%")),
+        ]);
+        TableQuery::filters($query, $request, ['status' => 'is_active']);
+        TableQuery::sort($query, $request, ['status' => 'is_active', 'id' => 'id'], 'id', 'desc');
+
+        $enrollments = $query->paginate(TableQuery::perPage($request))->withQueryString();
 
         return view('educator.enrollment.show', compact('subject', 'enrollments'));
     }

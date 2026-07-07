@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\AccountActivationController;
 use App\Http\Controllers\Auth\ForcePasswordChangeController;
 use App\Http\Controllers\Auth\OAuthController;
+use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\Educator\AssessmentController;
 use App\Http\Controllers\Educator\ChatController;
 use App\Http\Controllers\Educator\DashboardController as EducatorDashboardController;
@@ -54,6 +55,7 @@ Route::get('/dashboard', fn () => redirect(Auth::user()->dashboardPath()))
 Route::middleware(['auth', 'verified', 'role:student'])
     ->prefix('student')->name('student.')->group(function () {
         Route::get('/dashboard', [StudentDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar');
 
         // H2 assessment list.
         Route::get('assessments', [StudentQuizController::class, 'index'])->name('assessments.index');
@@ -86,6 +88,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Email is switched by picking a Google account (never typed) — sets the intent, then Socialite.
     Route::post('/profile/email/google', [OAuthController::class, 'changeEmailRedirect'])->name('profile.email.google');
 
+    // Calendar event-detail fragment (all roles; visibility scoped in the controller). Shared so the
+    // sidebar Calendar page opens details in the standard fetch-loaded modal.
+    Route::get('/calendar/assessments/{assessment}', [CalendarController::class, 'show'])->name('calendar.assessment');
+
     // Task 25 — notification bell read/delivery (owner-scoped; polling JSON, no live transport yet).
     // Shared group: the `role` middleware takes one role, and owner-scoping already isolates recipients.
     // read-all precedes {notification}/read so the literal segment isn't captured as an id.
@@ -110,6 +116,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified', 'role:admin'])
     ->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar');
 
         // F3/F4 user-import + bulk routes must precede the {user} resource binding.
         Route::get('users/import/template', [UserController::class, 'importTemplate'])->name('users.import.template');
@@ -146,6 +153,7 @@ Route::middleware(['auth', 'verified', 'role:admin'])
 Route::middleware(['auth', 'verified', 'role:educator'])
     ->prefix('educator')->name('educator.')->group(function () {
         Route::get('/dashboard', [EducatorDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar');
 
         Route::resource('sections', SectionController::class)->except('show');
         Route::resource('subjects', SubjectController::class)->except('show');

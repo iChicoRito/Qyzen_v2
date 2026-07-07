@@ -6,17 +6,28 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePermissionsRequest;
 use App\Http\Requests\UpdatePermissionRequest;
 use App\Models\Permission;
+use App\Support\TableQuery;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 // F6: admin permission management — bulk create, edit, delete.
 class PermissionController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', Permission::class);
 
-        $permissions = Permission::orderBy('permission_string')->get();
+        $query = Permission::query();
+        TableQuery::search($query, $request->query('search'), ['permission_string', 'name', 'module', 'description']);
+        TableQuery::filters($query, $request, ['status' => 'is_active']);
+        TableQuery::sort($query, $request, [
+            'permission' => 'permission_string',
+            'module' => 'module',
+            'status' => 'is_active',
+        ], 'permission');
+
+        $permissions = $query->paginate(TableQuery::perPage($request))->withQueryString();
 
         return view('admin.permissions.index', compact('permissions'));
     }

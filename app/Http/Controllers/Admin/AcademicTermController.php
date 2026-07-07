@@ -7,17 +7,29 @@ use App\Http\Requests\StoreAcademicTermRequest;
 use App\Http\Requests\UpdateAcademicTermRequest;
 use App\Models\AcademicTerm;
 use App\Models\AcademicYear;
+use App\Support\TableQuery;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 // F8: admin academic-term management.
 class AcademicTermController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', AcademicTerm::class);
 
-        $terms = AcademicTerm::with('year')->orderByDesc('id')->get();
+        $query = AcademicTerm::with('year');
+        TableQuery::search($query, $request->query('search'), ['term_name', 'semester']);
+        TableQuery::filters($query, $request, ['status' => 'is_active']);
+        TableQuery::sort($query, $request, [
+            'term' => 'term_name',
+            'semester' => 'semester',
+            'status' => 'is_active',
+            'id' => 'id',
+        ], 'id', 'desc');
+
+        $terms = $query->paginate(TableQuery::perPage($request))->withQueryString();
 
         return view('admin.academic-terms.index', compact('terms'));
     }

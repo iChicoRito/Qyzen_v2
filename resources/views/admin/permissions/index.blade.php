@@ -10,7 +10,7 @@
 @section('content')
     @include('admin._status')
 
-    <x-data-table id="permissions_table" search-placeholder="Search permissions">
+    <x-data-table id="permissions_table" search-placeholder="Search permissions" :paginator="$permissions">
         <x-slot:filters>
             <select data-filter="status" class="kt-select w-36">
                 <option value="">All statuses</option>

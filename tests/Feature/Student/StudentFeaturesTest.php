@@ -6,6 +6,7 @@ use App\Models\AcademicTerm;
 use App\Models\AcademicYear;
 use App\Models\Assessment;
 use App\Models\Enrolled;
+use App\Models\LearningMaterial;
 use App\Models\Quiz;
 use App\Models\Role;
 use App\Models\Score;
@@ -180,6 +181,67 @@ class StudentFeaturesTest extends TestCase
 
         // 404 (not 403): non-owned attempts resolve to "Result not found" without leaking existence.
         $this->actingAs($this->otherStudent)->get(route('student.scores.show', $score))->assertNotFound();
+    }
+
+    public function test_student_materials_are_searched_filtered_and_scoped_on_the_server(): void
+    {
+        $subject = Subject::findOrFail($this->assessment->subject_id);
+        $section = Section::findOrFail($this->assessment->section_id);
+
+        LearningMaterial::create([
+            'educator_id' => $this->educator->id,
+            'subject_id' => $subject->id,
+            'section_id' => $section->id,
+            'storage_bucket' => 'local',
+            'storage_path' => 'learning-materials/algebra.pdf',
+            'file_name' => 'Algebra Notes.pdf',
+            'file_extension' => 'pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 1024,
+            'is_active' => true,
+        ]);
+        LearningMaterial::create([
+            'educator_id' => $this->educator->id,
+            'subject_id' => $subject->id,
+            'section_id' => $section->id,
+            'storage_bucket' => 'local',
+            'storage_path' => 'learning-materials/biology.pdf',
+            'file_name' => 'Biology Notes.pdf',
+            'file_extension' => 'pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 1024,
+            'is_active' => true,
+        ]);
+
+        $otherSubject = Subject::create([
+            'educator_id' => $this->educator->id,
+            'sections_id' => $section->id,
+            'subject_code' => 'SCI',
+            'subject_name' => 'Science',
+        ]);
+        LearningMaterial::create([
+            'educator_id' => $this->educator->id,
+            'subject_id' => $otherSubject->id,
+            'section_id' => $section->id,
+            'storage_bucket' => 'local',
+            'storage_path' => 'learning-materials/hidden.pdf',
+            'file_name' => 'Hidden Notes.pdf',
+            'file_extension' => 'pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 1024,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($this->student)
+            ->get(route('student.materials.index', [
+                'search' => 'Algebra',
+                'subject' => $subject->id,
+                'per_page' => 10,
+            ]))
+            ->assertOk()
+            ->assertSee('Algebra Notes.pdf')
+            ->assertDontSee('Biology Notes.pdf')
+            ->assertDontSee('Hidden Notes.pdf');
     }
 
     // ---- helper ----

@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreAcademicYearRequest;
 use App\Http\Requests\UpdateAcademicYearRequest;
 use App\Models\AcademicYear;
+use App\Support\TableQuery;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -14,11 +16,20 @@ use Illuminate\View\View;
 // restrictOnDelete in the migration, so the cascade is hand-rolled in a transaction).
 class AcademicYearController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', AcademicYear::class);
 
-        $years = AcademicYear::withCount('terms')->orderByDesc('year')->get();
+        $query = AcademicYear::withCount('terms');
+        TableQuery::search($query, $request->query('search'), ['year']);
+        TableQuery::filters($query, $request, ['status' => 'is_active']);
+        TableQuery::sort($query, $request, [
+            'year' => 'year',
+            'terms' => 'terms_count',
+            'status' => 'is_active',
+        ], 'year', 'desc');
+
+        $years = $query->paginate(TableQuery::perPage($request))->withQueryString();
 
         return view('admin.academic-years.index', compact('years'));
     }

@@ -1,44 +1,40 @@
-{{-- Reusable KTDataTable card, standardized from /admin/users. Slots:
-       $head    — the <thead><tr>…</tr></thead> column headers
-       default  — the <tbody> rows (@forelse … @empty)
-       $filters — optional GET filter <select>s shown beside the search box
-     Props: id, title, pageSize, search, searchPlaceholder. --}}
+{{-- Reusable server-backed table card. Rows are rendered by Blade; search/filter/page-size
+     are GET params so the browser never receives the full dataset. --}}
 @props([
     'id',
     'pageSize' => 10,
     'search' => true,
     'searchPlaceholder' => 'Search',
+    'paginator' => null,
 ])
 @unless ($search)
-    {{-- .kt-card-header's own component CSS hardcodes justify-content:space-between, which (with
-         no search box to balance against) shoves the filters to the far right. Override by id —
-         a utility class can't win here since .kt-card-header's rule comes later in the bundle. --}}
     <style nonce="{{ $cspNonce ?? '' }}">
         #{{ $id }}_header { justify-content: flex-start; }
     </style>
 @endunless
-<div class="kt-card kt-card-grid min-w-full">
+
+@php
+    $query = request()->query();
+    $currentPerPage = (int) request('per_page', $pageSize);
+    $total = $paginator ? $paginator->total() : null;
+@endphp
+
+<form id="{{ $id }}_form" method="GET" action="{{ url()->current() }}" class="kt-card kt-card-grid min-w-full">
     <div id="{{ $id }}_header" class="kt-card-header flex-wrap items-center gap-2 py-5 {{ $search ? 'justify-between' : '' }}">
         @if ($search)
-            {{-- w-full on mobile (a fixed w-80=320px here is shrink-resistant and floors the
-                 whole page ~35px too wide); sm:w-80 restores the 320px box on real screens. --}}
             <div class="w-full sm:w-80">
                 <label class="kt-input">
                     <i class="ki-filled ki-magnifier"></i>
-                    <input data-kt-datatable-search="#{{ $id }}" placeholder="{{ $searchPlaceholder }}" type="text" value="" />
+                    <input name="search" placeholder="{{ $searchPlaceholder }}" type="text" value="{{ request('search') }}" autocomplete="off" />
                 </label>
             </div>
         @endif
-        {{-- max-w-full: cap the filters row at the card width so its selects wrap onto
-             new lines on mobile instead of overflowing the page. --}}
         @isset($filters)<div class="flex flex-wrap gap-2.5 max-w-full {{ $search ? 'shrink-0' : 'w-full' }}">{{ $filters }}</div>@endisset
     </div>
     <div class="kt-card-content">
-        {{-- grid-cols-1 = minmax(0,1fr): caps the track at the container width so the
-             wide table scrolls INSIDE .kt-scrollable-x-auto instead of pushing the page. --}}
-        <div class="grid grid-cols-1" data-kt-datatable="true" data-kt-datatable-state-save="false" data-kt-datatable-page-size="{{ $pageSize }}" id="{{ $id }}">
+        <div class="grid grid-cols-1" id="{{ $id }}">
             <div class="kt-scrollable-x-auto">
-                <table class="kt-table table-auto kt-table-border" data-kt-datatable-table="true">
+                <table class="kt-table table-auto kt-table-border">
                     {{ $head }}
                     <tbody>
                         {{ $slot }}
@@ -48,91 +44,71 @@
             <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium">
                 <div class="flex items-center gap-2 order-2 md:order-1">
                     Show
-                    <select class="kt-select w-16" data-kt-datatable-size="true" name="perpage"></select>
+                    <select class="kt-select w-20" name="per_page" data-table-submit>
+                        @foreach ([10, 25, 50] as $size)
+                            <option value="{{ $size }}" @selected($currentPerPage === $size)>{{ $size }}</option>
+                        @endforeach
+                    </select>
                     per page
                 </div>
-                <div class="flex items-center gap-4 order-1 md:order-2">
-                    <span data-kt-datatable-info="true"></span>
-                    <div class="kt-datatable-pagination" data-kt-datatable-pagination="true"></div>
+                <div class="flex flex-wrap items-center justify-center gap-3 order-1 md:order-2">
+                    @if ($paginator)
+                        <span>
+                            @if ($total)
+                                {{ $paginator->firstItem() }}-{{ $paginator->lastItem() }} of {{ $total }}
+                            @else
+                                0 of 0
+                            @endif
+                        </span>
+                        <div class="flex items-center gap-1">
+                            <a class="kt-btn kt-btn-sm kt-btn-outline {{ $paginator->onFirstPage() ? 'disabled pointer-events-none opacity-50' : '' }}"
+                               href="{{ $paginator->previousPageUrl() ?: '#' }}">Previous</a>
+                            @foreach ($paginator->getUrlRange(max(1, $paginator->currentPage() - 2), min($paginator->lastPage(), $paginator->currentPage() + 2)) as $page => $url)
+                                <a class="kt-btn kt-btn-sm {{ $page === $paginator->currentPage() ? 'kt-btn-primary' : 'kt-btn-outline' }}" href="{{ $url }}">{{ $page }}</a>
+                            @endforeach
+                            <a class="kt-btn kt-btn-sm kt-btn-outline {{ $paginator->hasMorePages() ? '' : 'disabled pointer-events-none opacity-50' }}"
+                               href="{{ $paginator->nextPageUrl() ?: '#' }}">Next</a>
+                        </div>
+                    @else
+                        <span>{{ $slot->isEmpty() ? '0 rows' : '' }}</span>
+                    @endif
                 </div>
             </div>
         </div>
     </div>
-</div>
+</form>
 
 @push('scripts')
 <script nonce="{{ $cspNonce ?? '' }}">
     (function () {
-        var wrap = document.querySelector('#{{ $id }}');
-        if (!wrap) return;
-        var card = wrap.closest('.kt-card');
+        var form = document.getElementById('{{ $id }}_form');
+        if (!form) return;
+        var params = new URLSearchParams(window.location.search);
 
-        {{-- Client-side dropdown filters: each <select data-filter="key"> hides rows whose
-             matching token doesn't equal the picked value. No page reload; filters combine (AND).
-             KTDataTable REPLACES the whole <tbody> on every draw and rebuilds each <tr> from cell
-             innerHTML — so we must (a) re-query tbody/rows live each time, never cache them, and
-             (b) keep the match token INSIDE a cell as <span data-filter-value hidden>. --}}
-        var selects = card ? card.querySelectorAll('select[data-filter]') : [];
-        {{-- KTDataTable's own pagination only ever renders ONE page's worth of <tr> at a time —
-             our filter can only toggle .hidden on rows already in the DOM, so a match sitting on
-             another page is invisible no matter what. Fix: while any dropdown filter is active,
-             force the table onto a single unpaginated "page" (so every row is in the DOM and our
-             filter can actually see all of them); restore the original page size once every
-             filter is cleared back to "All". --}}
-        var originalPageSize = parseInt(wrap.getAttribute('data-kt-datatable-page-size'), 10) || 10;
-        var UNPAGINATED_SIZE = 1000000;
-        function hasActiveFilter() {
-            return Array.prototype.some.call(selects, function (sel) { return !!sel.value; });
-        }
-        function syncPageSize() {
-            if (typeof KTDataTable === 'undefined') return;
-            var dt = KTDataTable.getInstance(wrap);
-            if (!dt || typeof dt.setPageSize !== 'function' || typeof dt.getState !== 'function') return;
-            var want = hasActiveFilter() ? UNPAGINATED_SIZE : originalPageSize;
-            if (dt.getState().pageSize !== want) dt.setPageSize(want);
-        }
-        function rowMatches(row) {
-            var ok = true;
-            selects.forEach(function (sel) {
-                var want = sel.value;
-                if (!want) return;
-                var token = row.querySelector('[data-filter-value="' + sel.dataset.filter + '"]');
-                if (!token || token.getAttribute('data-filter-key') !== want) ok = false;
+        form.querySelectorAll('select[data-filter]').forEach(function (select) {
+            if (!select.name) select.name = select.dataset.filter;
+            if (params.has(select.name)) select.value = params.get(select.name);
+            select.addEventListener('change', function () {
+                form.querySelector('input[name="page"]')?.remove();
+                form.submit();
             });
-            return ok;
-        }
-        function applyFilters() {
-            var tbody = wrap.querySelector('tbody'); // live: KTDataTable swaps the tbody on each draw
-            if (!tbody) return;
-            tbody.querySelectorAll('tr').forEach(function (row) {
-                if (row.querySelector('td[colspan]')) return; // skip the empty-state row
-                row.classList.toggle('hidden', !rowMatches(row));
-            });
-        }
-        selects.forEach(function (sel) {
-            sel.addEventListener('change', function () {
-                syncPageSize(); // triggers its own redraw + 'drew' -> applyFilters() when size changes
-                applyFilters(); // also re-apply directly: switching between two active filters doesn't
-            });               // change pageSize, so no redraw would otherwise happen
         });
 
-        {{-- KTDataTable re-renders tbody on search/sort/paginate, dropping per-row dropdown
-             instances and our hidden state. Re-init dropdowns + re-apply filters after each 'drew'. --}}
-        document.addEventListener('DOMContentLoaded', function () {
-            if (typeof KTDataTable !== 'undefined') {
-                var dt = KTDataTable.getInstance(wrap);
-                if (dt && typeof dt.on === 'function') {
-                    dt.on('drew', function () {
-                        {{-- KTDataTable rebuilds <tbody> on each draw → the new rows' 3-dots
-                             dropdowns are unregistered. Re-init them. NOTE: this bundle has no
-                             window.KTMenu; the 3-dots is a KTDropdown. --}}
-                        if (typeof KTDropdown !== 'undefined') KTDropdown.init();
-                        applyFilters();
-                    });
-                }
-            }
-            applyFilters();
+        form.querySelectorAll('[data-table-submit], select[name="per_page"]').forEach(function (select) {
+            select.addEventListener('change', function () {
+                form.querySelector('input[name="page"]')?.remove();
+                form.submit();
+            });
         });
+
+        var search = form.querySelector('input[name="search"]');
+        if (search) {
+            var timer = null;
+            search.addEventListener('input', function () {
+                clearTimeout(timer);
+                timer = setTimeout(function () { form.submit(); }, 500);
+            });
+        }
     })();
 </script>
 @endpush

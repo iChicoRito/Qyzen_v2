@@ -3,6 +3,7 @@
     $navItems = [
         ['heading' => 'Admin'],
         ['label' => 'Dashboard',     'url' => route('admin.dashboard'),            'active' => request()->routeIs('admin.dashboard'),          'icon' => 'element-11'],
+        ['label' => 'Calendar',      'url' => route('admin.calendar'),             'active' => request()->routeIs('admin.calendar'),           'icon' => 'calendar'],
         ['label' => 'Users',         'url' => route('admin.users.index'),          'active' => request()->routeIs('admin.users.*'),            'icon' => 'users'],
         ['heading' => 'Access Control'],
         ['label' => 'Roles',         'url' => route('admin.roles.index'),          'active' => request()->routeIs('admin.roles.*'),            'icon' => 'security-user'],

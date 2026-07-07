@@ -7,7 +7,9 @@ use App\Http\Requests\StoreSubjectRequest;
 use App\Http\Requests\UpdateSubjectRequest;
 use App\Models\Section;
 use App\Models\Subject;
+use App\Support\TableQuery;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -15,17 +17,26 @@ use Illuminate\View\View;
 // G3: educator subjects. Stored one row per section; the UI groups by code+name.
 class SubjectController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', Subject::class);
 
-        // Group rows by code::name::active so the list shows one entry per logical subject.
-        $groups = Subject::visibleTo(Auth::user())
-            ->with('section:id,section_name')
-            ->orderByDesc('id')->get()
+        $query = Subject::visibleTo(Auth::user())->with('section:id,section_name');
+        TableQuery::search($query, $request->query('search'), ['subject_code', 'subject_name']);
+        TableQuery::filters($query, $request, ['status' => 'is_active']);
+        TableQuery::sort($query, $request, [
+            'code' => 'subject_code',
+            'name' => 'subject_name',
+            'status' => 'is_active',
+            'id' => 'id',
+        ], 'id', 'desc');
+
+        $subjects = $query->paginate(TableQuery::perPage($request))->withQueryString();
+        // Group the current server page only; full datasets are never loaded into the browser.
+        $groups = $subjects->getCollection()
             ->groupBy(fn ($s) => $s->subject_code.'::'.$s->subject_name.'::'.(int) $s->is_active);
 
-        return view('educator.subjects.index', compact('groups'));
+        return view('educator.subjects.index', compact('groups', 'subjects'));
     }
 
     public function create(): View

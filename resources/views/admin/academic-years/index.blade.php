@@ -10,7 +10,7 @@
 
 @section('content')
     @include('admin._status')
-    <x-data-table id="years_table" search-placeholder="Search years">
+    <x-data-table id="years_table" search-placeholder="Search years" :paginator="$years">
         <x-slot:filters>
             <select data-filter="status" class="kt-select w-36">
                 <option value="">All statuses</option>

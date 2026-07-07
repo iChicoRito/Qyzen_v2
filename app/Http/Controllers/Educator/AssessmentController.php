@@ -11,7 +11,10 @@ use App\Models\Enrolled;
 use App\Models\Section;
 use App\Models\Subject;
 use App\Services\NotificationService;
+use App\Support\TableQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
@@ -20,13 +23,21 @@ class AssessmentController extends Controller
 {
     public function __construct(private NotificationService $notifications) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', Assessment::class);
 
-        $assessments = Assessment::visibleTo(Auth::user())
-            ->with(['subject:id,subject_code,subject_name', 'section:id,section_name', 'academicTerm:id,term_name'])
-            ->orderByDesc('id')->get();
+        $query = Assessment::visibleTo(Auth::user())
+            ->with(['subject:id,subject_code,subject_name', 'section:id,section_name', 'academicTerm:id,term_name']);
+        TableQuery::search($query, $request->query('search'), [
+            'assessment_code',
+            fn (Builder $q, string $term) => $q->orWhereHas('subject', fn ($s) => $s->where('subject_code', 'like', "%{$term}%")->orWhere('subject_name', 'like', "%{$term}%")),
+            fn (Builder $q, string $term) => $q->orWhereHas('section', fn ($s) => $s->where('section_name', 'like', "%{$term}%")),
+        ]);
+        TableQuery::filters($query, $request, ['subject' => 'subject_id', 'section' => 'section_id', 'status' => 'is_active']);
+        TableQuery::sort($query, $request, ['code' => 'assessment_code', 'status' => 'is_active', 'id' => 'id'], 'id', 'desc');
+
+        $assessments = $query->paginate(TableQuery::perPage($request))->withQueryString();
 
         return view('educator.assessments.index', compact('assessments'));
     }

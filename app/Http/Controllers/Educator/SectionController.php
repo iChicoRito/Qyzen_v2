@@ -7,7 +7,9 @@ use App\Http\Requests\StoreSectionRequest;
 use App\Http\Requests\UpdateSectionRequest;
 use App\Models\AcademicTerm;
 use App\Models\Section;
+use App\Support\TableQuery;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -15,13 +17,16 @@ use Illuminate\View\View;
 // G2: educator sections. Ownership-gated (visibleTo); section↔term M:N replaced on update.
 class SectionController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', Section::class);
 
-        $sections = Section::visibleTo(Auth::user())
-            ->with('terms:id,term_name,semester')
-            ->orderByDesc('id')->get();
+        $query = Section::visibleTo(Auth::user())->with('terms:id,term_name,semester');
+        TableQuery::search($query, $request->query('search'), ['section_name']);
+        TableQuery::filters($query, $request, ['status' => 'is_active']);
+        TableQuery::sort($query, $request, ['section' => 'section_name', 'status' => 'is_active', 'id' => 'id'], 'id', 'desc');
+
+        $sections = $query->paginate(TableQuery::perPage($request))->withQueryString();
 
         return view('educator.sections.index', compact('sections'));
     }

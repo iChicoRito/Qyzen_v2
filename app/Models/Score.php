@@ -5,11 +5,27 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class Score extends Model
 {
     protected $table = 'tbl_scores';
+
+    // Dashboard "quiz activity" trend: submitted-count per ISO week, grouped in PHP so it works on
+    // both MySQL (app) and SQLite (tests) — DATE_FORMAT/strftime differ across drivers.
+    // ponytail: grouping in PHP over the taken_at column; push into SQL only if the score volume
+    //   ever makes the pluck heavy (add a cache first).
+    public static function weeklyTrend(Builder $query): array
+    {
+        $byWeek = [];
+        foreach ($query->whereNotNull('taken_at')->orderBy('taken_at')->pluck('taken_at') as $t) {
+            $key = Carbon::parse($t)->format('o-\WW'); // e.g. 2026-W27
+            $byWeek[$key] = ($byWeek[$key] ?? 0) + 1;
+        }
+
+        return ['labels' => array_keys($byWeek), 'data' => array_values($byWeek)];
+    }
 
     // Task 19: opaque route key — URLs bind by the random uuid, never the sequential id.
     protected static function booted(): void

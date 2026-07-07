@@ -10,7 +10,7 @@
 
 @section('content')
     @include('admin._status')
-    <x-data-table id="roles_table" search-placeholder="Search roles">
+    <x-data-table id="roles_table" search-placeholder="Search roles" :paginator="$roles">
         <x-slot:filters>
             <select data-filter="status" class="kt-select w-36">
                 <option value="">All statuses</option>

@@ -3,6 +3,7 @@
     $navItems = [
         ['heading' => 'Educator'],
         ['label' => 'Dashboard',   'url' => route('educator.dashboard'),         'active' => request()->routeIs('educator.dashboard'),                                    'icon' => 'element-11'],
+        ['label' => 'Calendar',    'url' => route('educator.calendar'),          'active' => request()->routeIs('educator.calendar'),                                     'icon' => 'calendar'],
         ['heading' => 'Classroom'],
         ['label' => 'Sections',    'url' => route('educator.sections.index'),    'active' => request()->routeIs('educator.sections.*'),                                   'icon' => 'abstract-26'],
         ['label' => 'Subjects',    'url' => route('educator.subjects.index'),    'active' => request()->routeIs('educator.subjects.*'),                                   'icon' => 'book'],

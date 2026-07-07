@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\UserImport;
 use App\Services\UserOnboardingService;
 use App\Services\UserService;
+use App\Support\TableQuery;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -31,14 +32,18 @@ class UserController extends Controller
 
         $query = User::query()->with('roles:id,name');
 
-        if ($status = $request->query('status')) {
-            $query->where('is_active', $status === 'active');
-        }
-        if ($type = $request->query('user_type')) {
-            $query->where('user_type', $type);
-        }
+        TableQuery::search($query, $request->query('search'), ['given_name', 'surname', 'email', 'user_id']);
+        TableQuery::filters($query, $request, ['status' => 'is_active', 'type' => 'user_type', 'user_type' => 'user_type']);
+        TableQuery::sort($query, $request, [
+            'member' => 'surname',
+            'surname' => 'surname',
+            'user_id' => 'user_id',
+            'status' => 'is_active',
+            'verified' => 'email_verified_at',
+            'id' => 'id',
+        ], 'id', 'desc');
 
-        $users = $query->orderByDesc('id')->get();
+        $users = $query->paginate(TableQuery::perPage($request))->withQueryString();
         $roles = Role::orderBy('name')->get();
 
         $imports = UserImport::ownedBy($request->user())->latest()->take(6)->get();

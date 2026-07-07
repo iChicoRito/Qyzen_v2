@@ -7,17 +7,29 @@ use App\Http\Requests\StoreRoleRequest;
 use App\Http\Requests\UpdateRoleRequest;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Support\TableQuery;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 // F5: admin role management + permission assignment (all-or-nothing replace).
 class RoleController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', Role::class);
 
-        $roles = Role::withCount('permissions')->orderBy('name')->get();
+        $query = Role::withCount('permissions');
+        TableQuery::search($query, $request->query('search'), ['name', 'description']);
+        TableQuery::filters($query, $request, ['status' => 'is_active']);
+        TableQuery::sort($query, $request, [
+            'name' => 'name',
+            'permissions' => 'permissions_count',
+            'system' => 'is_system',
+            'status' => 'is_active',
+        ], 'name');
+
+        $roles = $query->paginate(TableQuery::perPage($request))->withQueryString();
 
         return view('admin.roles.index', compact('roles'));
     }

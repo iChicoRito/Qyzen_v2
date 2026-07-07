@@ -9,10 +9,9 @@
     <meta charset="utf-8" />
     <title>@yield('title', config('app.name'))</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-    <link rel="shortcut icon" href="{{ asset('metronic-tailwind-html-demos/dist/assets/media/app/favicon.ico') }}" />
+    <link rel="shortcut icon" href="{{ asset('assets/img/favicon.ico') }}" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
     @stack('styles')
-    <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/apexcharts/apexcharts.css') }}" rel="stylesheet" />
     <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet" />
     <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/css/styles.css') }}" rel="stylesheet" />
     {{-- Task 33: Laravel Echo (Reverb) bundle for real-time messaging. --}}
@@ -120,7 +119,7 @@
                          data-kt-dropdown-placement-rtl="bottom-start" data-kt-dropdown-trigger="click">
                         <div class="cursor-pointer shrink-0" data-kt-dropdown-toggle="true">
                             @if ($u && $u->profile_picture)
-                                <img alt="user" class="size-9 rounded-full border-2 border-primary shrink-0" src="{{ asset('storage/'.$u->profile_picture) }}" />
+                                <img alt="user" class="size-9 rounded-full border-2 border-primary shrink-0" src="{{ asset($u->profile_picture) }}" />
                             @else
                                 <span class="inline-flex items-center justify-center size-9 rounded-full bg-primary/10 text-primary font-semibold shrink-0">{{ $initial }}</span>
                             @endif
@@ -129,7 +128,7 @@
                             <div class="flex items-center justify-between px-2.5 py-1.5 gap-1.5">
                                 <div class="flex items-center gap-2 min-w-0">
                                     @if ($u && $u->profile_picture)
-                                        <img alt="user" class="size-9 shrink-0 rounded-full border-2 border-primary" src="{{ asset('storage/'.$u->profile_picture) }}" />
+                                        <img alt="user" class="size-9 shrink-0 rounded-full border-2 border-primary" src="{{ asset($u->profile_picture) }}" />
                                     @else
                                         <span class="inline-flex items-center justify-center size-9 rounded-full bg-primary/10 text-primary font-semibold shrink-0">{{ $initial }}</span>
                                     @endif
@@ -219,7 +218,6 @@
 
 <script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('metronic-tailwind-html-demos/dist/assets/js/core.bundle.js') }}"></script>
 <script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/ktui/ktui.min.js') }}"></script>
-<script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/apexcharts/apexcharts.min.js') }}"></script>
 <script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('metronic-tailwind-html-demos/dist/assets/js/widgets/general.js') }}"></script>
 <script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('metronic-tailwind-html-demos/dist/assets/js/layouts/demo1.js') }}"></script>
 <script nonce="{{ $cspNonce ?? '' }}" src="{{ asset('vendor/sweetalert2/sweetalert2.all.min.js') }}"></script>

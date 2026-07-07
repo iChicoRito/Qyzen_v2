@@ -10,7 +10,7 @@
     <title>Qyzen — Academic assessment platform</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta name="description" content="Qyzen is an all-in-one classroom assessment platform: timed quizzes, instant scoring, live monitoring, and course files in one place." />
-    <link rel="shortcut icon" href="{{ asset('metronic-tailwind-html-demos/dist/assets/media/app/favicon.ico') }}" />
+    <link rel="shortcut icon" href="{{ asset('assets/img/favicon.ico') }}" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
     <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet" />
     <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/css/styles.css') }}" rel="stylesheet" />

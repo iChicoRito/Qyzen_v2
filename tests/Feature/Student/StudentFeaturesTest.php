@@ -6,6 +6,8 @@ use App\Models\AcademicTerm;
 use App\Models\AcademicYear;
 use App\Models\Assessment;
 use App\Models\Enrolled;
+use App\Models\GroupChat;
+use App\Models\GroupChatMessage;
 use App\Models\LearningMaterial;
 use App\Models\Quiz;
 use App\Models\Role;
@@ -242,6 +244,42 @@ class StudentFeaturesTest extends TestCase
             ->assertSee('Algebra Notes.pdf')
             ->assertDontSee('Biology Notes.pdf')
             ->assertDontSee('Hidden Notes.pdf');
+    }
+
+    public function test_student_can_send_group_chat_message(): void
+    {
+        $chat = GroupChat::create([
+            'educator_id' => $this->educator->id,
+            'subject_id' => $this->assessment->subject_id,
+            'section_id' => $this->assessment->section_id,
+        ]);
+
+        $this->actingAs($this->student)
+            ->from(route('student.chats.show', $chat))
+            ->post(route('student.chats.messages.send', $chat), ['content' => 'Hello class!'])
+            ->assertRedirect(route('student.chats.show', $chat));
+
+        $this->assertDatabaseHas('tbl_group_chat_messages', [
+            'group_chat_id' => $chat->id,
+            'sender_user_id' => $this->student->id,
+            'content' => 'Hello class!',
+        ]);
+    }
+
+    public function test_scores_index_keeps_modal_outside_ancestor_forms(): void
+    {
+        $response = $this->actingAs($this->student)
+            ->get(route('student.scores.index'))
+            ->assertOk();
+
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+
+        $tableRoot = $xpath->query('//*[@id="student_scores_table_form"]')->item(0);
+        $this->assertNotNull($tableRoot);
+        $this->assertSame('div', strtolower($tableRoot->nodeName));
+        $this->assertSame(0, $xpath->query('//*[@id="form_modal"]/ancestor::form')->length);
     }
 
     // ---- helper ----

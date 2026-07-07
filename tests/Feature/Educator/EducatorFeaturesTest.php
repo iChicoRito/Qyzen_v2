@@ -415,6 +415,42 @@ class EducatorFeaturesTest extends TestCase
         $res->assertDontSee('ZZTOP');                                // eduB's assessment never shown
     }
 
+    public function test_sections_index_does_not_nest_modal_or_row_forms_inside_query_controls(): void
+    {
+        $this->section($this->eduA, 'Alpha');
+
+        $response = $this->actingAs($this->eduA)
+            ->get(route('educator.sections.index'))
+            ->assertOk();
+
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+
+        $tableRoot = $xpath->query('//*[@id="sections_table_form"]')->item(0);
+        $this->assertNotNull($tableRoot, 'sections table root should render');
+        $this->assertSame('div', strtolower($tableRoot->nodeName), 'query controls root should not itself be a form');
+        $this->assertSame(0, $xpath->query('//*[@id="form_modal"]/ancestor::form')->length, 'shared modal must stay outside any ancestor form');
+    }
+
+    public function test_subjects_index_does_not_nest_modal_inside_ancestor_forms(): void
+    {
+        $this->subject($this->eduA);
+
+        $response = $this->actingAs($this->eduA)
+            ->get(route('educator.subjects.index'))
+            ->assertOk();
+
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+
+        $tableRoot = $xpath->query('//*[@id="subjects_table_form"]')->item(0);
+        $this->assertNotNull($tableRoot);
+        $this->assertSame('div', strtolower($tableRoot->nodeName));
+        $this->assertSame(0, $xpath->query('//*[@id="form_modal"]/ancestor::form')->length);
+    }
+
     // ---- helpers ----
 
     private function makeUser(string $type, string $roleName): User

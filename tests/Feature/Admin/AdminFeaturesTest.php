@@ -289,6 +289,50 @@ class AdminFeaturesTest extends TestCase
         $this->assertNull(User::find($target->id)); // hard delete (forceDelete)
     }
 
+    public function test_roles_index_keeps_modal_outside_ancestor_forms(): void
+    {
+        $role = Role::create([
+            'name' => 'coordinator',
+            'description' => 'Coordinator',
+            'is_active' => true,
+            'is_system' => false,
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->get(route('admin.roles.index'))
+            ->assertOk();
+
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+
+        $tableRoot = $xpath->query('//*[@id="roles_table_form"]')->item(0);
+        $this->assertNotNull($tableRoot);
+        $this->assertSame('div', strtolower($tableRoot->nodeName));
+        $this->assertSame(0, $xpath->query('//*[@id="form_modal"]/ancestor::form')->length);
+        $this->assertSame(0, $xpath->query('//form[@action="'.route('admin.roles.destroy', $role).'"]//*[@id="form_modal"]')->length);
+    }
+
+    public function test_users_index_keeps_modal_outside_ancestor_forms(): void
+    {
+        $this->assertIndexModalIsolated('admin.users.index', 'users_table');
+    }
+
+    public function test_permissions_index_keeps_modal_outside_ancestor_forms(): void
+    {
+        $this->assertIndexModalIsolated('admin.permissions.index', 'permissions_table');
+    }
+
+    public function test_academic_years_index_keeps_modal_outside_ancestor_forms(): void
+    {
+        $this->assertIndexModalIsolated('admin.academic-years.index', 'years_table');
+    }
+
+    public function test_academic_terms_index_keeps_modal_outside_ancestor_forms(): void
+    {
+        $this->assertIndexModalIsolated('admin.academic-terms.index', 'terms_table');
+    }
+
     // ---- F5 roles ----
 
     public function test_admin_creates_role_and_syncs_permissions(): void
@@ -385,5 +429,21 @@ class AdminFeaturesTest extends TestCase
         $user->roles()->attach(Role::where('name', $roleName)->value('id'));
 
         return $user;
+    }
+
+    private function assertIndexModalIsolated(string $routeName, string $tableId): void
+    {
+        $response = $this->actingAs($this->admin)
+            ->get(route($routeName))
+            ->assertOk();
+
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+
+        $tableRoot = $xpath->query(sprintf('//*[@id="%s_form"]', $tableId))->item(0);
+        $this->assertNotNull($tableRoot);
+        $this->assertSame('div', strtolower($tableRoot->nodeName));
+        $this->assertSame(0, $xpath->query('//*[@id="form_modal"]/ancestor::form')->length);
     }
 }

@@ -103,6 +103,16 @@
 
     @include('educator.scores._export_modal')
 
+    @php
+        $twoLine = fn(string $v1, string $v2) =>
+            '<div class=\"flex items-center justify-between gap-2\">'
+            . '<div class=\"flex flex-col gap-0.5\">'
+            . '<span class=\"text-sm font-medium\">{{text}}</span>'
+            . '<span class=\"text-xs text-secondary-foreground\">{{' . $v2 . '}}</span>'
+            . '</div>'
+            . '<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"size-3.5 shrink-0 hidden text-primary kt-select-option-selected:block\">'
+            . '<path d=\"M20 6 9 17l-5-5\"/></svg></div>';
+    @endphp
     <div class="kt-modal" data-kt-modal="true" id="score_upload_modal">
         <div class="kt-modal-content top-[15%]" style="width: 100%; max-width: min(92vw, 500px);">
             <form method="POST" action="{{ route('educator.scores.upload') }}" enctype="multipart/form-data">
@@ -114,19 +124,30 @@
                     </button>
                 </div>
                 <div class="kt-modal-body flex flex-col gap-3">
+                    {{-- Section filter (not posted — narrows assessment list) --}}
+                    <div class="flex flex-col gap-1">
+                        <label class="kt-form-label">Section <span class="text-secondary-foreground font-normal">(optional filter)</span></label>
+                        <select id="upload_section_sel" class="kt-select"
+                            data-kt-select="true"
+                            data-kt-select-config='{"optionTemplate":"{{ $twoLine('text','term') }}"}'
+                            data-kt-select-enable-search="true"
+                            data-kt-select-placeholder="All sections">
+                            <option value="">All sections</option>
+                        </select>
+                    </div>
+                    {{-- Assessment — posts assessment_uuid --}}
                     <div class="flex flex-col gap-1">
                         <label class="kt-form-label">Assessment</label>
-                        <select name="assessment_uuid" class="kt-select" required>
+                        <select id="upload_assessment_sel" name="assessment_uuid" class="kt-select" required
+                            data-kt-select="true"
+                            data-kt-select-config='{"optionTemplate":"{{ $twoLine('text','description') }}"}'
+                            data-kt-select-enable-search="true"
+                            data-kt-select-placeholder="Select assessment">
                             <option value="">Select assessment</option>
-                            @foreach ($exportOptions as $option)
-                                <option value="{{ $option['uuid'] }}">
-                                    {{ $option['subjectLabel'] }} - {{ $option['sectionLabel'] }} - {{ $option['assessmentCode'] }} - {{ $option['termLabel'] }}
-                                </option>
-                            @endforeach
                         </select>
                         @error('assessment_uuid')<span class="text-xs text-destructive">{{ $message }}</span>@enderror
                     </div>
-                    <p class="text-sm text-secondary-foreground">Columns: student_id, score, total_questions, submitted_at, warning_attempts.</p>
+                    <p class="text-sm text-secondary-foreground">Columns: student_id, score, total_questions.</p>
                     <input type="file" name="file" accept=".xlsx,.xls,.csv" class="kt-input" required>
                     @error('file')<span class="text-xs text-destructive">{{ $message }}</span>@enderror
                 </div>
@@ -136,6 +157,48 @@
             </form>
         </div>
     </div>
+
+    @push('scripts')
+    <script nonce="{{ $cspNonce ?? '' }}">
+    (function () {
+        var opts = window.__exportOptions || [];
+        if (!opts.length) return;
+
+        var secSel = document.getElementById('upload_section_sel');
+        var assSel = document.getElementById('upload_assessment_sel');
+
+        // Unique sections
+        var seen = {};
+        opts.forEach(function (o) {
+            if (seen[o.sectionId]) return;
+            seen[o.sectionId] = true;
+            var el = document.createElement('option');
+            el.value = o.sectionId;
+            el.textContent = o.sectionLabel;
+            el.setAttribute('data-kt-select-option', JSON.stringify({ term: o.termLabel || '' }));
+            secSel.appendChild(el);
+        });
+
+        function fillAssessments(sectionId) {
+            while (assSel.options.length > 1) assSel.remove(1);
+            opts.forEach(function (o) {
+                if (sectionId && String(o.sectionId) !== String(sectionId)) return;
+                var el = document.createElement('option');
+                el.value = o.uuid;
+                el.textContent = o.assessmentCode;
+                el.setAttribute('data-kt-select-option', JSON.stringify({ description: o.subjectLabel || '' }));
+                assSel.appendChild(el);
+            });
+        }
+
+        fillAssessments(null);
+
+        secSel.addEventListener('change', function () {
+            fillAssessments(secSel.value || null);
+        });
+    })();
+    </script>
+    @endpush
 
     <x-modal id="form_modal" width="760px" />
 @endsection

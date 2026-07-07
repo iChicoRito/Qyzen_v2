@@ -8,7 +8,8 @@
         ['label' => 'Account Settings', 'url' => route('profile.edit'), 'active' => true],
     ];
     $isStudent = $user->hasRole('student');
-    $initials = strtoupper(mb_substr($user->given_name ?? '', 0, 1).mb_substr($user->surname ?? '', 0, 1));
+    $words    = array_filter(preg_split('/\s+/', trim(($user->given_name ?? '').' '.($user->surname ?? ''))));
+    $initials = strtoupper(implode('', array_map(fn ($w) => mb_substr($w, 0, 1), array_slice($words, 0, 2))));
     $avatarUrl = $user->profile_picture ? asset('storage/'.$user->profile_picture) : null;
     $coverUrl = $user->cover_photo ? asset('storage/'.$user->cover_photo) : null;
 @endphp
@@ -83,20 +84,15 @@
                         {{-- Avatar (click to pick + crop). Inner wrapper is overflow-hidden for the
                              round image/initials/camera; the status dot is a sibling so it isn't clipped. --}}
                         <div class="shrink-0 relative">
-                            <div id="avatar_button" role="button" tabindex="0" class="group size-[120px] relative cursor-pointer">
-                                <div class="relative size-full rounded-full overflow-hidden bg-primary/10">
-                                    @if ($avatarUrl)
-                                        <img id="avatar_preview" alt="avatar" class="size-full object-cover" src="{{ $avatarUrl }}"/>
-                                        <span id="avatar_initials" class="hidden absolute inset-0 items-center justify-center text-primary text-2xl font-semibold">{{ $initials }}</span>
-                                    @else
-                                        <img id="avatar_preview" alt="avatar" class="hidden size-full object-cover" src=""/>
-                                        <span id="avatar_initials" class="absolute inset-0 flex items-center justify-center text-primary text-2xl font-semibold">{{ $initials }}</span>
-                                    @endif
+                            <div id="avatar_button" role="button" tabindex="0" class="group relative cursor-pointer" style="width:120px;height:120px">
+                                <div class="relative w-full h-full rounded-full overflow-hidden bg-primary/10">
+                                    <img id="avatar_preview" alt="avatar" class="w-full h-full object-cover"
+                                         src="{{ $avatarUrl ?? asset('assets/img/profile-placeholder.png') }}"/>
                                     <div class="media-edit">
                                         <i class="ki-filled ki-camera text-lg"></i>
                                     </div>
                                 </div>
-                                <div class="flex size-3 bg-green-500 rounded-full ring-2 ring-background absolute bottom-2 start-[93px]"></div>
+                                <div class="flex size-3 bg-green-500 rounded-full ring-2 ring-background absolute bottom-2" style="inset-inline-start:93px"></div>
                             </div>
                             <div id="avatar_menu" class="media-menu hidden">
                                 <a href="#" id="avatar_change"><i class="ki-filled ki-pencil"></i> Change photo</a>
@@ -309,9 +305,7 @@
                 avatarInput.value = '';
                 removeAvatarFlag.value = '1';
                 const prev = document.getElementById('avatar_preview');
-                const init = document.getElementById('avatar_initials');
-                prev.classList.add('hidden'); prev.removeAttribute('src');
-                init.classList.remove('hidden'); init.classList.add('flex');
+                prev.src = '{{ asset('assets/img/profile-placeholder.png') }}';
                 avatarRemoveItem.classList.add('hidden');
             });
             on('cover_remove', () => {
@@ -355,10 +349,7 @@
                     dt.items.add(new File([blob], 'avatar.png', { type: 'image/png' }));
                     avatarInput.files = dt.files;
                     const prev = document.getElementById('avatar_preview');
-                    const init = document.getElementById('avatar_initials');
                     prev.src = canvas.toDataURL('image/png');
-                    prev.classList.remove('hidden');
-                    init.classList.add('hidden');
                     removeAvatarFlag.value = '0';
                     avatarRemoveItem.classList.remove('hidden');
                     cropper.destroy(); cropper = null;

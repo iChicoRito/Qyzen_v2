@@ -14,8 +14,7 @@
         ['label' => 'Scores',      'url' => route('educator.scores.index'),      'active' => request()->routeIs('educator.scores.*'),                                     'icon' => 'chart-simple'],
         ['heading' => 'Resources'],
         ['label' => 'Materials',   'url' => route('educator.materials.index'),   'active' => request()->routeIs('educator.materials.*'),                                  'icon' => 'folder'],
-        ['label' => 'Group Chats', 'url' => route('educator.chats.index'),       'active' => request()->routeIs('educator.chats.*'),                                      'icon' => 'message-text-2'],
-        ['label' => 'Monitoring',  'url' => route('educator.monitoring.index'),  'active' => request()->routeIs('educator.monitoring.*'),                                 'icon' => 'screen'],
+
     ];
 @endphp
 

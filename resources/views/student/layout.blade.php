@@ -8,8 +8,7 @@
         ['label' => 'My Scores',   'url' => route('student.scores.index'),      'active' => request()->routeIs('student.scores.*'),                                      'icon' => 'chart-simple'],
         ['heading' => 'Resources'],
         ['label' => 'Materials',   'url' => route('student.materials.index'),   'active' => request()->routeIs('student.materials.*'),                                   'icon' => 'folder'],
-        ['label' => 'Chats',       'url' => route('student.chats.index'),       'active' => request()->routeIs('student.chats.*'),                                       'icon' => 'message-text-2'],
-        ['label' => 'Profile',     'url' => route('profile.edit'),              'active' => request()->routeIs('profile.*'),                                             'icon' => 'user'],
+
     ];
 @endphp
 

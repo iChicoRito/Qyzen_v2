@@ -83,7 +83,7 @@ class OfflineScoreUploadTest extends TestCase
             ->post(route('educator.scores.upload'), [
                 'assessment_uuid' => $this->assessment->uuid,
                 'file' => $this->csv([
-                    ['2026-12345', 1, 1, '2026-07-06 09:00:00', 0],
+                    ['2026-12345', 1, 1],
                 ]),
             ])
             ->assertRedirect(route('educator.scores.index'));
@@ -101,8 +101,8 @@ class OfflineScoreUploadTest extends TestCase
             ->post(route('educator.scores.upload'), [
                 'assessment_uuid' => $this->assessment->uuid,
                 'file' => $this->csv([
-                    ['2026-12345', 1, 1, '2026-07-06 09:00:00', 0],
-                    ['2026-99999', 1, 1, '2026-07-06 09:00:00', 0],
+                    ['2026-12345', 1, 1],
+                    ['2026-99999', 1, 1],
                 ]),
             ])
             ->assertSessionHasErrors('file');
@@ -118,7 +118,7 @@ class OfflineScoreUploadTest extends TestCase
             ->post(route('educator.scores.upload'), [
                 'assessment_uuid' => $this->assessment->uuid,
                 'file' => $this->csv([
-                    ['2026-12345', 1, 1, '2026-07-06 09:00:00', 0],
+                    ['2026-12345', 1, 1],
                 ]),
             ])
             ->assertNotFound();
@@ -132,7 +132,7 @@ class OfflineScoreUploadTest extends TestCase
             ->post(route('educator.scores.upload'), [
                 'assessment_uuid' => $this->assessment->uuid,
                 'file' => $this->csv([
-                    ['2026-12345', 2, 1, '2026-07-06 09:00:00', 0],
+                    ['2026-12345', 2, 1],
                 ]),
             ])
             ->assertSessionHasErrors('file');
@@ -160,7 +160,7 @@ class OfflineScoreUploadTest extends TestCase
             ->post(route('educator.scores.upload'), [
                 'assessment_uuid' => $this->assessment->uuid,
                 'file' => $this->csv([
-                    ['2026-12345', 1, 1, '2026-07-06 09:00:00', 0],
+                    ['2026-12345', 1, 1],
                 ]),
             ])
             ->assertSessionHasErrors('file');
@@ -172,7 +172,7 @@ class OfflineScoreUploadTest extends TestCase
     {
         $path = tempnam(sys_get_temp_dir(), 'scores');
         $handle = fopen($path, 'w');
-        fputcsv($handle, ['student_id', 'score', 'total_questions', 'submitted_at', 'warning_attempts']);
+        fputcsv($handle, ['student_id', 'score', 'total_questions']);
         foreach ($rows as $row) {
             fputcsv($handle, $row);
         }

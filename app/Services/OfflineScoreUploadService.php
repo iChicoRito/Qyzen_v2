@@ -31,8 +31,6 @@ class OfflineScoreUploadService
                 'student_id' => ['required', 'string'],
                 'score' => ['required', 'integer', 'min:0'],
                 'total_questions' => ['required', 'integer', 'min:1'],
-                'submitted_at' => ['required', 'date'],
-                'warning_attempts' => ['nullable', 'integer', 'min:0'],
             ]);
 
             if ($validator->fails()) {
@@ -89,8 +87,8 @@ class OfflineScoreUploadService
                 continue;
             }
 
-            $submittedAt = Carbon::parse($data['submitted_at']);
             $passed = (((int) $data['score'] / (int) $data['total_questions']) * 100) >= 75;
+            $now = Carbon::now();
 
             $clean[] = [
                 'student_id' => $student->id,
@@ -101,11 +99,11 @@ class OfflineScoreUploadService
                 'score' => (int) $data['score'],
                 'total_questions' => (int) $data['total_questions'],
                 'student_answer' => [],
-                'warning_attempts' => (int) ($data['warning_attempts'] ?? 0),
+                'warning_attempts' => 0,
                 'status' => $passed ? 'passed' : 'failed',
                 'is_passed' => $passed,
-                'taken_at' => $submittedAt,
-                'submitted_at' => $submittedAt,
+                'taken_at' => $now,
+                'submitted_at' => $now,
             ];
         }
 

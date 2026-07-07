@@ -13,7 +13,7 @@
  <div class="kt-avatar size-8">
   @if ($other->profile_picture)
   <div class="kt-avatar-image">
-   <img alt="avatar" src="{{ asset('storage/'.$other->profile_picture) }}"/>
+   <img alt="avatar" src="{{ asset($other->profile_picture) }}"/>
   </div>
   @else
   <span class="inline-flex items-center justify-center size-8 rounded-full bg-primary/10 text-primary text-xs font-semibold">{{ strtoupper(substr($other->given_name ?? '?', 0, 1)) }}</span>

@@ -7,6 +7,8 @@ use App\Models\GroupChat;
 use App\Models\GroupChatMessage;
 use App\Models\GroupChatRead;
 use App\Models\Subject;
+use App\Support\TableQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,14 +19,32 @@ use Illuminate\View\View;
 // (create/delete); send + mark-read work on page load. ponytail: no websockets — plain reloads.
 class ChatController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', GroupChat::class);
 
-        $chats = GroupChat::where('educator_id', Auth::id())
+        $query = GroupChat::query()
+            ->where('tbl_group_chats.educator_id', Auth::id())
             ->with(['subject:id,subject_code,subject_name'])
-            ->withCount('messages')
-            ->orderByDesc('id')->get();
+            ->withCount('messages');
+        TableQuery::search($query, $request->query('search'), [
+            fn ($q, string $term) => $q->orWhereHas('subject', fn ($s) => $s
+                ->where('subject_code', 'like', "%{$term}%")
+                ->orWhere('subject_name', 'like', "%{$term}%")),
+        ]);
+        TableQuery::sort($query, $request, [
+            'subject' => function (Builder $q, string $direction): void {
+                $q->leftJoin('tbl_subjects as sort_subjects', 'sort_subjects.id', '=', 'tbl_group_chats.subject_id')
+                    ->select('tbl_group_chats.*')
+                    ->orderBy('sort_subjects.subject_code', $direction)
+                    ->orderBy('sort_subjects.subject_name', $direction)
+                    ->orderBy('tbl_group_chats.id', 'desc');
+            },
+            'messages' => 'messages_count',
+            'id' => 'id',
+        ], 'id', 'desc');
+
+        $chats = $query->paginate(TableQuery::perPage($request))->withQueryString();
 
         $subjects = Subject::visibleTo(Auth::user())->orderBy('subject_code')->get();
 

@@ -27,7 +27,8 @@ class AssessmentController extends Controller
     {
         $this->authorize('viewAny', Assessment::class);
 
-        $query = Assessment::visibleTo(Auth::user())
+        $query = Assessment::query()
+            ->where('tbl_assessments.educator_id', Auth::id())
             ->with(['subject:id,subject_code,subject_name', 'section:id,section_name', 'academicTerm:id,term_name']);
         TableQuery::search($query, $request->query('search'), [
             'assessment_code',
@@ -35,11 +36,41 @@ class AssessmentController extends Controller
             fn (Builder $q, string $term) => $q->orWhereHas('section', fn ($s) => $s->where('section_name', 'like', "%{$term}%")),
         ]);
         TableQuery::filters($query, $request, ['subject' => 'subject_id', 'section' => 'section_id', 'status' => 'is_active']);
-        TableQuery::sort($query, $request, ['code' => 'assessment_code', 'status' => 'is_active', 'id' => 'id'], 'id', 'desc');
+        TableQuery::sort($query, $request, [
+            'code' => 'assessment_code',
+            'subject' => function (Builder $q, string $direction): void {
+                $q->leftJoin('tbl_subjects as sort_subjects', 'sort_subjects.id', '=', 'tbl_assessments.subject_id')
+                    ->select('tbl_assessments.*')
+                    ->orderBy('sort_subjects.subject_name', $direction)
+                    ->orderBy('tbl_assessments.id', 'desc');
+            },
+            'section' => function (Builder $q, string $direction): void {
+                $q->leftJoin('tbl_sections as sort_sections', 'sort_sections.id', '=', 'tbl_assessments.section_id')
+                    ->select('tbl_assessments.*')
+                    ->orderBy('sort_sections.section_name', $direction)
+                    ->orderBy('tbl_assessments.id', 'desc');
+            },
+            'term' => function (Builder $q, string $direction): void {
+                $q->leftJoin('tbl_academic_term as sort_terms', 'sort_terms.id', '=', 'tbl_assessments.term')
+                    ->select('tbl_assessments.*')
+                    ->orderBy('sort_terms.term_name', $direction)
+                    ->orderBy('tbl_assessments.id', 'desc');
+            },
+            'window' => function (Builder $q, string $direction): void {
+                $q->orderBy('start_date', $direction)
+                    ->orderBy('end_date', $direction)
+                    ->orderBy('id', 'desc');
+            },
+            'status' => 'is_active',
+            'id' => 'id',
+        ], 'id', 'desc');
 
         $assessments = $query->paginate(TableQuery::perPage($request))->withQueryString();
 
-        return view('educator.assessments.index', compact('assessments'));
+        $filterSubjects = Subject::visibleTo(Auth::user())->orderBy('subject_code')->get(['id', 'subject_code', 'subject_name']);
+        $filterSections = Section::visibleTo(Auth::user())->orderBy('section_name')->get(['id', 'section_name']);
+
+        return view('educator.assessments.index', compact('assessments', 'filterSubjects', 'filterSections'));
     }
 
     public function create(): View

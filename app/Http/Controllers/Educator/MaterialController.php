@@ -7,9 +7,13 @@ use App\Http\Requests\StoreMaterialRequest;
 use App\Http\Requests\UpdateMaterialRequest;
 use App\Models\Enrolled;
 use App\Models\LearningMaterial;
+use App\Models\Section;
 use App\Models\Subject;
 use App\Services\NotificationService;
+use App\Support\TableQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -23,16 +27,43 @@ class MaterialController extends Controller
 
     public function __construct(private NotificationService $notifications) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', LearningMaterial::class);
 
-        $groups = LearningMaterial::visibleTo(Auth::user())
-            ->with(['subject:id,subject_code,subject_name', 'section:id,section_name'])
-            ->orderByDesc('id')->get()
-            ->groupBy(fn ($m) => $m->subject_id.'::'.$m->section_id);
+        $query = LearningMaterial::query()
+            ->where('tbl_learning_materials.educator_id', Auth::id())
+            ->with(['subject:id,subject_code,subject_name', 'section:id,section_name']);
+        TableQuery::search($query, $request->query('search'), ['file_name', 'file_extension']);
+        TableQuery::filters($query, $request, ['subject' => 'subject_id', 'section' => 'section_id', 'status' => 'is_active']);
+        TableQuery::sort($query, $request, [
+            'file' => 'file_name',
+            'subject' => function (Builder $q, string $direction): void {
+                $q->leftJoin('tbl_subjects as sort_subjects', 'sort_subjects.id', '=', 'tbl_learning_materials.subject_id')
+                    ->select('tbl_learning_materials.*')
+                    ->orderBy('sort_subjects.subject_code', $direction)
+                    ->orderBy('sort_subjects.subject_name', $direction)
+                    ->orderBy('tbl_learning_materials.id', 'desc');
+            },
+            'section' => function (Builder $q, string $direction): void {
+                $q->leftJoin('tbl_sections as sort_sections', 'sort_sections.id', '=', 'tbl_learning_materials.section_id')
+                    ->select('tbl_learning_materials.*')
+                    ->orderBy('sort_sections.section_name', $direction)
+                    ->orderBy('tbl_learning_materials.id', 'desc');
+            },
+            'type' => 'file_extension',
+            'size' => 'file_size',
+            'status' => 'is_active',
+            'id' => 'id',
+        ], 'id', 'desc');
 
-        return view('educator.materials.index', compact('groups'));
+        $materials = $query->paginate(TableQuery::perPage($request))->withQueryString();
+        $groups = $materials->getCollection()->groupBy(fn ($m) => $m->subject_id.'::'.$m->section_id);
+
+        $filterSubjects = Subject::visibleTo(Auth::user())->orderBy('subject_code')->get(['id', 'subject_code', 'subject_name']);
+        $filterSections = Section::visibleTo(Auth::user())->orderBy('section_name')->get(['id', 'section_name']);
+
+        return view('educator.materials.index', compact('groups', 'materials', 'filterSubjects', 'filterSections'));
     }
 
     public function create(): View

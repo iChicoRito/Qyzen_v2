@@ -16,10 +16,10 @@
         @if ($subject->section)
             <span class="kt-badge kt-badge-outline kt-badge-secondary">{{ $subject->section->section_name }}</span>
         @endif
-        <span class="text-sm text-secondary-foreground">· {{ $enrollments->count() }} enrolled</span>
+        <span class="text-sm text-secondary-foreground">· {{ $enrollments->total() }} enrolled</span>
     </div>
 
-    <x-data-table id="enrollment_students_table" search-placeholder="Search students">
+    <x-data-table id="enrollment_students_table" search-placeholder="Search students" :paginator="$enrollments">
         <x-slot:filters>
             <select data-filter="status" class="kt-select w-36">
                 <option value="">All statuses</option>
@@ -30,10 +30,10 @@
         <x-slot:head>
             <thead>
                 <tr>
-                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Student No.</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[160px]"><span class="kt-table-col"><span class="kt-table-col-label">Surname</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[160px]"><span class="kt-table-col"><span class="kt-table-col-label">Given Name</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[110px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]" data-sort="student_no"><span class="kt-table-col"><span class="kt-table-col-label">Student No.</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[160px]" data-sort="surname"><span class="kt-table-col"><span class="kt-table-col-label">Surname</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[160px]" data-sort="given_name"><span class="kt-table-col"><span class="kt-table-col-label">Given Name</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[110px]" data-sort="status"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="w-[60px]"></th>
                 </tr>
             </thead>

@@ -7,12 +7,17 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ExportScoresBulkRequest;
 use App\Http\Requests\GrantRetakeRequest;
 use App\Imports\OfflineScoresImport;
+use App\Models\AcademicTerm;
 use App\Models\Assessment;
 use App\Models\Score;
+use App\Models\Section;
+use App\Models\Subject;
 use App\Models\StudentAssessmentRetake;
 use App\Services\NotificationService;
 use App\Services\OfflineScoreUploadService;
 use App\Services\ScoreExportService;
+use App\Support\TableQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,24 +36,66 @@ class ScoreController extends Controller
         private OfflineScoreUploadService $offlineUploads,
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', Score::class);
 
-        // Task 26: eager-load student avatar + subject/section/term for the columns and the
-        // client-side subject/section/term filters. Default view sorted A→Z by surname (newest
-        // submission as the tiebreak). Filtering stays client-side (KTDataTable), like the rest.
-        $scores = Score::visibleTo(Auth::user())
+        // Task 46: eager-load the visible score rows, then apply GET-backed search, filters,
+        // sorting, and pagination before the shared table renders.
+        $query = Score::query()
+            ->where('tbl_scores.educator_id', Auth::id())
+            ->select('tbl_scores.*')
+            ->leftJoin('tbl_users as sort_students', 'sort_students.id', '=', 'tbl_scores.student_id')
+            ->leftJoin('tbl_assessments as sort_assessments', 'sort_assessments.id', '=', 'tbl_scores.assessment_id')
+            ->leftJoin('tbl_subjects as sort_subjects', 'sort_subjects.id', '=', 'tbl_scores.subject_id')
+            ->leftJoin('tbl_sections as sort_sections', 'sort_sections.id', '=', 'tbl_scores.section_id')
+            ->leftJoin('tbl_academic_term as sort_terms', 'sort_terms.id', '=', 'sort_assessments.term')
             ->with([
                 'student:id,given_name,surname,user_id,profile_picture',
                 'assessment:id,assessment_code,term',
                 'assessment.academicTerm:id,term_name',
                 'subject:id,subject_code,subject_name',
                 'section:id,section_name',
-            ])
-            ->orderByDesc('submitted_at')->get()
-            ->sortBy(fn ($s) => mb_strtolower(optional($s->student)->surname ?? ''))
-            ->values();
+            ]);
+        TableQuery::search($query, $request->query('search'), [
+            fn (Builder $q, string $term) => $q->orWhereHas('student', fn ($s) => $s
+                ->where('given_name', 'like', "%{$term}%")
+                ->orWhere('surname', 'like', "%{$term}%")
+                ->orWhere('user_id', 'like', "%{$term}%")),
+            fn (Builder $q, string $term) => $q->orWhereHas('assessment', fn ($a) => $a->where('assessment_code', 'like', "%{$term}%")),
+            fn (Builder $q, string $term) => $q->orWhereHas('subject', fn ($s) => $s
+                ->where('subject_code', 'like', "%{$term}%")
+                ->orWhere('subject_name', 'like', "%{$term}%")),
+            fn (Builder $q, string $term) => $q->orWhereHas('section', fn ($s) => $s->where('section_name', 'like', "%{$term}%")),
+        ]);
+        TableQuery::filters($query, $request, [
+            'assessment' => fn (Builder $q, string $value) => $q->whereHas('assessment', fn ($a) => $a->where('assessment_code', $value)),
+            'subject' => 'tbl_scores.subject_id',
+            'section' => 'tbl_scores.section_id',
+            'term' => fn (Builder $q, string $value) => $q->whereHas('assessment', fn ($a) => $a->where('term', $value)),
+            'result' => fn (Builder $q, string $value) => $q->where('is_passed', $value === 'passed'),
+        ]);
+        TableQuery::sort($query, $request, [
+            'student' => function (Builder $q, string $direction): void {
+                $q->orderBy('sort_students.surname', $direction)
+                    ->orderBy('sort_students.given_name', $direction)
+                    ->orderBy('sort_students.user_id', $direction)
+                    ->orderBy('tbl_scores.id', 'desc');
+            },
+            'assessment' => 'sort_assessments.assessment_code',
+            'subject' => function (Builder $q, string $direction): void {
+                $q->orderBy('sort_subjects.subject_code', $direction)
+                    ->orderBy('sort_subjects.subject_name', $direction)
+                    ->orderBy('tbl_scores.id', 'desc');
+            },
+            'section' => 'sort_sections.section_name',
+            'term' => 'sort_terms.term_name',
+            'score' => 'score',
+            'result' => 'is_passed',
+            'submitted' => 'submitted_at',
+        ], 'submitted', 'desc');
+
+        $scores = $query->paginate(TableQuery::perPage($request))->withQueryString();
 
         // Task 27: this educator's assessments, flattened for the export modal's cascading
         // Subject → Section → Assessment selects — rendered inline so opening the modal needs
@@ -75,7 +122,12 @@ class ScoreController extends Controller
             ])
             ->values();
 
-        return view('educator.scores.index', compact('scores', 'exportOptions'));
+        $filterAssessments = Assessment::visibleTo(Auth::user())->orderBy('assessment_code')->pluck('assessment_code');
+        $filterSubjects    = Subject::visibleTo(Auth::user())->orderBy('subject_code')->get(['id', 'subject_code', 'subject_name']);
+        $filterSections    = Section::visibleTo(Auth::user())->orderBy('section_name')->get(['id', 'section_name']);
+        $filterTerms       = AcademicTerm::orderBy('term_name')->get(['id', 'term_name']);
+
+        return view('educator.scores.index', compact('scores', 'exportOptions', 'filterAssessments', 'filterSubjects', 'filterSections', 'filterTerms'));
     }
 
     public function show(Score $score): View

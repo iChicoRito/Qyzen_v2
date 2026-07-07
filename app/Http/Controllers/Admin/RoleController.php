@@ -24,6 +24,7 @@ class RoleController extends Controller
         TableQuery::filters($query, $request, ['status' => 'is_active']);
         TableQuery::sort($query, $request, [
             'name' => 'name',
+            'description' => 'description',
             'permissions' => 'permissions_count',
             'system' => 'is_system',
             'status' => 'is_active',

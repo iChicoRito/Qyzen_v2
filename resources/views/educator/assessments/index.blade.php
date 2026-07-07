@@ -7,19 +7,15 @@
 @endsection
 @section('content')
     @include('admin._status')
-    @php
-        $subjectOpts = $assessments->pluck('subject')->filter()->unique('id')->sortBy('subject_code')->values();
-        $sectionOpts = $assessments->pluck('section')->filter()->unique('id')->sortBy('section_name')->values();
-    @endphp
-    <x-data-table id="assessments_table" search-placeholder="Search assessments">
+    <x-data-table id="assessments_table" search-placeholder="Search assessments" :paginator="$assessments">
         <x-slot:filters>
             <select data-filter="subject" class="kt-select w-36">
                 <option value="">All subjects</option>
-                @foreach ($subjectOpts as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} — {{ $s->subject_name }}</option>@endforeach
+                @foreach ($filterSubjects as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} — {{ $s->subject_name }}</option>@endforeach
             </select>
             <select data-filter="section" class="kt-select w-32">
                 <option value="">All sections</option>
-                @foreach ($sectionOpts as $s)<option value="{{ $s->id }}">{{ $s->section_name }}</option>@endforeach
+                @foreach ($filterSections as $s)<option value="{{ $s->id }}">{{ $s->section_name }}</option>@endforeach
             </select>
             <select data-filter="status" class="kt-select w-32">
                 <option value="">All statuses</option>
@@ -30,12 +26,12 @@
         <x-slot:head>
             <thead>
                 <tr>
-                    <th class="min-w-[120px]"><span class="kt-table-col"><span class="kt-table-col-label">Code</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[120px]"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Section</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[120px]"><span class="kt-table-col"><span class="kt-table-col-label">Term</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[200px]"><span class="kt-table-col"><span class="kt-table-col-label">Window</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[110px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[120px]" data-sort="code"><span class="kt-table-col"><span class="kt-table-col-label">Code</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[120px]" data-sort="subject"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]" data-sort="section"><span class="kt-table-col"><span class="kt-table-col-label">Section</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[120px]" data-sort="term"><span class="kt-table-col"><span class="kt-table-col-label">Term</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[200px]" data-sort="window"><span class="kt-table-col"><span class="kt-table-col-label">Window</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[110px]" data-sort="status"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="w-[60px]"></th>
                 </tr>
             </thead>

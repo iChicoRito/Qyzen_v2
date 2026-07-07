@@ -15,13 +15,13 @@
     </style>
     <div id="enrollment_layout" class="grid gap-5 lg:gap-7.5">
         <div class="min-w-0">
-            <x-data-table id="enrollment_table" search-placeholder="Search subjects / sections">
+            <x-data-table id="enrollment_table" search-placeholder="Search subjects / sections" :paginator="$subjects">
                 <x-slot:head>
                     <thead>
                         <tr>
-                            <th class="min-w-[260px]"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
-                            <th class="min-w-[150px]"><span class="kt-table-col"><span class="kt-table-col-label">Section</span><span class="kt-table-col-sort"></span></span></th>
-                            <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Enrolled</span><span class="kt-table-col-sort"></span></span></th>
+                            <th class="min-w-[260px]" data-sort="subject"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
+                            <th class="min-w-[150px]" data-sort="section"><span class="kt-table-col"><span class="kt-table-col-label">Section</span><span class="kt-table-col-sort"></span></span></th>
+                            <th class="min-w-[140px]" data-sort="enrolled"><span class="kt-table-col"><span class="kt-table-col-label">Enrolled</span><span class="kt-table-col-sort"></span></span></th>
                             <th class="w-[60px]"></th>
                         </tr>
                     </thead>

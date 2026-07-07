@@ -21,11 +21,11 @@
         <x-slot:head>
             <thead>
                 <tr>
-                    <th class="min-w-[160px]"><span class="kt-table-col"><span class="kt-table-col-label">Name</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[220px]"><span class="kt-table-col"><span class="kt-table-col-label">Description</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[110px]"><span class="kt-table-col"><span class="kt-table-col-label">Permissions</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[90px]"><span class="kt-table-col"><span class="kt-table-col-label">System</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[100px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[160px]" data-sort="name"><span class="kt-table-col"><span class="kt-table-col-label">Name</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[220px]" data-sort="description"><span class="kt-table-col"><span class="kt-table-col-label">Description</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[110px]" data-sort="permissions"><span class="kt-table-col"><span class="kt-table-col-label">Permissions</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[90px]" data-sort="system"><span class="kt-table-col"><span class="kt-table-col-label">System</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[100px]" data-sort="status"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="w-[60px]"></th>
                 </tr>
             </thead>

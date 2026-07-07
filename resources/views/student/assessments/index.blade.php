@@ -8,30 +8,30 @@
     @include('admin._status')
 
     {{-- Filter bar: search + filters grouped on the left, grid/list toggle alone on the far right. --}}
-    <div id="assessment_filters" class="flex flex-wrap items-center gap-2.5 mb-5">
+    <form id="assessment_filters" method="GET" action="{{ url()->current() }}" class="flex flex-wrap items-center gap-2.5 mb-5">
         <div class="flex flex-wrap items-center gap-2.5 max-w-full min-w-0">
             <div class="w-full md:w-80 max-w-full">
                 <label class="kt-input">
                     <i class="ki-filled ki-magnifier"></i>
-                    <input type="text" data-assessment-search placeholder="Search assessments" />
+                    <input type="text" name="search" data-assessment-search placeholder="Search assessments" value="{{ request('search') }}" />
                 </label>
             </div>
-            <select class="kt-select w-40" data-assessment-subject>
+            <select class="kt-select w-40" name="subject" data-assessment-subject data-assessment-submit>
                 <option value="">All subjects</option>
-                @foreach ($assessments->pluck('subject')->filter()->unique('id')->sortBy('subject_name') as $s)
-                    <option value="{{ $s->id }}">{{ $s->subject_name }}</option>
+                @foreach ($subjects as $s)
+                    <option value="{{ $s->id }}" @selected((string) request('subject') === (string) $s->id)>{{ $s->subject_name }}</option>
                 @endforeach
             </select>
-            <select class="kt-select w-36" data-assessment-section>
+            <select class="kt-select w-36" name="section" data-assessment-section data-assessment-submit>
                 <option value="">All sections</option>
-                @foreach ($assessments->pluck('section')->filter()->unique('id')->sortBy('section_name') as $sec)
-                    <option value="{{ $sec->id }}">{{ $sec->section_name }}</option>
+                @foreach ($sections as $sec)
+                    <option value="{{ $sec->id }}" @selected((string) request('section') === (string) $sec->id)>{{ $sec->section_name }}</option>
                 @endforeach
             </select>
-            <select class="kt-select w-32" data-assessment-term>
+            <select class="kt-select w-32" name="term" data-assessment-term data-assessment-submit>
                 <option value="">All terms</option>
-                @foreach ($assessments->pluck('academicTerm')->filter()->unique('id')->sortBy('term_name') as $t)
-                    <option value="{{ $t->id }}">{{ $t->term_name }}</option>
+                @foreach ($terms as $t)
+                    <option value="{{ $t->id }}" @selected((string) request('term') === (string) $t->id)>{{ $t->term_name }}</option>
                 @endforeach
             </select>
             <select class="kt-select w-48" data-assessment-availability>
@@ -53,7 +53,7 @@
                 <i class="ki-filled ki-row-horizontal"></i>
             </a>
         </div>
-    </div>
+    </form>
 
     @php
         // Shared filter data-attributes for both views (keeps grid card & list row in sync).
@@ -170,6 +170,14 @@
 
     <div id="assessment_no_match" class="hidden p-10 text-center text-sm text-secondary-foreground">No assessments match your filters.</div>
 
+    @if ($assessments->hasPages())
+        <div class="flex flex-wrap items-center justify-end gap-2 mt-5 text-sm">
+            <span class="text-secondary-foreground">{{ $assessments->firstItem() }}-{{ $assessments->lastItem() }} of {{ $assessments->total() }}</span>
+            <a class="kt-btn kt-btn-sm kt-btn-outline {{ $assessments->onFirstPage() ? 'disabled pointer-events-none opacity-50' : '' }}" href="{{ $assessments->previousPageUrl() ?: '#' }}">Previous</a>
+            <a class="kt-btn kt-btn-sm kt-btn-outline {{ $assessments->hasMorePages() ? '' : 'disabled pointer-events-none opacity-50' }}" href="{{ $assessments->nextPageUrl() ?: '#' }}">Next</a>
+        </div>
+    @endif
+
     {{-- Confirm modals rendered once; both grid card & list row toggle #kt_take_{id}. --}}
     @foreach ($assessments as $a)
         @include('student.assessments._confirm-modal', ['a' => $a])
@@ -209,6 +217,14 @@
         [search, avail, subject, section, term].forEach(function (el) {
             el.addEventListener('input', apply);
             el.addEventListener('change', apply);
+        });
+        var timer = null;
+        search.addEventListener('input', function () {
+            clearTimeout(timer);
+            timer = setTimeout(function () { bar.submit(); }, 500);
+        });
+        bar.querySelectorAll('[data-assessment-submit]').forEach(function (el) {
+            el.addEventListener('change', function () { bar.submit(); });
         });
     })();
 </script>

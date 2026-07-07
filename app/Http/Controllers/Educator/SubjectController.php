@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateSubjectRequest;
 use App\Models\Section;
 use App\Models\Subject;
 use App\Support\TableQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,12 +22,20 @@ class SubjectController extends Controller
     {
         $this->authorize('viewAny', Subject::class);
 
-        $query = Subject::visibleTo(Auth::user())->with('section:id,section_name');
+        $query = Subject::query()
+            ->where('tbl_subjects.educator_id', Auth::id())
+            ->with('section:id,section_name');
         TableQuery::search($query, $request->query('search'), ['subject_code', 'subject_name']);
         TableQuery::filters($query, $request, ['status' => 'is_active']);
         TableQuery::sort($query, $request, [
             'code' => 'subject_code',
             'name' => 'subject_name',
+            'section' => function (Builder $q, string $direction): void {
+                $q->leftJoin('tbl_sections as sort_sections', 'sort_sections.id', '=', 'tbl_subjects.sections_id')
+                    ->select('tbl_subjects.*')
+                    ->orderBy('sort_sections.section_name', $direction)
+                    ->orderBy('tbl_subjects.id', 'desc');
+            },
             'status' => 'is_active',
             'id' => 'id',
         ], 'id', 'desc');

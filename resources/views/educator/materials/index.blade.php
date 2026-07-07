@@ -16,18 +16,17 @@
             default => 'text.svg',
         };
     @endphp
-    @php $materials = $groups->flatten(); @endphp
-    <x-data-table id="materials_table" search-placeholder="Search materials">
+    <x-data-table id="materials_table" search-placeholder="Search materials" :paginator="$materials">
         <x-slot:filters>
             <select data-filter="subject" class="kt-select w-40">
                 <option value="">All subjects</option>
-                @foreach ($materials->pluck('subject')->filter()->unique('id')->sortBy('subject_name') as $sub)
+                @foreach ($filterSubjects as $sub)
                     <option value="{{ $sub->id }}">{{ $sub->subject_code }} — {{ $sub->subject_name }}</option>
                 @endforeach
             </select>
             <select data-filter="section" class="kt-select w-32">
                 <option value="">All sections</option>
-                @foreach ($materials->pluck('section')->filter()->unique('id')->sortBy('section_name') as $sec)
+                @foreach ($filterSections as $sec)
                     <option value="{{ $sec->id }}">{{ $sec->section_name }}</option>
                 @endforeach
             </select>
@@ -40,12 +39,12 @@
         <x-slot:head>
             <thead>
                 <tr>
-                    <th class="min-w-[200px]"><span class="kt-table-col"><span class="kt-table-col-label">File</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[120px]"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[110px]"><span class="kt-table-col"><span class="kt-table-col-label">Section</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[90px]"><span class="kt-table-col"><span class="kt-table-col-label">Type</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[100px]"><span class="kt-table-col"><span class="kt-table-col-label">Size</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[110px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[200px]" data-sort="file"><span class="kt-table-col"><span class="kt-table-col-label">File</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[120px]" data-sort="subject"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[110px]" data-sort="section"><span class="kt-table-col"><span class="kt-table-col-label">Section</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[90px]" data-sort="type"><span class="kt-table-col"><span class="kt-table-col-label">Type</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[100px]" data-sort="size"><span class="kt-table-col"><span class="kt-table-col-label">Size</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[110px]" data-sort="status"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="w-[60px]"></th>
                 </tr>
             </thead>

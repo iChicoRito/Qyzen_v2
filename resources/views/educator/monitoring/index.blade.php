@@ -5,17 +5,17 @@
     <a href="{{ route('educator.monitoring.index') }}" class="kt-btn kt-btn-sm kt-btn-outline">Refresh</a>
 @endsection
 @section('content')
-    <x-data-table id="monitoring_table" search-placeholder="Search assessments">
+    <x-data-table id="monitoring_table" search-placeholder="Search assessments" :paginator="$assessments">
         <x-slot:head>
             <thead>
                 <tr>
-                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Assessment</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[120px]"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Section</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[90px]"><span class="kt-table-col"><span class="kt-table-col-label">Enrolled</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[90px]"><span class="kt-table-col"><span class="kt-table-col-label">Online</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[100px]"><span class="kt-table-col"><span class="kt-table-col-label">Answering</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[90px]"><span class="kt-table-col"><span class="kt-table-col-label">Finished</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]" data-sort="assessment"><span class="kt-table-col"><span class="kt-table-col-label">Assessment</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[120px]" data-sort="subject"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]" data-sort="section"><span class="kt-table-col"><span class="kt-table-col-label">Section</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[90px]" data-sort="enrolled"><span class="kt-table-col"><span class="kt-table-col-label">Enrolled</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[90px]" data-sort="online"><span class="kt-table-col"><span class="kt-table-col-label">Online</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[100px]" data-sort="answering"><span class="kt-table-col"><span class="kt-table-col-label">Answering</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[90px]" data-sort="finished"><span class="kt-table-col"><span class="kt-table-col-label">Finished</span><span class="kt-table-col-sort"></span></span></th>
                 </tr>
             </thead>
         </x-slot:head>

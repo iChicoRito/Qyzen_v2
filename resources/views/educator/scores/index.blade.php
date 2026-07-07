@@ -8,29 +8,29 @@
 @endsection
 @section('content')
     @include('admin._status')
-    <x-data-table id="scores_table" :search="false">
+    <x-data-table id="scores_table" :search="false" :paginator="$scores">
         <x-slot:filters>
             <select data-filter="assessment" class="kt-select w-36">
                 <option value="">All assessments</option>
-                @foreach ($scores->pluck('assessment.assessment_code')->filter()->unique()->sort() as $code)
+                @foreach ($filterAssessments as $code)
                     <option value="{{ $code }}">{{ $code }}</option>
                 @endforeach
             </select>
             <select data-filter="subject" class="kt-select w-40">
                 <option value="">All subjects</option>
-                @foreach ($scores->pluck('subject')->filter()->unique('id')->sortBy('subject_name') as $sub)
+                @foreach ($filterSubjects as $sub)
                     <option value="{{ $sub->id }}">{{ $sub->subject_code }} — {{ $sub->subject_name }}</option>
                 @endforeach
             </select>
             <select data-filter="section" class="kt-select w-32">
                 <option value="">All sections</option>
-                @foreach ($scores->pluck('section')->filter()->unique('id')->sortBy('section_name') as $sec)
+                @foreach ($filterSections as $sec)
                     <option value="{{ $sec->id }}">{{ $sec->section_name }}</option>
                 @endforeach
             </select>
             <select data-filter="term" class="kt-select w-32">
                 <option value="">All terms</option>
-                @foreach ($scores->pluck('assessment.academicTerm')->filter()->unique('id')->sortBy('term_name') as $t)
+                @foreach ($filterTerms as $t)
                     <option value="{{ $t->id }}">{{ $t->term_name }}</option>
                 @endforeach
             </select>
@@ -43,14 +43,14 @@
         <x-slot:head>
             <thead>
                 <tr>
-                    <th class="min-w-[220px]"><span class="kt-table-col"><span class="kt-table-col-label">Student</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Assessment</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[160px]"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[110px]"><span class="kt-table-col"><span class="kt-table-col-label">Section</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[120px]"><span class="kt-table-col"><span class="kt-table-col-label">Term</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[90px]"><span class="kt-table-col"><span class="kt-table-col-label">Score</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[110px]"><span class="kt-table-col"><span class="kt-table-col-label">Result</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[160px]"><span class="kt-table-col"><span class="kt-table-col-label">Submitted</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[220px]" data-sort="student"><span class="kt-table-col"><span class="kt-table-col-label">Student</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]" data-sort="assessment"><span class="kt-table-col"><span class="kt-table-col-label">Assessment</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[160px]" data-sort="subject"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[110px]" data-sort="section"><span class="kt-table-col"><span class="kt-table-col-label">Section</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[120px]" data-sort="term"><span class="kt-table-col"><span class="kt-table-col-label">Term</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[90px]" data-sort="score"><span class="kt-table-col"><span class="kt-table-col-label">Score</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[110px]" data-sort="result"><span class="kt-table-col"><span class="kt-table-col-label">Result</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[160px]" data-sort="submitted"><span class="kt-table-col"><span class="kt-table-col-label">Submitted</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="w-[60px]"></th>
                 </tr>
             </thead>

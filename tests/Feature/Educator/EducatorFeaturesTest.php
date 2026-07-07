@@ -180,6 +180,32 @@ class EducatorFeaturesTest extends TestCase
         $this->assertDatabaseHas('tbl_assessments', ['subject_id' => $subjectB->id, 'section_id' => $subjectB->sections_id]);
     }
 
+    public function test_assessments_index_sorts_by_subject_on_the_server(): void
+    {
+        $alpha = Subject::create([
+            'educator_id' => $this->eduA->id,
+            'sections_id' => $this->section($this->eduA, 'Alpha Section')->id,
+            'subject_code' => 'A100',
+            'subject_name' => 'Alpha Subject',
+            'is_active' => true,
+        ]);
+        $zulu = Subject::create([
+            'educator_id' => $this->eduA->id,
+            'sections_id' => $this->section($this->eduA, 'Zulu Section')->id,
+            'subject_code' => 'Z100',
+            'subject_name' => 'Zulu Subject',
+            'is_active' => true,
+        ]);
+        Assessment::create($this->assessmentModelData($zulu));
+        Assessment::create(array_merge($this->assessmentModelData($alpha), ['assessment_code' => 'A2']));
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.assessments.index', ['sort' => 'subject', 'direction' => 'asc']))
+            ->assertOk()
+            ->assertSee('data-sort="subject"', false)
+            ->assertSeeInOrder(['Alpha Subject', 'Zulu Subject']);
+    }
+
     public function test_editing_assessment_can_add_extra_subjects(): void
     {
         $subjectA = $this->subject($this->eduA);

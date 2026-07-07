@@ -31,7 +31,8 @@ class EnrollmentController extends Controller
         $this->authorize('viewAny', Enrolled::class);
 
         // One row per subject/section (grouped), not per enrollment. Students live on the detail page.
-        $query = Subject::visibleTo(Auth::user())
+        $query = Subject::query()
+            ->where('tbl_subjects.educator_id', Auth::id())
             ->has('enrollments')
             ->with('section:id,section_name')
             ->withCount([
@@ -43,7 +44,16 @@ class EnrollmentController extends Controller
             'subject_name',
             fn (Builder $q, string $term) => $q->orWhereHas('section', fn ($s) => $s->where('section_name', 'like', "%{$term}%")),
         ]);
-        TableQuery::sort($query, $request, ['subject' => 'subject_code', 'enrolled' => 'enrollments_count'], 'subject');
+        TableQuery::sort($query, $request, [
+            'subject' => 'subject_code',
+            'section' => function (Builder $q, string $direction): void {
+                $q->leftJoin('tbl_sections as sort_sections', 'sort_sections.id', '=', 'tbl_subjects.sections_id')
+                    ->select('tbl_subjects.*')
+                    ->orderBy('sort_sections.section_name', $direction)
+                    ->orderBy('tbl_subjects.id', 'desc');
+            },
+            'enrolled' => 'enrollments_count',
+        ], 'subject');
 
         $subjects = $query->paginate(TableQuery::perPage($request))->withQueryString();
 
@@ -59,7 +69,9 @@ class EnrollmentController extends Controller
         abort_unless(Subject::visibleTo(Auth::user())->whereKey($subject->getKey())->exists(), 403);
 
         $subject->load('section:id,section_name');
-        $query = Enrolled::where('subject_id', $subject->id)->visibleTo(Auth::user())
+        $query = Enrolled::query()
+            ->where('tbl_enrolled.subject_id', $subject->id)
+            ->where('tbl_enrolled.educator_id', Auth::id())
             ->with('student:id,given_name,surname,user_id,profile_picture');
         TableQuery::search($query, $request->query('search'), [
             fn (Builder $q, string $term) => $q->orWhereHas('student', fn ($s) => $s
@@ -68,7 +80,25 @@ class EnrollmentController extends Controller
                 ->orWhere('user_id', 'like', "%{$term}%")),
         ]);
         TableQuery::filters($query, $request, ['status' => 'is_active']);
-        TableQuery::sort($query, $request, ['status' => 'is_active', 'id' => 'id'], 'id', 'desc');
+        TableQuery::sort($query, $request, [
+            'student_no' => 'user_id',
+            'surname' => function (Builder $q, string $direction): void {
+                $q->leftJoin('tbl_users as sort_students', 'sort_students.id', '=', 'tbl_enrolled.student_id')
+                    ->select('tbl_enrolled.*')
+                    ->orderBy('sort_students.surname', $direction)
+                    ->orderBy('sort_students.given_name', $direction)
+                    ->orderBy('tbl_enrolled.id', 'desc');
+            },
+            'given_name' => function (Builder $q, string $direction): void {
+                $q->leftJoin('tbl_users as sort_students', 'sort_students.id', '=', 'tbl_enrolled.student_id')
+                    ->select('tbl_enrolled.*')
+                    ->orderBy('sort_students.given_name', $direction)
+                    ->orderBy('sort_students.surname', $direction)
+                    ->orderBy('tbl_enrolled.id', 'desc');
+            },
+            'status' => 'is_active',
+            'id' => 'id',
+        ], 'id', 'desc');
 
         $enrollments = $query->paginate(TableQuery::perPage($request))->withQueryString();
 

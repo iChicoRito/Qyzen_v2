@@ -3,12 +3,12 @@
 @section('title', 'Chats')
 @section('heading', 'Chats')
 @section('content')
-    <x-data-table id="student_chats_table" search-placeholder="Search chats">
+    <x-data-table id="student_chats_table" search-placeholder="Search chats" :paginator="$chats">
         <x-slot:head>
             <thead>
                 <tr>
-                    <th class="min-w-[260px]"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[110px]"><span class="kt-table-col"><span class="kt-table-col-label">Messages</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[260px]" data-sort="subject"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[110px]" data-sort="messages"><span class="kt-table-col"><span class="kt-table-col-label">Messages</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="w-[120px] text-end">Action</th>
                 </tr>
             </thead>

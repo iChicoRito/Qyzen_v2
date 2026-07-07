@@ -1,19 +1,12 @@
 {{-- H8 / Task 23: Scores history — one row per submitted attempt (own only), newest first.
-     Search/sort/paginate + dropdown filters come from <x-data-table> (KTDataTable). Reset Filters
+     Search/paginate + dropdown filters come from server-backed <x-data-table>. Reset Filters
      and column show/hide are the only bespoke controls. "View Score" opens task 22's scores/show
      as a look-back-only modal fragment (?modal=1). --}}
 @extends('student.layout')
 @section('title', 'My Scores')
 @section('heading', 'My Scores')
 @section('content')
-    @php
-        // Filter dropdown choices are built from the student's own rows (spec Phase 4).
-        $fAssessments = $scores->map->assessment->filter()->unique('id')->sortBy('assessment_code');
-        $fSubjects = $scores->map(fn ($s) => optional($s->assessment)->subject)->filter()->unique('id')->sortBy('subject_name');
-        $fTerms = $scores->map(fn ($s) => optional($s->assessment)->academicTerm)->filter()->unique('id')->sortBy('term_name');
-    @endphp
-
-    <x-data-table id="student_scores_table" search-placeholder="Search scores">
+    <x-data-table id="student_scores_table" search-placeholder="Search scores" :paginator="$scores">
         <x-slot:filters>
             <select data-filter="assessment" class="kt-select w-40">
                 <option value="">All assessments</option>
@@ -38,19 +31,18 @@
                 <option value="passed">Passed</option>
                 <option value="failed">Failed</option>
             </select>
-            <button type="button" class="kt-btn kt-btn-outline" data-scores-reset disabled><i class="ki-filled ki-arrows-circle"></i> Reset</button>
         </x-slot:filters>
         <x-slot:head>
             <thead>
                 <tr>
-                    <th class="min-w-[130px]"><span class="kt-table-col"><span class="kt-table-col-label">Assessment</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[170px]"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[120px]"><span class="kt-table-col"><span class="kt-table-col-label">Academic Term</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[110px]"><span class="kt-table-col"><span class="kt-table-col-label">Score</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[90px]"><span class="kt-table-col"><span class="kt-table-col-label">Attempts</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[100px]"><span class="kt-table-col"><span class="kt-table-col-label">Percentage</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[110px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[160px]"><span class="kt-table-col"><span class="kt-table-col-label">Submitted At</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[130px]" data-sort="assessment"><span class="kt-table-col"><span class="kt-table-col-label">Assessment</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[170px]" data-sort="subject"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[120px]" data-sort="term"><span class="kt-table-col"><span class="kt-table-col-label">Academic Term</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[110px]" data-sort="score"><span class="kt-table-col"><span class="kt-table-col-label">Score</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[90px]" data-sort="attempts"><span class="kt-table-col"><span class="kt-table-col-label">Attempts</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[100px]" data-sort="percentage"><span class="kt-table-col"><span class="kt-table-col-label">Percentage</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[110px]" data-sort="result"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[160px]" data-sort="submitted"><span class="kt-table-col"><span class="kt-table-col-label">Submitted At</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="w-[60px]"></th>
                 </tr>
             </thead>
@@ -63,7 +55,7 @@
             @endphp
             <tr>
                 <td class="text-mono font-medium text-sm">
-                    {{-- Hidden filter tokens live inside a cell so they survive KTDataTable's tbody rebuild. --}}
+                    {{-- Hidden filter tokens keep the row metadata available to small page scripts. --}}
                     <span data-filter-value="assessment" data-filter-key="{{ $s->assessment_id }}" hidden></span>
                     <span data-filter-value="subject" data-filter-key="{{ optional($a)->subject_id }}" hidden></span>
                     <span data-filter-value="term" data-filter-key="{{ optional($a)->term }}" hidden></span>
@@ -83,8 +75,8 @@
                         <span class="text-xs text-secondary-foreground">Best {{ $best }}/{{ $s->total_questions }}</span>
                     </div>
                 </td>
-                <td class="text-mono">{{ $attemptsByAssessment[$s->assessment_id] ?? 1 }}</td>
-                <td class="text-mono">{{ $pct }}%</td>
+                <td class="text-mono">{{ $s->attempts_count }}</td>
+                <td class="text-mono">{{ $s->percentage }}%</td>
                 <td>
                     <span class="kt-badge rounded-full kt-badge-outline kt-badge-{{ $s->is_passed ? 'success' : 'destructive' }} gap-1 items-center">
                         <span class="kt-badge-dot size-1.5"></span>{{ $s->is_passed ? 'PASSED' : 'FAILED' }}
@@ -108,7 +100,7 @@
             var wrap = document.getElementById('student_scores_table');
             if (!wrap) return;
             var card = wrap.closest('.kt-card');
-            var searchInput = card ? card.querySelector('input[data-kt-datatable-search]') : null;
+            var searchInput = card ? card.querySelector('input[name="search"]') : null;
             var selects = card ? card.querySelectorAll('select[data-filter]') : [];
             var resetBtn = card ? card.querySelector('[data-scores-reset]') : null;
 

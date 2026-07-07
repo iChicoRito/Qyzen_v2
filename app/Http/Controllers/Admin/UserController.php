@@ -36,7 +36,7 @@ class UserController extends Controller
         TableQuery::filters($query, $request, ['status' => 'is_active', 'type' => 'user_type', 'user_type' => 'user_type']);
         TableQuery::sort($query, $request, [
             'member' => 'surname',
-            'surname' => 'surname',
+            'role' => 'user_type',
             'user_id' => 'user_id',
             'status' => 'is_active',
             'verified' => 'email_verified_at',

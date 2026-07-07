@@ -7,7 +7,7 @@
 @endsection
 @section('content')
     @include('admin._status')
-    <x-data-table id="sections_table" search-placeholder="Search sections">
+    <x-data-table id="sections_table" search-placeholder="Search sections" :paginator="$sections">
         <x-slot:filters>
             <select data-filter="status" class="kt-select w-36">
                 <option value="">All statuses</option>
@@ -18,9 +18,9 @@
         <x-slot:head>
             <thead>
                 <tr>
-                    <th class="min-w-[180px]"><span class="kt-table-col"><span class="kt-table-col-label">Name</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[200px]"><span class="kt-table-col"><span class="kt-table-col-label">Terms</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[110px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[180px]" data-sort="section"><span class="kt-table-col"><span class="kt-table-col-label">Name</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[200px]" data-sort="terms"><span class="kt-table-col"><span class="kt-table-col-label">Terms</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[110px]" data-sort="status"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="w-[60px]"></th>
                 </tr>
             </thead>

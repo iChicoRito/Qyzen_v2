@@ -21,10 +21,10 @@
         <x-slot:head>
             <thead>
                 <tr>
-                    <th class="min-w-[160px]"><span class="kt-table-col"><span class="kt-table-col-label">Term</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Semester</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Year</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[100px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[160px]" data-sort="term"><span class="kt-table-col"><span class="kt-table-col-label">Term</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]" data-sort="semester"><span class="kt-table-col"><span class="kt-table-col-label">Semester</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]" data-sort="year"><span class="kt-table-col"><span class="kt-table-col-label">Year</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[100px]" data-sort="status"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="w-[60px]"></th>
                 </tr>
             </thead>

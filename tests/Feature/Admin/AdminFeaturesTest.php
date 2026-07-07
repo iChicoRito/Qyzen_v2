@@ -265,8 +265,9 @@ class AdminFeaturesTest extends TestCase
         }
 
         $this->actingAs($this->admin)
-            ->get(route('admin.users.index', ['per_page' => 10, 'sort' => 'surname', 'direction' => 'asc']))
+            ->get(route('admin.users.index', ['per_page' => 10, 'sort' => 'member', 'direction' => 'asc']))
             ->assertOk()
+            ->assertSee('data-sort="member"', false)
             ->assertSee('Student01')
             ->assertDontSee('Student11')
             ->assertSee('per_page=10', false);

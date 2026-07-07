@@ -3,11 +3,16 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
+use App\Models\AcademicTerm;
 use App\Models\Assessment;
 use App\Models\Quiz;
 use App\Models\Score;
+use App\Models\Section;
+use App\Models\Subject;
 use App\Services\AssessmentAvailabilityService;
 use App\Services\QuizGradingService;
+use App\Support\TableQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -29,30 +34,43 @@ class QuizController extends Controller
     {
         $user = Auth::user();
 
-        $assessments = Assessment::visibleTo($user)
+        $query = Assessment::visibleTo($user)
             ->with(['subject:id,subject_code,subject_name', 'section:id,section_name', 'academicTerm:id,term_name'])
-            ->withCount('quizzes')
-            ->orderByDesc('id')->get()
-            ->map(function (Assessment $a) use ($user) {
-                $av = $this->availability->summarize($a, $user->id);
-                $a->setAttribute('availability', $av);
-                [$label, $color] = $this->displayStatus($av['badge'], (int) $a->quizzes_count);
-                // Task 21: a finished, no-retake-left attempt reads "Already Taken" (was
-                // mislabelled "Available"). Takes precedence — it can never be retaken.
-                if ($av['submitted_attempts'] > 0 && $av['remaining'] === 0) {
-                    [$label, $color] = ['Already Taken', 'secondary'];
-                }
-                $a->setAttribute('status_label', $label);
-                $a->setAttribute('status_color', $color);
-                // Can only start when takeable AND questions exist (take() redirects on empty).
-                $a->setAttribute('startable', $av['can_take'] && $a->quizzes_count > 0);
+            ->withCount('quizzes');
+        TableQuery::search($query, $request->query('search'), [
+            'assessment_code',
+            fn (Builder $q, string $term) => $q->orWhereHas('subject', fn ($s) => $s
+                ->where('subject_code', 'like', "%{$term}%")
+                ->orWhere('subject_name', 'like', "%{$term}%")),
+            fn (Builder $q, string $term) => $q->orWhereHas('section', fn ($s) => $s->where('section_name', 'like', "%{$term}%")),
+        ]);
+        TableQuery::filters($query, $request, ['subject' => 'subject_id', 'section' => 'section_id', 'term' => 'term']);
+        TableQuery::sort($query, $request, ['assessment' => 'assessment_code', 'id' => 'id'], 'id', 'desc');
 
-                return $a;
-            });
+        $assessments = $query->paginate(TableQuery::perPage($request))->withQueryString();
+        $assessments->setCollection($assessments->getCollection()->map(function (Assessment $a) use ($user) {
+            $av = $this->availability->summarize($a, $user->id);
+            $a->setAttribute('availability', $av);
+            [$label, $color] = $this->displayStatus($av['badge'], (int) $a->quizzes_count);
+            // Task 21: a finished, no-retake-left attempt reads "Already Taken" (was
+            // mislabelled "Available"). Takes precedence — it can never be retaken.
+            if ($av['submitted_attempts'] > 0 && $av['remaining'] === 0) {
+                [$label, $color] = ['Already Taken', 'secondary'];
+            }
+            $a->setAttribute('status_label', $label);
+            $a->setAttribute('status_color', $color);
+            // Can only start when takeable AND questions exist (take() redirects on empty).
+            $a->setAttribute('startable', $av['can_take'] && $a->quizzes_count > 0);
 
+            return $a;
+        }));
+
+        $subjects = Subject::visibleTo($user)->orderBy('subject_name')->get(['id', 'subject_code', 'subject_name']);
+        $sections = Section::visibleTo($user)->orderBy('section_name')->get(['id', 'section_name']);
+        $terms = AcademicTerm::whereIn('id', Assessment::visibleTo($user)->select('term'))->orderBy('term_name')->get(['id', 'term_name']);
         $tab = $request->query('tab', 'pending'); // pending | finished
 
-        return view('student.assessments.index', compact('assessments', 'tab'));
+        return view('student.assessments.index', compact('assessments', 'subjects', 'sections', 'terms', 'tab'));
     }
 
     /**

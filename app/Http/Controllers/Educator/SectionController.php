@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateSectionRequest;
 use App\Models\AcademicTerm;
 use App\Models\Section;
 use App\Support\TableQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,10 +22,13 @@ class SectionController extends Controller
     {
         $this->authorize('viewAny', Section::class);
 
-        $query = Section::visibleTo(Auth::user())->with('terms:id,term_name,semester');
+        $query = Section::query()
+            ->where('tbl_sections.educator_id', Auth::id())
+            ->with('terms:id,term_name,semester')
+            ->withCount('terms');
         TableQuery::search($query, $request->query('search'), ['section_name']);
         TableQuery::filters($query, $request, ['status' => 'is_active']);
-        TableQuery::sort($query, $request, ['section' => 'section_name', 'status' => 'is_active', 'id' => 'id'], 'id', 'desc');
+        TableQuery::sort($query, $request, ['section' => 'section_name', 'terms' => 'terms_count', 'status' => 'is_active', 'id' => 'id'], 'id', 'desc');
 
         $sections = $query->paginate(TableQuery::perPage($request))->withQueryString();
 

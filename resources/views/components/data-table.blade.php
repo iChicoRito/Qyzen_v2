@@ -1,5 +1,5 @@
 {{-- Reusable server-backed table card. Rows are rendered by Blade; search/filter/page-size
-     are GET params so the browser never receives the full dataset. --}}
+     are GET params fetched via XHR so only the card swaps — no full page reload. --}}
 @props([
     'id',
     'pageSize' => 10,
@@ -12,14 +12,21 @@
         #{{ $id }}_header { justify-content: flex-start; }
     </style>
 @endunless
+<style nonce="{{ $cspNonce ?? '' }}">
+    #{{ $id }} th[data-sort] .kt-table-col { cursor: pointer; }
+    #{{ $id }}_form { transition: opacity 0.15s; }
+</style>
 
 @php
-    $query = request()->query();
     $currentPerPage = (int) request('per_page', $pageSize);
     $total = $paginator ? $paginator->total() : null;
 @endphp
 
 <form id="{{ $id }}_form" method="GET" action="{{ url()->current() }}" class="kt-card kt-card-grid min-w-full">
+    @if (request()->filled('sort'))
+        <input type="hidden" name="sort" value="{{ request('sort') }}">
+        <input type="hidden" name="direction" value="{{ request('direction', 'asc') }}">
+    @endif
     <div id="{{ $id }}_header" class="kt-card-header flex-wrap items-center gap-2 py-5 {{ $search ? 'justify-between' : '' }}">
         @if ($search)
             <div class="w-full sm:w-80">
@@ -29,7 +36,14 @@
                 </label>
             </div>
         @endif
-        @isset($filters)<div class="flex flex-wrap gap-2.5 max-w-full {{ $search ? 'shrink-0' : 'w-full' }}">{{ $filters }}</div>@endisset
+        @isset($filters)
+        <div class="flex flex-wrap gap-2.5 max-w-full {{ $search ? 'shrink-0' : 'w-full' }}">
+            {{ $filters }}
+            <button type="button" data-table-reset class="kt-btn kt-btn-outline hidden">
+                <i class="ki-filled ki-arrows-circle"></i> Reset
+            </button>
+        </div>
+        @endisset
     </div>
     <div class="kt-card-content">
         <div class="grid grid-cols-1" id="{{ $id }}">
@@ -44,7 +58,7 @@
             <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium">
                 <div class="flex items-center gap-2 order-2 md:order-1">
                     Show
-                    <select class="kt-select w-20" name="per_page" data-table-submit>
+                    <select class="kt-select w-20" name="per_page">
                         @foreach ([10, 25, 50] as $size)
                             <option value="{{ $size }}" @selected($currentPerPage === $size)>{{ $size }}</option>
                         @endforeach
@@ -80,35 +94,140 @@
 
 @push('scripts')
 <script nonce="{{ $cspNonce ?? '' }}">
-    (function () {
-        var form = document.getElementById('{{ $id }}_form');
+(function () {
+    var id  = '{{ $id }}';
+    var lsKey = id + '_per_page';
+    var form;
+
+    function buildUrl() {
+        var p = new URLSearchParams();
+        new FormData(form).forEach(function (v, k) { if (v !== '') p.set(k, v); });
+        return form.action + '?' + p;
+    }
+
+    function swap(url) {
+        form.style.opacity = '0.5';
+        form.style.pointerEvents = 'none';
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+            .then(function (html) {
+                var doc  = new DOMParser().parseFromString(html, 'text/html');
+                var next = doc.getElementById(id + '_form');
+                if (!next) { window.location.href = url; return; }
+                form.replaceWith(next);
+                history.pushState(null, '', url);
+                initTable();
+            })
+            .catch(function () { window.location.href = url; });
+    }
+
+    function go() { swap(buildUrl()); }
+
+    function setHidden(name, value) {
+        var input = form.querySelector('input[name="' + name + '"]');
+        if (value === null) { if (input) input.remove(); return; }
+        if (!input) {
+            input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            form.appendChild(input);
+        }
+        input.value = value;
+    }
+
+    function hasActiveFilters(params) {
+        return [...params.keys()].some(function (k) {
+            return k !== 'page' && k !== 'per_page' && params.get(k) !== '';
+        });
+    }
+
+    function initTable() {
+        form = document.getElementById(id + '_form');
         if (!form) return;
         var params = new URLSearchParams(window.location.search);
 
-        form.querySelectorAll('select[data-filter]').forEach(function (select) {
-            if (!select.name) select.name = select.dataset.filter;
-            if (params.has(select.name)) select.value = params.get(select.name);
-            select.addEventListener('change', function () {
-                form.querySelector('input[name="page"]')?.remove();
-                form.submit();
-            });
-        });
-
-        form.querySelectorAll('[data-table-submit], select[name="per_page"]').forEach(function (select) {
-            select.addEventListener('change', function () {
-                form.querySelector('input[name="page"]')?.remove();
-                form.submit();
-            });
-        });
-
-        var search = form.querySelector('input[name="search"]');
-        if (search) {
-            var timer = null;
-            search.addEventListener('input', function () {
-                clearTimeout(timer);
-                timer = setTimeout(function () { form.submit(); }, 500);
+        // Restore per_page from localStorage (only when URL has no per_page param)
+        var perPageSel = form.querySelector('select[name="per_page"]');
+        if (perPageSel) {
+            var saved = localStorage.getItem(lsKey);
+            if (!params.has('per_page') && saved && perPageSel.querySelector('option[value="' + saved + '"]')) {
+                perPageSel.value = saved;
+                // ponytail: skip auto-swap on first load — server already paginated at default
+            }
+            perPageSel.addEventListener('change', function () {
+                localStorage.setItem(lsKey, perPageSel.value);
+                setHidden('page', null);
+                go();
             });
         }
-    })();
+
+        // Restore filter selects from URL params and wire change events
+        form.querySelectorAll('select[data-filter]').forEach(function (sel) {
+            if (!sel.name) sel.name = sel.dataset.filter;
+            if (params.has(sel.name)) sel.value = params.get(sel.name);
+            sel.addEventListener('change', function () { setHidden('page', null); go(); });
+        });
+
+        // Reset button — show when any filter/sort/search is active
+        var resetBtn = form.querySelector('[data-table-reset]');
+        if (resetBtn) {
+            resetBtn.classList.toggle('hidden', !hasActiveFilters(params));
+            resetBtn.addEventListener('click', function () {
+                var base = form.action;
+                // Keep per_page if user set it
+                var pp = localStorage.getItem(lsKey);
+                var target = pp ? base + '?per_page=' + encodeURIComponent(pp) : base;
+                history.pushState(null, '', target);
+                swap(target);
+            });
+        }
+
+        // Column sort
+        var activeSort = params.get('sort');
+        var activeDir  = params.get('direction') || 'asc';
+        form.querySelectorAll('th[data-sort]').forEach(function (header) {
+            header.setAttribute('aria-sort', header.dataset.sort === activeSort ? activeDir : 'none');
+            var key = header.dataset.sort;
+            var control = header.querySelector('.kt-table-col') || header;
+            control.setAttribute('role', 'button');
+            control.setAttribute('tabindex', '0');
+            var doSort = function () {
+                var curDir = params.get('direction') === 'desc' ? 'desc' : 'asc';
+                var dir = params.get('sort') === key && curDir === 'asc' ? 'desc' : 'asc';
+                setHidden('sort', key);
+                setHidden('direction', dir);
+                setHidden('page', null);
+                go();
+            };
+            control.addEventListener('click', doSort);
+            control.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); doSort(); }
+            });
+        });
+
+        // Debounced search
+        var searchInput = form.querySelector('input[name="search"]');
+        if (searchInput) {
+            var timer = null;
+            searchInput.addEventListener('input', function () {
+                clearTimeout(timer);
+                timer = setTimeout(function () { setHidden('page', null); go(); }, 500);
+            });
+        }
+
+        // Intercept pagination links
+        form.querySelectorAll('a[href]').forEach(function (a) {
+            var href = a.getAttribute('href');
+            if (!href || href === '#') return;
+            a.addEventListener('click', function (e) {
+                if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+                e.preventDefault();
+                swap(href);
+            });
+        });
+    }
+
+    initTable();
+})();
 </script>
 @endpush

@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateAcademicTermRequest;
 use App\Models\AcademicTerm;
 use App\Models\AcademicYear;
 use App\Support\TableQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -25,6 +26,12 @@ class AcademicTermController extends Controller
         TableQuery::sort($query, $request, [
             'term' => 'term_name',
             'semester' => 'semester',
+            'year' => function (Builder $q, string $direction): void {
+                $q->leftJoin('tbl_academic_years as sort_years', 'sort_years.id', '=', 'tbl_academic_term.academic_year_id')
+                    ->select('tbl_academic_term.*')
+                    ->orderBy('sort_years.year', $direction)
+                    ->orderBy('tbl_academic_term.id', 'desc');
+            },
             'status' => 'is_active',
             'id' => 'id',
         ], 'id', 'desc');

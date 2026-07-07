@@ -1,5 +1,5 @@
-{{-- F2: users list. Exact layout from demo1 network/user-table/team-crew.html
-     (KTDataTable: search + status/sort selects + 3-dots row menu). Columns mapped to real data. --}}
+{{-- F2: users list. Exact layout from demo1 network/user-table/team-crew.html;
+     search/filter/pagination are Laravel-backed. Columns mapped to real data. --}}
 @extends('admin.layout')
 
 @section('title', 'Users')
@@ -66,11 +66,11 @@
                     <th class="w-[60px] text-center">
                         <input class="kt-checkbox kt-checkbox-sm" data-kt-datatable-check="true" type="checkbox" />
                     </th>
-                    <th class="min-w-[300px]"><span class="kt-table-col"><span class="kt-table-col-label">Member</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[160px]"><span class="kt-table-col"><span class="kt-table-col-label">Role</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">User ID</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[140px]"><span class="kt-table-col"><span class="kt-table-col-label">Verified</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[300px]" data-sort="member"><span class="kt-table-col"><span class="kt-table-col-label">Member</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[160px]" data-sort="role"><span class="kt-table-col"><span class="kt-table-col-label">Role</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]" data-sort="status"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]" data-sort="user_id"><span class="kt-table-col"><span class="kt-table-col-label">User ID</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]" data-sort="verified"><span class="kt-table-col"><span class="kt-table-col-label">Verified</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="w-[60px]"></th>
                 </tr>
             </thead>
@@ -289,8 +289,7 @@
         </div>
     </div>
 
-    {{-- The datatable redraw → KTMenu.init() re-init now lives in <x-data-table>. This block
-         only wires the user-specific edit modal. --}}
+    {{-- Delegated click handling survives page changes because rows are server-rendered. --}}
     @push('scripts')
     <script nonce="{{ $cspNonce ?? '' }}">
         document.addEventListener('DOMContentLoaded', function () {

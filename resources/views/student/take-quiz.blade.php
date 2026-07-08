@@ -282,7 +282,7 @@
             setTimer('No limit');
         }
 
-        // ---- Integrity (essentials) — skipped on touch devices ----
+        // ---- Integrity ----
         function bumpWarning(reason) {
             warnings++;
             $('qz-warnings-input').value = warnings;
@@ -300,16 +300,29 @@
                     timer: 3200, showConfirmButton: false });
             }
         }
+
+        // Shared detections — run on both desktop and mobile.
+        let cooldown = false;
+        function violation(reason) {
+            if (submitted || cooldown) return;
+            cooldown = true; setTimeout(() => { cooldown = false; }, 1000);
+            bumpWarning(reason);
+        }
+        ['copy','cut','paste'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); violation('You tried to copy, cut, or paste text. This is not allowed during the assessment.'); }));
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('visibilitychange', () => { if (document.hidden) violation('You switched to another tab or minimized the window.'); });
+
+        // Split-screen / window-resize detection: fires when the OS window height drops below
+        // 55 % of the available screen height (catches manual resize and OS split-screen snap).
+        // Uses outerHeight (OS window frame) so a mobile soft keyboard, which only shrinks
+        // innerHeight / visualViewport, does not produce a false positive.
+        window.addEventListener('resize', () => {
+            if (window.outerHeight < screen.availHeight * 0.55)
+                violation('The browser window was resized to cover less than half the screen. Please maximise the window during the assessment.');
+        });
+
+        // Desktop-only detections (pointer device assumed).
         if (!isTouch) {
-            let cooldown = false;
-            function violation(reason) {
-                if (submitted || cooldown) return;
-                cooldown = true; setTimeout(() => { cooldown = false; }, 1000);
-                bumpWarning(reason);
-            }
-            ['copy','cut','paste'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); violation('You tried to copy, cut, or paste text. This is not allowed during the assessment.'); }));
-            document.addEventListener('contextmenu', e => e.preventDefault());
-            document.addEventListener('visibilitychange', () => { if (document.hidden) violation('You switched to another tab or minimized the window.'); });
             window.addEventListener('blur', () => violation('You clicked away from the assessment window.'));
             document.addEventListener('mouseleave', () => violation('Your cursor left the assessment area.'));
 

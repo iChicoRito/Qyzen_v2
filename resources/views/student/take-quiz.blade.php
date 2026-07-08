@@ -321,9 +321,11 @@
                 violation('The browser window was resized to cover less than half the screen. Please maximise the window during the assessment.');
         });
 
+        // App-switch / focus-loss detection — works on both desktop and mobile.
+        window.addEventListener('blur', () => violation('You clicked away from the assessment window.'));
+
         // Desktop-only detections (pointer device assumed).
         if (!isTouch) {
-            window.addEventListener('blur', () => violation('You clicked away from the assessment window.'));
             document.addEventListener('mouseleave', () => violation('Your cursor left the assessment area.'));
 
             // Devtools / view-source shortcuts. NOTE: browsers open their own devtools above the

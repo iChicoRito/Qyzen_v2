@@ -39,7 +39,7 @@ Student quiz-taking view (`resources/views/student/take-quiz.blade.php`).
 | Context menu | ✅ | ✅ |
 | Tab switch / minimize | ✅ | ✅ |
 | Split-screen / height reduction | ✅ | ✅ (tablet) |
-| Window blur | ✅ | — (too noisy on notifications) |
+| Window blur | ✅ | ✅ |
 | Mouse leaves page | ✅ | — (no pointer) |
 | DevTools shortcuts | ✅ | — (N/A) |
 | DevTools open heuristic | ✅ | — (N/A) |

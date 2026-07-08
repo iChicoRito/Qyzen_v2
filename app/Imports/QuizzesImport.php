@@ -24,6 +24,12 @@ class QuizzesImport implements ToCollection, WithHeadingRow
 
     public function __construct(private Subject $subject, private string $fileLabel = 'file', private ?string $batchLabel = null) {}
 
+    // Template's real headers are on row 2 (row 1 is the title banner) — see QuizUploadTemplateExport.
+    public function headingRow(): int
+    {
+        return 2;
+    }
+
     public function collection(Collection $rows): void
     {
         if ($rows->isEmpty()) {
@@ -44,9 +50,9 @@ class QuizzesImport implements ToCollection, WithHeadingRow
             return;
         }
 
-        // +1 for the header row that WithHeadingRow consumed, +1 to make it 1-based for humans.
+        // +2 for the title + header rows WithHeadingRow consumed, +1 to make it 1-based for humans.
         foreach ($rows as $i => $row) {
-            $line = $i + 2;
+            $line = $i + 3;
             $question = trim((string) ($row['question'] ?? ''));
             $type = trim((string) ($row['quiz_type'] ?? ''));
             $correct = trim((string) ($row['correct_answer'] ?? ''));

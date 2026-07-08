@@ -9,10 +9,10 @@
 >   request/response first; the live transport (WebSockets/polling) is a final,
 >   optional phase (§ Phase 8).
 >
-> Companions: [ARCHITECTURE_TECHNICAL.md](ARCHITECTURE_TECHNICAL.md) (how it works today),
+> Companions: [ARCHITECTURE_TECHNICAL.md](../architecture/ARCHITECTURE_TECHNICAL.md) (how it works today),
 > [FEATURE_MATRIX.md](FEATURE_MATRIX.md) (per-role acceptance checklist),
-> [MIGRATION_LARAVEL_MYSQL.md](MIGRATION_LARAVEL_MYSQL.md) (coupling analysis),
-> [LiveSchemaExport.sql](LiveSchemaExport.sql) (source-of-truth DDL).
+> [MIGRATION_LARAVEL_MYSQL.md](../architecture/MIGRATION_LARAVEL_MYSQL.md) (coupling analysis),
+> [LIVE_SCHEMA_EXPORT.sql](../architecture/LIVE_SCHEMA_EXPORT.sql) (source-of-truth DDL).
 
 ---
 
@@ -100,7 +100,7 @@ any feature code.
 ## Phase 1 — Database schema (Postgres → MySQL)
 
 **Goal:** all 21 tables as Laravel migrations + Eloquent models, faithful to
-[LiveSchemaExport.sql](LiveSchemaExport.sql).
+[LIVE_SCHEMA_EXPORT.sql](../architecture/LIVE_SCHEMA_EXPORT.sql).
 
 Build migrations in **FK-dependency order** so constraints apply cleanly:
 
@@ -114,7 +114,7 @@ Build migrations in **FK-dependency order** so constraints apply cleanly:
    `tbl_group_chat_reads`, `tbl_learning_materials`, `tbl_notifications`,
    `tbl_student_presence`.
 
-**Postgres → MySQL conversions (per [MIGRATION §1.4](MIGRATION_LARAVEL_MYSQL.md)):**
+**Postgres → MySQL conversions (per [MIGRATION §1.4](../architecture/MIGRATION_LARAVEL_MYSQL.md)):**
 
 | Postgres | MySQL / Laravel |
 |----------|-----------------|
@@ -133,7 +133,7 @@ Build migrations in **FK-dependency order** so constraints apply cleanly:
 
 **Models:** one Eloquent model per table with relationships, `$casts`, `$fillable`,
 soft-deletes where applicable. Mirror the ERD in
-[ARCHITECTURE_TECHNICAL.md §2](ARCHITECTURE_TECHNICAL.md#2-database).
+[ARCHITECTURE_TECHNICAL.md §2](../architecture/ARCHITECTURE_TECHNICAL.md#2-database).
 
 **Exit:** fresh `artisan migrate` builds the full schema; models + relationships
 unit-checkable via tinker/factories.
@@ -142,7 +142,7 @@ unit-checkable via tinker/factories.
 
 ## Phase 2 — Identity & Authentication
 
-**Goal:** replace Supabase Auth. Source flow: [ARCHITECTURE_TECHNICAL §4.1–4.3](ARCHITECTURE_TECHNICAL.md#41-request--middleware--auth-context--role-redirect).
+**Goal:** replace Supabase Auth. Source flow: [ARCHITECTURE_TECHNICAL §4.1–4.3](../architecture/ARCHITECTURE_TECHNICAL.md#41-request--middleware--auth-context--role-redirect).
 
 - **2.1 Auth scaffolding.** Laravel **Fortify** (or Breeze, Blade stack) for
   login/logout/registration/password reset/email verification. Server sessions
@@ -170,8 +170,8 @@ the correct dashboard; inactive/unverified users are blocked.
 ## Phase 3 — Authorization core (RLS → application layer) ⚠ highest risk
 
 **Goal:** reproduce, in app code, what 35 RLS policies + 3 SQL helpers did in the DB.
-Source: [LiveSchemaExport.sql §3,§5](LiveSchemaExport.sql) and
-[MIGRATION §1.3](MIGRATION_LARAVEL_MYSQL.md#13-rls-is-the-authorization-layer).
+Source: [LIVE_SCHEMA_EXPORT.sql §3,§5](../architecture/LIVE_SCHEMA_EXPORT.sql) and
+[MIGRATION §1.3](../architecture/MIGRATION_LARAVEL_MYSQL.md#13-rls-is-the-authorization-layer).
 
 - **3.1 RBAC primitives.** Translate the SQL helpers to a service/trait:
   - `has_role('x')` → `$user->hasRole('x')`
@@ -205,7 +205,7 @@ cases). **No feature work starts until this matrix is green.**
 ## Phase 4 — Data migration (live import)
 
 **Goal:** move live data Postgres → MySQL with relationships intact.
-Source: [MIGRATION §5](MIGRATION_LARAVEL_MYSQL.md#5-data-migration-notes).
+Source: [MIGRATION §5](../architecture/MIGRATION_LARAVEL_MYSQL.md#5-data-migration-notes).
 
 - **4.1 Export** from the live DB (the `export_public_schema_data()` helper dumps
   every table as JSON, or use `pg_dump --data-only`).
@@ -264,13 +264,13 @@ resolved deliberately.
 - **6.6 Scores & Retakes** — review (best+latest, read-only scores); **grant retake**;
   attempt detail; **single + bulk Excel export** (PhpSpreadsheet/Laravel Excel,
   reproducing merged title row, summary block, frozen panes, `TERM/SUBJECT/SECTION.xlsx`
-  zip — [MIGRATION §4](MIGRATION_LARAVEL_MYSQL.md#4-migration-mapping-reference-port-checklist)).
+  zip — [MIGRATION §4](../architecture/MIGRATION_LARAVEL_MYSQL.md#4-migration-mapping-reference-port-checklist)).
 - **6.7 Materials** — upload (Laravel Storage), list, edit metadata (soft deactivate),
   delete (+ storage cleanup); enrollment-checked **temporary URL** download replaces
   the 60s signed URL.
 - **6.8 Group chats (request/response)** — create/list/delete; send message + mark-read
   as normal POST endpoints (these were direct-browser writes with **no API route** —
-  [MIGRATION §2](MIGRATION_LARAVEL_MYSQL.md#2-direct-browsersupabase-calls-with-no-api-route-new-endpoints-required)). Live delivery → Phase 8.
+  [MIGRATION §2](../architecture/MIGRATION_LARAVEL_MYSQL.md#2-direct-browsersupabase-calls-with-no-api-route-new-endpoints-required)). Live delivery → Phase 8.
 - **6.9 Realtime monitoring (request/response)** — the view + manual refresh now;
   live updates → Phase 8.
 
@@ -301,7 +301,7 @@ gated. The quiz engine is the highest-stakes feature.
   re-validate enrollment, load `correct_answer` **server-only**, compare, compute
   `is_passed` (**≥75%**), write `tbl_scores`, emit `quiz_submitted` to the educator.
   **`correct_answer` is never serialized to the student.** This is the non-negotiable
-  invariant from [MIGRATION §4](MIGRATION_LARAVEL_MYSQL.md#4-migration-mapping-reference-port-checklist).
+  invariant from [MIGRATION §4](../architecture/MIGRATION_LARAVEL_MYSQL.md#4-migration-mapping-reference-port-checklist).
 - **7.6 Result / review** — score summary; per-question review showing the correct
   answer **only if `allow_review=true` OR the answer was correct**; attempt history;
   retake.
@@ -322,7 +322,7 @@ test confirms `correct_answer` never appears in any student-facing response.
 ## Phase 8 — Real-time layer (deferred)
 
 **Goal:** add live behavior *over* the request/response features already built in
-5–7. Source: [MIGRATION §2](MIGRATION_LARAVEL_MYSQL.md#2-direct-browsersupabase-calls-with-no-api-route-new-endpoints-required).
+5–7. Source: [MIGRATION §2](../architecture/MIGRATION_LARAVEL_MYSQL.md#2-direct-browsersupabase-calls-with-no-api-route-new-endpoints-required).
 
 - **8.0 Transport decision (per feature).** Laravel **Reverb/Echo (WebSockets)** for
   low-latency (chat) vs **polling** for simple freshness (dashboards). Was the second
@@ -343,7 +343,7 @@ contracts built in 5–7.
 
 - **9.1 Security headers** — response middleware reproducing HSTS, `X-Frame-Options:
   DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, COOP, X-Permitted-Cross-
-  Domain ([ARCHITECTURE_TECHNICAL §10](ARCHITECTURE_TECHNICAL.md#10-security-response-headers)).
+  Domain ([ARCHITECTURE_TECHNICAL §10](../architecture/ARCHITECTURE_TECHNICAL.md#10-security-response-headers)).
 - **9.2 CSP nonce** — middleware generates per-request nonce; Blade stamps
   `<script nonce>`; allow the WebSocket origin if Reverb is used.
 - **9.3 Rate limiting** — `throttle` (Redis-backed for multi-worker correctness)

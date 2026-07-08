@@ -2,7 +2,7 @@
 
 > A non-technical companion to [ARCHITECTURE_TECHNICAL.md](ARCHITECTURE_TECHNICAL.md). It explains what Qyzen is, who uses it, and how it works from start to finish — no jargon required.
 >
-> 🛠️ Migrating the system? See [MIGRATION_LARAVEL_MYSQL.md](MIGRATION_LARAVEL_MYSQL.md) — the coupling, hidden direct-to-Supabase calls, runtime requirements, and a port checklist for a Laravel + MySQL rewrite. For an exhaustive per-role action list, see [FEATURE_MATRIX.md](FEATURE_MATRIX.md).
+> 🛠️ Migrating the system? See [MIGRATION_LARAVEL_MYSQL.md](MIGRATION_LARAVEL_MYSQL.md) — the coupling, hidden direct-to-Supabase calls, runtime requirements, and a port checklist for a Laravel + MySQL rewrite. For an exhaustive per-role action list, see [FEATURE_MATRIX.md](../roadmap/FEATURE_MATRIX.md).
 
 ---
 

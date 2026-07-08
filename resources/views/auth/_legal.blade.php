@@ -1,6 +1,6 @@
 {{-- Task 36: Terms of Service + Privacy Policy on the sign-in page.
      Native <dialog> — centered modal on desktop, bottom drawer on mobile (CSS only).
-     Fixed header + scrollable body + fixed footer, per docs/TOS_PP.md. --}}
+     Fixed header + scrollable body + fixed footer, per docs/legal/TOS_PP.md. --}}
 
 <p class="lp-legal-note">
     By clicking continue, you agree to our

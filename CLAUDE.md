@@ -11,23 +11,28 @@ This is a **near-rewrite, not a port**. The relational data (~21 `tbl_*` tables)
 - **Authorization** — Postgres RLS (the old gate) → Laravel Policies + Eloquent query scopes + route middleware. **This is the highest-risk theme.**
 - **Real-time** — Supabase Realtime → built as plain request/response first; live transport (Reverb/polling) is the final, optional phase.
 
-The full plan and rationale live in `docs/` — **read these before doing migration work**, in this order:
-- `docs/roadmap/BUILD_ORDER_STEP_BY_STEP.md` — the linear, shippable checklist (Stages A–J). This is the executable order; do steps top to bottom.
+Docs are organized under `docs/` by category — **read these before migration-adjacent work**:
+- `docs/roadmap/BUILD_ORDER_STEP_BY_STEP.md` — the linear, shippable checklist (Stages A–J).
 - `docs/roadmap/IMPLEMENTATION_ROADMAP_LARAVEL.md` — phase-level reasoning behind that checklist.
-- `docs/MIGRATION_LARAVEL_MYSQL.md` — coupling analysis: exactly what has no Laravel equivalent.
-- `docs/FEATURE_MATRIX.md` — per-role acceptance checklist; every row must be reproduced or deliberately dropped.
-- `docs/ARCHITECTURE_TECHNICAL.md` / `docs/ARCHITECTURE_OVERVIEW.md` — how the source system works today.
-- `docs/roadmap/LiveSchemaExport.sql` — source-of-truth DDL for the schema migrations (Stage B).
+- `docs/roadmap/PROGRESS.md` — **the running log of what's actually built vs. what's next**; check this first for current status, it's more current than the plan docs above.
+- `docs/roadmap/FEATURE_MATRIX.md` — per-role acceptance checklist; every row must be reproduced or deliberately dropped.
+- `docs/roadmap/PARITY_AUDIT.md` — feature-matrix rows checked off against the built app.
+- `docs/architecture/ARCHITECTURE_TECHNICAL.md` / `docs/architecture/ARCHITECTURE_OVERVIEW.md` — how the original Next.js/Supabase system worked.
+- `docs/architecture/MIGRATION_LARAVEL_MYSQL.md` — coupling analysis: exactly what has no Laravel equivalent.
+- `docs/architecture/LIVE_SCHEMA_EXPORT.sql` — source-of-truth DDL the schema migrations were ported from.
+- `docs/architecture/REALTIME_MESSAGING_TRANSPORTS.md` — WebSocket/polling transport notes for chat and notifications.
+- `docs/audits/` — point-in-time audits (CRUD repair, DB memory, anti-cheat, question-bank pool).
+- `prompts/tasks/<NN-phase>/` — the original task-by-task build history, grouped by objective (foundation, UI standardization, student experience, messaging, auth/security, admin bulk-ops, hardening).
 
 `CONVENTIONS.md` is the short, binding rules summary; this file expands on it.
 
-## Build order is a hard sequence
+## Current status
 
-Work follows `BUILD_ORDER_STEP_BY_STEP.md` strictly. Two gates are non-negotiable:
-- **Stage D (Authorization core) gates all feature work.** No feature controller/view is built until the authorization test matrix is green. With no RLS, application code is the *only* thing stopping cross-tenant data leaks.
-- **Stage H6 (server-side grading)** must preserve the core invariant exactly: `correct_answer` is loaded server-side only, never serialized to a student; pass mark is ≥75%, computed on the server.
+The migration (Stages A–J) is **complete and hardened**: schema, auth, authorization, admin/educator/student features, and the quiz engine are all built and tested on Laravel + MySQL. Feature work has continued past the migration itself (see recent commits and `prompts/tasks/`) — bulk import, messaging, notifications, landing page, anti-cheat, and a question bank/randomized pool have since shipped. Two gates from the migration remain binding on any related work:
+- **Authorization (Stage D) gates all feature work.** Every list/read query and every route must carry a scope/Policy — there is no RLS to fall back on.
+- **Server-side grading (Stage H6)** must preserve the invariant exactly: `correct_answer` is loaded server-side only, never serialized to a student; pass mark is ≥75%, computed on the server.
 
-Stages so far: **A (foundation) and Phase 0 are complete** — Laravel runs on MySQL (`qyzen_v2` DB), base Blade layout exists. Next is **Stage B** (the 21 `tbl_*` migrations + models, in FK-dependency order).
+What's genuinely unbuilt: real Supabase→MySQL data import (Stage E, blocked on a live data export) and the optional live-transport upgrade for chat/notifications (Stage I — currently request/response or polling). See `docs/roadmap/PROGRESS.md` for the authoritative, regularly-updated detail.
 
 ## Conventions (binding)
 
@@ -36,7 +41,7 @@ Stages so far: **A (foundation) and Phase 0 are complete** — Laravel runs on M
 - **One route group per role** — `admin`, `educator`, `student`, shared `profile`, public `auth` — the equivalent of the source's role-based route groups.
 - **Every list/read query carries an ownership or enrollment scope** (e.g. a `visibleTo($user)` Eloquent scope), and every route carries a Policy/middleware. A forgotten scope is a data leak.
 - Timestamps store **UTC** (`APP_TIMEZONE=UTC`); jsonb columns become `json` with Eloquent `$casts => 'array'`.
-- **Don't reproduce dead buttons.** Actions tagged 🚧 STUB in `FEATURE_MATRIX.md` were never wired — finish or drop them deliberately, never silently reproduce.
+- **Don't reproduce dead buttons.** Actions tagged 🚧 STUB in `docs/roadmap/FEATURE_MATRIX.md` were never wired — finish or drop them deliberately, never silently reproduce.
 
 ## Frontend: Metronic template (Tailwind v9 / KTUI)
 
@@ -58,7 +63,8 @@ composer setup
 
 # Database
 php artisan migrate            # apply migrations (MySQL: qyzen_v2)
-php artisan migrate:fresh      # rebuild whole schema (Stage B verification)
+php artisan migrate:fresh      # rebuild whole schema
+php artisan migrate:fresh --seed   # + demo dataset for local click-through (DemoSeeder)
 
 # Tests (clears config first, then runs)
 composer test
@@ -66,12 +72,12 @@ php artisan test                          # all tests
 php artisan test --filter=SomeTestName    # a single test / method
 php artisan test tests/Feature/FooTest.php
 
-# Frontend assets (Tabler is static in public/; this is for Vite-managed css/js)
+# Frontend assets (Vite-managed css/js: resources/js/app.js, resources/css/app.css)
 npm run dev      # vite dev server
-npm run build    # production build (needed before @vite-using pages render in browser)
+npm run build    # production build — required before pages render (base layout uses @vite)
 ```
 
-Environment: Windows, PHP 8.4 + `pdo_mysql`, Laragon/XAMPP MySQL (`root`, no password, db `qyzen_v2`). No `mysql` CLI on PATH — use `php artisan` or PDO for DB checks. Metronic is plain static CSS/JS served from `public/`, so app pages render without an asset build; only views that explicitly use `@vite` need `npm run build`/`dev` (the base layout does not).
+Environment: Windows, PHP 8.4 + `pdo_mysql`, Laragon/XAMPP MySQL (`root`, no password, db `qyzen_v2`). No `mysql` CLI on PATH — use `php artisan` or PDO for DB checks. The Metronic template itself is static CSS/JS served from `public/metronic-tailwind-html-demos/` (no build step); `npm run dev`/`build` is only for the small amount of first-party JS/CSS in `resources/`.
 
 ## Security invariants to preserve (from the source system)
 

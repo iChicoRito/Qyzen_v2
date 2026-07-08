@@ -2,7 +2,7 @@
 
 ## Scope
 
-Write-capable CRUD and CRUD-adjacent flows in `qyzen_v2`, using `routes/web.php` and `docs/FEATURE_MATRIX.md` as the audit surface.
+Write-capable CRUD and CRUD-adjacent flows in `qyzen_v2`, using `routes/web.php` and `docs/roadmap/FEATURE_MATRIX.md` as the audit surface.
 
 ## Baseline
 

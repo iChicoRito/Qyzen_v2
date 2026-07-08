@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-// Source: docs/LiveSchemaExport.sql — tbl_roles, tbl_permissions, tbl_role_permissions, tbl_user_roles. (B2 + B3)
+// Source: docs/architecture/LIVE_SCHEMA_EXPORT.sql — tbl_roles, tbl_permissions, tbl_role_permissions, tbl_user_roles. (B2 + B3)
 return new class extends Migration
 {
     public function up(): void

@@ -1,10 +1,10 @@
 # Qyzen — Feature / Capability Matrix
 
-> Per-role, per-module list of **every concrete action** a user can take. Source-verified from the page-client components and data layer (`src/lib/supabase/*`), not inferred. Doubles as an **acceptance checklist for the Laravel + MySQL rewrite** ([MIGRATION_LARAVEL_MYSQL.md](MIGRATION_LARAVEL_MYSQL.md)) — every row must be reproduced (or deliberately dropped).
+> Per-role, per-module list of **every concrete action** a user can take. Source-verified from the page-client components and data layer (`src/lib/supabase/*`), not inferred. Doubles as an **acceptance checklist for the Laravel + MySQL rewrite** ([MIGRATION_LARAVEL_MYSQL.md](../architecture/MIGRATION_LARAVEL_MYSQL.md)) — every row must be reproduced (or deliberately dropped).
 >
-> Companion to [ARCHITECTURE_TECHNICAL.md](ARCHITECTURE_TECHNICAL.md) (mechanisms) and [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md) (plain-language).
+> Companion to [ARCHITECTURE_TECHNICAL.md](../architecture/ARCHITECTURE_TECHNICAL.md) (mechanisms) and [ARCHITECTURE_OVERVIEW.md](../architecture/ARCHITECTURE_OVERVIEW.md) (plain-language).
 >
-> ⚠️ **Stub markers:** actions tagged **🚧 STUB** render in the UI but are **not wired to a backend** today (e.g. a `setTimeout` placeholder). Do **not** treat them as working features to "preserve" — they are unfinished. Tagged **⚡ live** = handled via Supabase Realtime / direct table write, no `/api` route (see [ARCHITECTURE_TECHNICAL.md §7](ARCHITECTURE_TECHNICAL.md#7-realtime--direct-from-browser-data-access)).
+> ⚠️ **Stub markers:** actions tagged **🚧 STUB** render in the UI but are **not wired to a backend** today (e.g. a `setTimeout` placeholder). Do **not** treat them as working features to "preserve" — they are unfinished. Tagged **⚡ live** = handled via Supabase Realtime / direct table write, no `/api` route (see [ARCHITECTURE_TECHNICAL.md §7](../architecture/ARCHITECTURE_TECHNICAL.md#7-realtime--direct-from-browser-data-access)).
 
 ---
 
@@ -176,7 +176,7 @@ Read-only. Summary cards (total/pending/completed assessments, average score), p
 | Answer | MC (radio) or identification (text). Questions/choices shuffled if `isShuffle`. |
 | Autosave draft | Debounce ~800ms → `mode=draft` (`status=in_progress`). |
 | Timer | Draggable badge; green→yellow(50%)→red(20%), shake <20%; hide/show; **auto-submit at 0**. |
-| Anti-cheat | Detects tab-hidden, window-blur, copy/paste (blocked), context-menu (blocked), devtools shortcuts (blocked), PrintScreen (blur). Each counts `warning_attempts` + autosaves; **auto-submit when limit (`cheating_attempts`) reached**. (See [ARCHITECTURE_TECHNICAL.md §8](ARCHITECTURE_TECHNICAL.md#8-quiz-runtime-behavior-anti-cheat-hints-autosave).) |
+| Anti-cheat | Detects tab-hidden, window-blur, copy/paste (blocked), context-menu (blocked), devtools shortcuts (blocked), PrintScreen (blur). Each counts `warning_attempts` + autosaves; **auto-submit when limit (`cheating_attempts`) reached**. (See [ARCHITECTURE_TECHNICAL.md §8](../architecture/ARCHITECTURE_TECHNICAL.md#8-quiz-runtime-behavior-anti-cheat-hints-autosave).) |
 | Hints | If `allow_hint`: up to `hint_count` random-timed toast hints (not student-requested). |
 | View mode | List vs slideshow. |
 | Manual save | Optional (autosave covers it). |

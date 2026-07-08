@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-// Source: docs/LiveSchemaExport.sql — tbl_enrolled, tbl_assessments, tbl_quizzes,
+// Source: docs/architecture/LIVE_SCHEMA_EXPORT.sql — tbl_enrolled, tbl_assessments, tbl_quizzes,
 // tbl_scores, tbl_student_assessment_retakes. (B6 + B7 + B8)
 return new class extends Migration
 {

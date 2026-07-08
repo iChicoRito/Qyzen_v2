@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-// Source: docs/LiveSchemaExport.sql — tbl_academic_year -> tbl_academic_term. (B4)
+// Source: docs/architecture/LIVE_SCHEMA_EXPORT.sql — tbl_academic_year -> tbl_academic_term. (B4)
 return new class extends Migration
 {
     public function up(): void

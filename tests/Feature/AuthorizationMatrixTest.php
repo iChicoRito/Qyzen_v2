@@ -20,7 +20,7 @@ use Tests\TestCase;
 
 // D6: authorization test matrix — the Stage D gate. For each resource x role x action,
 // allowed cases pass and forbidden cases are denied. Mirrors the RLS policies in
-// docs/LiveSchemaExport.sql.
+// docs/architecture/LIVE_SCHEMA_EXPORT.sql.
 class AuthorizationMatrixTest extends TestCase
 {
     use RefreshDatabase;

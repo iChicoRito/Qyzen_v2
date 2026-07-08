@@ -1,6 +1,6 @@
 # Qyzen v2 — Feature-Parity Audit (Stage J5)
 
-> Every action in [`docs/FEATURE_MATRIX.md`](../FEATURE_MATRIX.md) checked against the built
+> Every action in [`docs/FEATURE_MATRIX.md`](FEATURE_MATRIX.md) checked against the built
 > Laravel app. Status: ✅ reproduced · 🔵 deferred (Stage I real-time) · ⛔ deliberately dropped ·
 > 🟡 partial (parity minus a non-essential sub-behavior).
 >

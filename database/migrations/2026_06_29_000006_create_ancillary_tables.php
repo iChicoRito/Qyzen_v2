@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-// Source: docs/LiveSchemaExport.sql — group chats/messages/reads, student presence,
+// Source: docs/architecture/LIVE_SCHEMA_EXPORT.sql — group chats/messages/reads, student presence,
 // learning materials, notifications. (B9 + B10)
 return new class extends Migration
 {

@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-// Source: docs/LiveSchemaExport.sql — tbl_users. No password column (auth lived in Supabase; Stage C decides storage).
+// Source: docs/architecture/LIVE_SCHEMA_EXPORT.sql — tbl_users. No password column (auth lived in Supabase; Stage C decides storage).
 return new class extends Migration
 {
     public function up(): void

@@ -53,7 +53,7 @@
 - [ ] **B10. `tbl_learning_materials`, `tbl_notifications`** (metadata json cast),
   **`tbl_student_presence`** (UNIQUE on `student_id`).
 - [ ] **B11. Replicate constraints.** Every composite UNIQUE + every btree index from
-  [LiveSchemaExport.sql §2](LiveSchemaExport.sql), and `ON DELETE CASCADE/SET NULL`.
+  [LIVE_SCHEMA_EXPORT.sql §2](../architecture/LIVE_SCHEMA_EXPORT.sql), and `ON DELETE CASCADE/SET NULL`.
 - [ ] **B12. Port the two triggers as app logic.** Self-service column lock
   (Observer/Form Request) and section-term uniqueness (service check).
   **Stage B done when:** `migrate:fresh` builds the whole schema; factories create a

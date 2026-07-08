@@ -271,5 +271,5 @@ polling is a legitimate choice, not merely a fallback.
 
 ---
 
-*Related: `docs/ARCHITECTURE_TECHNICAL.md` (how the source Supabase Realtime worked),
-`CLAUDE.md` → "Real-time" pillar, `prompts/tasks/33.md` (the task that added the WebSocket transport).*
+*Related: `docs/architecture/ARCHITECTURE_TECHNICAL.md` (how the source Supabase Realtime worked),
+`CLAUDE.md` → "Real-time" pillar, `prompts/tasks/03-messaging-notifications/33-realtime-chat-recommendations.md` (the task that added the WebSocket transport).*

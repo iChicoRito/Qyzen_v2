@@ -55,7 +55,7 @@ gates all feature work** (no feature pages until its matrix is green — it is).
 - Fortify (Blade stack), Socialite (Google OAuth callback: not-registered / inactive / link-existing), password reset (rate-limited, non-enumerating), auth-context middleware computing primary role (admin > educator > student, fallback `user_type`) → `/{role}/dashboard`.
 
 ### Stage D / Phase 3 — Authorization core ⚠ THE GATE (green)
-Ports `docs/LiveSchemaExport.sql` RLS (35 policies + 3 helpers) into app code:
+Ports `docs/architecture/LIVE_SCHEMA_EXPORT.sql` RLS (35 policies + 3 helpers) into app code:
 - **D1** `User::hasRole()` / `hasPermission('resource:action')` — active joins only.
 - **D2** `scopeVisibleTo()` on Section, Subject, Assessment, Quiz, Score, Enrolled, LearningMaterial — admin all / educator ownership / student enrollment. *(Scopes for presence, chat reads, notifications deferred to their feature stages — YAGNI until a list query needs them.)*
 - **D3** Policies (auto-discovered): SectionPolicy + SubjectPolicy (with `sections:*`/`subjects:*` permission gate), AssessmentPolicy, ScorePolicy.
@@ -145,7 +145,7 @@ Conclusion: the dev build is verified working, not just green in isolation.
 
 The functional rewrite is **complete and hardened**. Remaining work is dependency-gated:
 
-- **Stage E — Data import** (blocked on the live PG export; `docs/LiveSchemaExport.sql` is DDL only). A `DemoSeeder` exists for local click-through (`migrate:fresh --seed`), but real Supabase→MySQL import is unbuilt.
+- **Stage E — Data import** (blocked on the live PG export; `docs/architecture/LIVE_SCHEMA_EXPORT.sql` is DDL only). A `DemoSeeder` exists for local click-through (`migrate:fresh --seed`), but real Supabase→MySQL import is unbuilt.
 - **Stage J6 — Cutover** (needs E + a host): final sync, host switch, smoke test, rollback plan.
 - **Stage I — Real-time** (optional): upgrade chat/monitoring/dashboards/notifications from request/response to live transport (Reverb/polling) + presence heartbeat + live notification bell. Everything works without it.
 
@@ -175,7 +175,7 @@ import): `migrate:fresh --seed` loads 1 admin / 2 educators / 8 students, an aca
 questions, submitted scores, a material, a group chat). **All logins use password `password`** and
 are email-verified. Try `admin@qyzen.test`, `educator@qyzen.test`, `student1@qyzen.test`. The two
 educators have separate data so the ownership gate is visible in the UI. Real Supabase→MySQL import
-remains **Stage E** (needs the live PG data export; `docs/LiveSchemaExport.sql` is DDL only, no rows).
+remains **Stage E** (needs the live PG data export; `docs/architecture/LIVE_SCHEMA_EXPORT.sql` is DDL only, no rows).
 
 ## Commit trail (main)
 

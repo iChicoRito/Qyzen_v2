@@ -70,7 +70,13 @@ class ScoreController extends Controller
         // Per-assessment best score is still shown per row; attempts now come from the query
         // alias so the displayed count and the sort key stay in sync.
         $base = Score::where('student_id', Auth::id())->whereIn('status', ['passed', 'failed', 'submitted']);
-        $bestByAssessment = (clone $base)->selectRaw('assessment_id, MAX(score) as best')->groupBy('assessment_id')->pluck('best', 'assessment_id');
+        // Task 51: best by PERCENTAGE, not raw score — pool_size can change over an assessment's
+        // life, so different attempts can have different total_questions; grouped in PHP (not SQL
+        // MAX) since the "best" row also needs its own total_questions for the ratio, and integer
+        // division behaves differently across MySQL/SQLite.
+        $bestByAssessment = (clone $base)->get(['assessment_id', 'score', 'total_questions'])
+            ->groupBy('assessment_id')
+            ->map(fn ($rows) => $rows->sortByDesc(fn ($r) => $r->total_questions > 0 ? $r->score / $r->total_questions : 0)->first());
 
         $studentAssessmentIds = (clone $base)->pluck('assessment_id')->unique();
         $fAssessments = Assessment::whereIn('id', $studentAssessmentIds)->orderBy('assessment_code')->get(['id', 'assessment_code']);
@@ -96,7 +102,7 @@ class ScoreController extends Controller
 
         // Build review rows server-side. correct_answer is loaded here but only EXPOSED per the gate.
         // is_correct reuses the authoritative grader so review and grading can't disagree.
-        $review = Quiz::where('assessment_id', $score->assessment_id)
+        $review = Quiz::whereIn('id', $score->drawn_quiz_ids ?? [])
             ->get(['id', 'question', 'quiz_type', 'choices', 'correct_answer'])
             ->map(function (Quiz $q) use ($studentAnswers, $allowReview, $grading) {
                 $given = $studentAnswers[$q->id] ?? ($studentAnswers[(string) $q->id] ?? null);
@@ -119,12 +125,19 @@ class ScoreController extends Controller
             ->whereIn('status', ['passed', 'failed', 'submitted'])
             ->orderByDesc('submitted_at')->get(['id', 'uuid', 'score', 'total_questions', 'is_passed', 'status', 'submitted_at']);
 
-        // Single source of truth for "best": highest score, ties → earliest attempt. The Highest-Score
-        // badge, the best-score figure and the headline all key off this one attempt.
-        // Stable sort (PHP 8.0+): submitted_at asc first, then score desc → highest score, earliest on tie.
-        $bestAttempt = $attempts->sortBy('submitted_at')->sortByDesc('score')->first();
+        // Single source of truth for "best": highest PERCENTAGE, ties → earliest attempt. The
+        // Highest-Score badge, the best-score figure and the headline all key off this one attempt.
+        // Task 51: percentage, not raw score — pool_size can change over an assessment's life, so
+        // two attempts can have different total_questions and raw scores aren't comparable.
+        // Stable sort (PHP 8.0+): submitted_at asc first, then percentage desc → highest %, earliest on tie.
+        $bestAttempt = $attempts->sortBy('submitted_at')
+            ->sortByDesc(fn (Score $a) => $a->total_questions > 0 ? $a->score / $a->total_questions : 0)
+            ->first();
         $bestAttemptId = $bestAttempt?->id;
         $bestScore = (int) ($bestAttempt?->score ?? 0);
+        // The best attempt's OWN total — pool_size can differ from the currently-viewed
+        // attempt's total_questions, so $bestScore must never be divided by $score->total_questions.
+        $bestTotal = (int) ($bestAttempt?->total_questions ?? $score->total_questions);
 
         // Stable "Attempt N" numbers by chronological order (attempt #1 = first taken).
         $attemptNumbers = $attempts->sortBy('submitted_at')->values()
@@ -133,6 +146,6 @@ class ScoreController extends Controller
         // Retake vs Back-to-Assessments (recomputed from finished attempts, not a stale count).
         $summary = $availability->summarize($score->assessment, Auth::id());
 
-        return view('student.scores.show', compact('score', 'review', 'attempts', 'bestScore', 'bestAttemptId', 'attemptNumbers', 'summary'));
+        return view('student.scores.show', compact('score', 'review', 'attempts', 'bestScore', 'bestTotal', 'bestAttemptId', 'attemptNumbers', 'summary'));
     }
 }

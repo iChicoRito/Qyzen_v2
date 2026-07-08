@@ -89,8 +89,8 @@ class EducatorFeaturesTest extends TestCase
         $subject = $this->subject($this->eduA);
         $assessment = Assessment::create($this->assessmentModelData($subject));
         $quiz = Quiz::create([
-            'assessment_id' => $assessment->id, 'subject_id' => $subject->id, 'section_id' => $subject->sections_id,
-            'educator_id' => $this->eduA->id, 'question' => '2+2', 'quiz_type' => 'multiple_choice',
+            'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+            'question' => '2+2', 'quiz_type' => 'multiple_choice',
             'choices' => ['A' => '3', 'B' => '4'], 'correct_answer' => 'B',
         ]);
 
@@ -228,10 +228,9 @@ class EducatorFeaturesTest extends TestCase
     public function test_quiz_correct_answer_is_hidden_in_serialization(): void
     {
         $subject = $this->subject($this->eduA);
-        $assessment = Assessment::create($this->assessmentModelData($subject));
         $quiz = Quiz::create([
-            'assessment_id' => $assessment->id, 'subject_id' => $subject->id, 'section_id' => $subject->sections_id,
-            'educator_id' => $this->eduA->id, 'question' => '2+2', 'quiz_type' => 'multiple_choice',
+            'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+            'question' => '2+2', 'quiz_type' => 'multiple_choice',
             'choices' => ['A' => '3', 'B' => '4'], 'correct_answer' => 'B',
         ]);
 
@@ -243,10 +242,9 @@ class EducatorFeaturesTest extends TestCase
     public function test_store_mc_quiz_uses_radio_key_as_correct_answer(): void
     {
         $subject = $this->subject($this->eduA);
-        $assessment = Assessment::create($this->assessmentModelData($subject));
 
         $this->actingAs($this->eduA)->post(route('educator.quizzes.store'), [
-            'assessment_ids' => [$assessment->id], 'question' => '2+2?', 'quiz_type' => 'multiple_choice',
+            'subject_id' => $subject->id, 'question' => '2+2?', 'quiz_type' => 'multiple_choice',
             'choices' => ['A' => '3', 'B' => '4', 'C' => '', 'D' => ''], 'correct_answer' => 'B',
         ])->assertRedirect();
 
@@ -259,43 +257,127 @@ class EducatorFeaturesTest extends TestCase
     public function test_store_identification_quiz_accepts_multiple_answers(): void
     {
         $subject = $this->subject($this->eduA);
-        $assessment = Assessment::create($this->assessmentModelData($subject));
 
         // one answer → stored plain
         $this->actingAs($this->eduA)->post(route('educator.quizzes.store'), [
-            'assessment_ids' => [$assessment->id], 'question' => 'Capital of PH?', 'quiz_type' => 'identification',
+            'subject_id' => $subject->id, 'question' => 'Capital of PH?', 'quiz_type' => 'identification',
             'answers' => ['Manila'],
         ])->assertRedirect();
         $this->assertSame('Manila', Quiz::latest('id')->first()->correct_answer);
 
         // multiple answers → stored as JSON array
         $this->actingAs($this->eduA)->post(route('educator.quizzes.store'), [
-            'assessment_ids' => [$assessment->id], 'question' => 'A primary color?', 'quiz_type' => 'identification',
+            'subject_id' => $subject->id, 'question' => 'A primary color?', 'quiz_type' => 'identification',
             'answers' => ['red', 'blue', ''],
         ])->assertRedirect();
         $this->assertSame(['red', 'blue'], json_decode(Quiz::latest('id')->first()->correct_answer, true));
     }
 
-    public function test_store_quiz_adds_question_to_multiple_assessments(): void
+    // Task 51: a bank question is reusable — attaching it to multiple assessments' pools no
+    // longer duplicates the row, it links the same quiz id into each assessment's eligible set.
+    public function test_bank_question_can_be_attached_to_multiple_assessment_pools(): void
     {
         $subject = $this->subject($this->eduA);
         $a1 = Assessment::create($this->assessmentModelData($subject));
         $a2 = Assessment::create(['assessment_code' => 'Q2'] + $this->assessmentModelData($subject));
 
         $this->actingAs($this->eduA)->post(route('educator.quizzes.store'), [
-            'assessment_ids' => [$a1->id, $a2->id], 'question' => 'Shared?', 'quiz_type' => 'identification',
+            'subject_id' => $subject->id, 'question' => 'Shared?', 'quiz_type' => 'identification',
             'answers' => ['yes'],
         ])->assertRedirect();
 
-        $this->assertDatabaseHas('tbl_quizzes', ['assessment_id' => $a1->id, 'question' => 'Shared?']);
-        $this->assertDatabaseHas('tbl_quizzes', ['assessment_id' => $a2->id, 'question' => 'Shared?']);
+        $quiz = Quiz::where('question', 'Shared?')->firstOrFail();
+        $this->assertSame(1, Quiz::where('question', 'Shared?')->count()); // one row, not duplicated
+
+        foreach ([$a1, $a2] as $assessment) {
+            $this->actingAs($this->eduA)->put(route('educator.assessments.pool.update', $assessment), [
+                'eligible_quiz_ids' => [$quiz->id], 'pool_size' => 1,
+            ])->assertRedirect();
+        }
+
+        $this->assertDatabaseHas('tbl_assessment_question_pool', ['assessment_id' => $a1->id, 'quiz_id' => $quiz->id]);
+        $this->assertDatabaseHas('tbl_assessment_question_pool', ['assessment_id' => $a2->id, 'quiz_id' => $quiz->id]);
     }
 
-    public function test_bulk_upload_imports_each_file_into_every_selected_assessment(): void
+    // Task 51 follow-up: creating a question can immediately attach it to one or more
+    // assessments' pools, skipping the separate trip to each assessment's Question Pool screen.
+    public function test_store_quiz_can_attach_to_assessments_pool_immediately(): void
     {
         $subject = $this->subject($this->eduA);
         $a1 = Assessment::create($this->assessmentModelData($subject));
         $a2 = Assessment::create(['assessment_code' => 'Q2'] + $this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)->post(route('educator.quizzes.store'), [
+            'subject_id' => $subject->id, 'question' => 'Tagged at creation?', 'quiz_type' => 'identification',
+            'answers' => ['yes'], 'assessment_ids' => [$a1->id, $a2->id],
+        ])->assertRedirect();
+
+        $quiz = Quiz::where('question', 'Tagged at creation?')->firstOrFail();
+        $this->assertDatabaseHas('tbl_assessment_question_pool', ['assessment_id' => $a1->id, 'quiz_id' => $quiz->id]);
+        $this->assertDatabaseHas('tbl_assessment_question_pool', ['assessment_id' => $a2->id, 'quiz_id' => $quiz->id]);
+    }
+
+    public function test_store_quiz_rejects_assessment_from_a_different_subject(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $otherSubject = $this->subject($this->eduA);
+        $wrongAssessment = Assessment::create($this->assessmentModelData($otherSubject));
+
+        $this->actingAs($this->eduA)->post(route('educator.quizzes.store'), [
+            'subject_id' => $subject->id, 'question' => 'Mismatched?', 'quiz_type' => 'identification',
+            'answers' => ['yes'], 'assessment_ids' => [$wrongAssessment->id],
+        ])->assertSessionHasErrors('assessment_ids');
+
+        $this->assertDatabaseMissing('tbl_quizzes', ['question' => 'Mismatched?']);
+    }
+
+    // Task 51 follow-up: every question gets an auto-labeled creation batch (manual add vs.
+    // which upload file it came from), so the bank list can be filtered by "where did this come from".
+    public function test_manually_created_and_bulk_uploaded_questions_get_distinct_batch_labels(): void
+    {
+        $subject = $this->subject($this->eduA);
+
+        $this->actingAs($this->eduA)->post(route('educator.quizzes.store'), [
+            'subject_id' => $subject->id, 'question' => 'Manual batch?', 'quiz_type' => 'identification',
+            'answers' => ['yes'],
+        ])->assertRedirect();
+
+        $manual = Quiz::where('question', 'Manual batch?')->firstOrFail();
+        $this->assertStringStartsWith('Manual · ', $manual->batch_label);
+
+        $csv = "question,quiz_type,choice_a,choice_b,choice_c,choice_d,correct_answer\n"
+            ."2+2?,multiple_choice,3,4,5,6,B\n";
+        $file = File::createWithContent('batch-quiz.csv', $csv);
+
+        $this->actingAs($this->eduA)->post(route('educator.quizzes.upload'), [
+            'subject_id' => $subject->id,
+            'files' => [$file],
+        ])->assertRedirect();
+
+        $uploaded = Quiz::where('question', '2+2?')->firstOrFail();
+        $this->assertStringStartsWith('Upload: batch-quiz.csv · ', $uploaded->batch_label);
+        $this->assertNotSame($manual->batch_label, $uploaded->batch_label);
+    }
+
+    public function test_pool_size_cannot_exceed_eligible_question_count(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        $quiz = Quiz::create([
+            'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+            'question' => 'Q', 'quiz_type' => 'identification', 'correct_answer' => 'a',
+        ]);
+
+        $this->actingAs($this->eduA)->put(route('educator.assessments.pool.update', $assessment), [
+            'eligible_quiz_ids' => [$quiz->id], 'pool_size' => 5,
+        ])->assertSessionHasErrors('pool_size');
+
+        $this->assertSame(0, $assessment->fresh()->pool_size);
+    }
+
+    public function test_bulk_upload_imports_each_file_into_the_target_subject(): void
+    {
+        $subject = $this->subject($this->eduA);
 
         $csv = "question,quiz_type,choice_a,choice_b,choice_c,choice_d,correct_answer\n"
             ."2+2?,multiple_choice,3,4,5,6,B\n"
@@ -303,19 +385,16 @@ class EducatorFeaturesTest extends TestCase
         $file = File::createWithContent('quiz.csv', $csv);
 
         $this->actingAs($this->eduA)->post(route('educator.quizzes.upload'), [
-            'assessment_ids' => [$a1->id, $a2->id],
+            'subject_id' => $subject->id,
             'files' => [$file],
         ])->assertRedirect();
 
-        // 2 valid rows × 2 assessments = 4 quizzes, split evenly.
-        $this->assertSame(2, Quiz::where('assessment_id', $a1->id)->count());
-        $this->assertSame(2, Quiz::where('assessment_id', $a2->id)->count());
+        $this->assertSame(2, Quiz::where('subject_id', $subject->id)->count());
     }
 
     public function test_bulk_upload_is_all_or_nothing_when_any_row_is_invalid(): void
     {
         $subject = $this->subject($this->eduA);
-        $assessment = Assessment::create($this->assessmentModelData($subject));
 
         // Row 2 is valid, row 3 is invalid (bad quiz_type) → whole upload must be rejected.
         $csv = "question,quiz_type,choice_a,choice_b,choice_c,choice_d,correct_answer\n"
@@ -324,46 +403,44 @@ class EducatorFeaturesTest extends TestCase
         $file = File::createWithContent('quiz.csv', $csv);
 
         $this->actingAs($this->eduA)->post(route('educator.quizzes.upload'), [
-            'assessment_ids' => [$assessment->id],
+            'subject_id' => $subject->id,
             'files' => [$file],
         ])->assertSessionHasErrors('files');
 
         // Nothing saved — not even the valid row.
-        $this->assertSame(0, Quiz::where('assessment_id', $assessment->id)->count());
+        $this->assertSame(0, Quiz::where('subject_id', $subject->id)->count());
     }
 
     public function test_bulk_upload_rejects_wrong_file_type_with_format_message(): void
     {
         $subject = $this->subject($this->eduA);
-        $assessment = Assessment::create($this->assessmentModelData($subject));
 
         $bad = File::createWithContent('notes.pdf', '%PDF-1.4 fake');
 
         $this->actingAs($this->eduA)->post(route('educator.quizzes.upload'), [
-            'assessment_ids' => [$assessment->id],
+            'subject_id' => $subject->id,
             'files' => [$bad],
         ])->assertSessionHasErrors('files.0');
 
-        $this->assertSame(0, Quiz::where('assessment_id', $assessment->id)->count());
+        $this->assertSame(0, Quiz::where('subject_id', $subject->id)->count());
     }
 
     public function test_bulk_upload_rejects_right_filetype_with_wrong_columns(): void
     {
         $subject = $this->subject($this->eduA);
-        $assessment = Assessment::create($this->assessmentModelData($subject));
 
         // A real CSV, but not the template — missing required columns.
         $csv = "name,email\nJuan,juan@example.com\n";
         $file = File::createWithContent('contacts.csv', $csv);
 
         $response = $this->actingAs($this->eduA)->post(route('educator.quizzes.upload'), [
-            'assessment_ids' => [$assessment->id],
+            'subject_id' => $subject->id,
             'files' => [$file],
         ])->assertSessionHasErrors('files');
 
         $this->assertStringContainsString('missing required column', collect(
             session('errors')->get('files'))->implode(' '));
-        $this->assertSame(0, Quiz::where('assessment_id', $assessment->id)->count());
+        $this->assertSame(0, Quiz::where('subject_id', $subject->id)->count());
     }
 
     // ---- G7 scores: task 26 organization (student column + filters, owner-scoped) ----

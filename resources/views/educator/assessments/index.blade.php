@@ -54,7 +54,14 @@
                         :edit-modal="route('educator.assessments.edit', $a)"
                         edit-modal-title="Edit assessment"
                         :delete="route('educator.assessments.destroy', $a)"
-                        confirm="Delete this assessment and its questions? This cannot be undone." />
+                        confirm="Delete this assessment? Bank questions are not deleted.">
+                        <div class="kt-menu-item">
+                            <a class="kt-menu-link" href="{{ route('educator.assessments.pool.edit', $a) }}">
+                                <span class="kt-menu-icon"><i class="ki-filled ki-questionnaire-tablet"></i></span>
+                                <span class="kt-menu-title">Question Pool</span>
+                            </a>
+                        </div>
+                    </x-table-actions>
                 </td>
             </tr>
         @empty

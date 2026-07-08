@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Quiz extends Model
 {
@@ -31,8 +32,7 @@ class Quiz extends Model
     }
 
     protected $fillable = [
-        'assessment_id', 'subject_id', 'section_id', 'educator_id',
-        'question', 'quiz_type', 'choices', 'correct_answer',
+        'subject_id', 'educator_id', 'question', 'quiz_type', 'choices', 'correct_answer', 'batch_label',
     ];
 
     protected $casts = ['choices' => 'array'];
@@ -41,8 +41,14 @@ class Quiz extends Model
     // Hiding it from array/JSON output is the model-layer guard (Stage B7 / D3.5 / H6).
     protected $hidden = ['correct_answer'];
 
-    public function assessment(): BelongsTo
+    public function subject(): BelongsTo
     {
-        return $this->belongsTo(Assessment::class, 'assessment_id');
+        return $this->belongsTo(Subject::class, 'subject_id');
+    }
+
+    // Task 51: which assessments have this bank question in their eligible pool.
+    public function eligibleAssessments(): BelongsToMany
+    {
+        return $this->belongsToMany(Assessment::class, 'tbl_assessment_question_pool', 'quiz_id', 'assessment_id');
     }
 }

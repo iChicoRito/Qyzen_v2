@@ -132,7 +132,7 @@ class EducatorIsolationSeeder extends Seeder
                         'end_time' => $schedule['end_time'],
                     ])->save();
 
-                    $quizzes = $this->quizzes($assessment, $subject, $section, $educator);
+                    $quizzes = $this->quizzes($assessment, $subject, $educator);
 
                     foreach ($students as $student) {
                         Enrolled::firstOrCreate(
@@ -288,9 +288,9 @@ class EducatorIsolationSeeder extends Seeder
     }
 
     /** @return Quiz[] */
-    private function quizzes(Assessment $assessment, Subject $subject, Section $section, User $educator): array
+    private function quizzes(Assessment $assessment, Subject $subject, User $educator): array
     {
-        $existing = Quiz::where('assessment_id', $assessment->id)->orderBy('id')->get();
+        $existing = $assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
         if ($existing->isNotEmpty()) {
             return $existing->all();
         }
@@ -298,9 +298,7 @@ class EducatorIsolationSeeder extends Seeder
         $quizzes = [];
         foreach (self::QUESTIONS as [$question, $type, $choices, $correct]) {
             $quizzes[] = Quiz::create([
-                'assessment_id' => $assessment->id,
                 'subject_id' => $subject->id,
-                'section_id' => $section->id,
                 'educator_id' => $educator->id,
                 'question' => $question,
                 'quiz_type' => $type,
@@ -308,6 +306,10 @@ class EducatorIsolationSeeder extends Seeder
                 'correct_answer' => $correct,
             ]);
         }
+
+        $quizIds = collect($quizzes)->pluck('id')->all();
+        $assessment->eligibleQuizzes()->sync($quizIds);
+        $assessment->update(['pool_size' => count($quizIds)]);
 
         return $quizzes;
     }
@@ -342,6 +344,7 @@ class EducatorIsolationSeeder extends Seeder
             'score' => $correctCount,
             'total_questions' => $total,
             'student_answer' => $answers,
+            'drawn_quiz_ids' => collect($quizzes)->pluck('id')->all(),
             'warning_attempts' => 0,
             'status' => $isPassed ? 'passed' : 'failed',
             'is_passed' => $isPassed,
@@ -408,7 +411,7 @@ class EducatorIsolationSeeder extends Seeder
                         ->where('section_id', $sectionId)
                         ->value('id');
 
-                    $quizCount = Quiz::where('assessment_id', $assessmentId)->count();
+                    $quizCount = Assessment::find($assessmentId)->eligibleQuizzes()->count();
 
                     if ($quizCount !== self::QUIZZES_PER_ASSESSMENT) {
                         throw new \RuntimeException("Assessment {$assessmentId} does not have 4 quizzes.");

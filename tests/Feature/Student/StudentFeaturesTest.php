@@ -58,17 +58,21 @@ class StudentFeaturesTest extends TestCase
             'start_time' => '00:00', 'end_time' => '23:59', 'allow_review' => false,
         ]);
 
-        // 4 questions: 3 MC + 1 identification.
+        // 4 questions: 3 MC + 1 identification. All 4 are eligible and pool_size=4, so every
+        // attempt draws exactly this fixed set — the pre-pool test assumptions still hold.
+        $quizIds = [];
         foreach ([['2+2', 'multiple_choice', ['A' => '3', 'B' => '4'], 'B'],
             ['3+3', 'multiple_choice', ['A' => '6', 'B' => '5'], 'A'],
             ['1+1', 'multiple_choice', ['A' => '2', 'B' => '3'], 'A'],
             ['Capital of France', 'identification', null, 'Paris']] as [$q, $type, $choices, $correct]) {
-            Quiz::create([
-                'assessment_id' => $this->assessment->id, 'subject_id' => $subject->id, 'section_id' => $section->id,
-                'educator_id' => $this->educator->id, 'question' => $q, 'quiz_type' => $type,
-                'choices' => $choices, 'correct_answer' => $correct,
+            $quiz = Quiz::create([
+                'subject_id' => $subject->id, 'educator_id' => $this->educator->id,
+                'question' => $q, 'quiz_type' => $type, 'choices' => $choices, 'correct_answer' => $correct,
             ]);
+            $quizIds[] = $quiz->id;
         }
+        $this->assessment->eligibleQuizzes()->sync($quizIds);
+        $this->assessment->update(['pool_size' => count($quizIds)]);
 
         Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->educator->id, 'subject_id' => $subject->id, 'is_active' => true]);
     }
@@ -102,7 +106,7 @@ class StudentFeaturesTest extends TestCase
 
     public function test_quiz_model_hides_correct_answer_in_json(): void
     {
-        $quiz = Quiz::where('assessment_id', $this->assessment->id)->first();
+        $quiz = $this->assessment->eligibleQuizzes()->first();
         $this->assertArrayNotHasKey('correct_answer', $quiz->toArray());
     }
 
@@ -110,7 +114,7 @@ class StudentFeaturesTest extends TestCase
 
     public function test_submit_grades_server_side_and_passes_at_75_percent(): void
     {
-        $quizzes = Quiz::where('assessment_id', $this->assessment->id)->orderBy('id')->get();
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
         // answer 3 of 4 correctly = 75% → pass.
         $answers = [
             $quizzes[0]->id => 'B', // correct
@@ -132,7 +136,7 @@ class StudentFeaturesTest extends TestCase
 
     public function test_submit_below_75_percent_fails(): void
     {
-        $quizzes = Quiz::where('assessment_id', $this->assessment->id)->orderBy('id')->get();
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
         $answers = [$quizzes[0]->id => 'B', $quizzes[1]->id => 'B', $quizzes[2]->id => 'B', $quizzes[3]->id => 'x']; // 1/4
 
         $this->actingAs($this->student)
@@ -146,7 +150,7 @@ class StudentFeaturesTest extends TestCase
 
     public function test_submit_notifies_the_educator(): void
     {
-        $quizzes = Quiz::where('assessment_id', $this->assessment->id)->orderBy('id')->get();
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
         $this->actingAs($this->student)->post(route('student.take-quiz.submit', $this->assessment), [
             'answers' => [$quizzes[0]->id => 'B'],
         ])->assertRedirect();
@@ -160,7 +164,7 @@ class StudentFeaturesTest extends TestCase
 
     public function test_result_hides_correct_answer_when_review_disabled_and_wrong(): void
     {
-        $quizzes = Quiz::where('assessment_id', $this->assessment->id)->orderBy('id')->get();
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
         // get the identification one wrong; allow_review is false.
         $this->actingAs($this->student)->post(route('student.take-quiz.submit', $this->assessment), [
             'answers' => [$quizzes[0]->id => 'B', $quizzes[3]->id => 'London'],
@@ -175,7 +179,7 @@ class StudentFeaturesTest extends TestCase
 
     public function test_student_cannot_view_others_score(): void
     {
-        $quizzes = Quiz::where('assessment_id', $this->assessment->id)->orderBy('id')->get();
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
         $this->actingAs($this->student)->post(route('student.take-quiz.submit', $this->assessment), [
             'answers' => [$quizzes[0]->id => 'B'],
         ]);

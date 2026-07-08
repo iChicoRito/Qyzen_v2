@@ -104,7 +104,7 @@ class BulkClassSeeder extends Seeder
                     );
 
                     $count = str_contains($assessmentCode, 'Long') ? 30 : 10;
-                    $this->generateQuestions($assessment, $subject, $section, $educator, $count);
+                    $this->generateQuestions($assessment, $subject, $educator, $count);
                 }
 
                 foreach ($groups[$i] ?? [] as $student) {
@@ -179,16 +179,19 @@ class BulkClassSeeder extends Seeder
     }
 
     // Generic templated arithmetic MC questions (task 28) — matches DemoSeeder's existing
-    // question-content convention, scaled to the required count. Skips if already seeded.
-    private function generateQuestions(Assessment $assessment, Subject $subject, Section $section, User $educator, int $count): void
+    // question-content convention, scaled to the required count. Bank questions are
+    // subject-scoped now (Task 51); each assessment gets its own freshly generated batch as
+    // its full eligible pool. Skips if this assessment's pool was already seeded.
+    private function generateQuestions(Assessment $assessment, Subject $subject, User $educator, int $count): void
     {
-        if (Quiz::where('assessment_id', $assessment->id)->exists()) {
+        if ($assessment->eligibleQuizzes()->exists()) {
             return;
         }
 
         $ops = ['+' => fn ($a, $b) => $a + $b, '-' => fn ($a, $b) => $a - $b, '×' => fn ($a, $b) => $a * $b];
         $letters = ['A', 'B', 'C', 'D'];
 
+        $quizIds = [];
         for ($n = 0; $n < $count; $n++) {
             $a = rand(1, 12);
             $b = rand(1, 12);
@@ -205,13 +208,17 @@ class BulkClassSeeder extends Seeder
             shuffle($values);
             $choices = array_combine($letters, $values);
 
-            Quiz::create([
-                'assessment_id' => $assessment->id, 'subject_id' => $subject->id, 'section_id' => $section->id,
-                'educator_id' => $educator->id, 'question' => "What is {$a} {$op} {$b}?",
+            $quiz = Quiz::create([
+                'subject_id' => $subject->id, 'educator_id' => $educator->id,
+                'question' => "What is {$a} {$op} {$b}?",
                 'quiz_type' => 'multiple_choice', 'choices' => $choices,
                 'correct_answer' => array_search($correct, $choices, true),
             ]);
+            $quizIds[] = $quiz->id;
         }
+
+        $assessment->eligibleQuizzes()->sync($quizIds);
+        $assessment->update(['pool_size' => $count]);
     }
 
     private function assertCounts(User $educator): void

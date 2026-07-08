@@ -160,7 +160,9 @@ class AssessmentController extends Controller
         $this->authorize('delete', $assessment);
 
         $this->notifyEnrolled($assessment, 'assessment_deleted', 'Assessment removed');
-        $assessment->delete(); // FK cascade removes quizzes
+        // Task 51: FK cascade only removes this assessment's pool-eligibility pivot rows — bank
+        // questions are shared/reusable and survive.
+        $assessment->delete();
 
         return redirect()->route('educator.assessments.index')->with('status', 'Assessment deleted.');
     }

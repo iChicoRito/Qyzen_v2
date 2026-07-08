@@ -2,12 +2,13 @@
 
 namespace App\Imports;
 
-use App\Models\Assessment;
+use App\Models\Subject;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 
-// G6: bulk question upload parser/validator for one assessment.
+// Task 51: bulk bank-question upload parser/validator for one subject.
 // Columns: question, quiz_type, choice_a, choice_b, choice_c, choice_d, correct_answer.
 // For identification, leave choice_* blank and put the answer in correct_answer.
 //
@@ -21,7 +22,7 @@ class QuizzesImport implements ToCollection, WithHeadingRow
     /** @var array<int, string> human-readable errors, one per bad row */
     private array $errors = [];
 
-    public function __construct(private Assessment $assessment, private string $fileLabel = 'file') {}
+    public function __construct(private Subject $subject, private string $fileLabel = 'file', private ?string $batchLabel = null) {}
 
     public function collection(Collection $rows): void
     {
@@ -91,14 +92,13 @@ class QuizzesImport implements ToCollection, WithHeadingRow
             }
 
             $this->rows[] = [
-                'assessment_id' => $this->assessment->id,
-                'subject_id' => $this->assessment->subject_id,
-                'section_id' => $this->assessment->section_id,
-                'educator_id' => $this->assessment->educator_id,
+                'subject_id' => $this->subject->id,
+                'educator_id' => Auth::id(),
                 'question' => $question,
                 'quiz_type' => $type,
                 'choices' => $choices,
                 'correct_answer' => $correct,
+                'batch_label' => $this->batchLabel,
             ];
         }
     }

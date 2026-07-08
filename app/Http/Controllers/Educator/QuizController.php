@@ -8,42 +8,50 @@ use App\Http\Requests\StoreQuizRequest;
 use App\Http\Requests\UpdateQuizRequest;
 use App\Imports\QuizzesImport;
 use App\Models\Assessment;
-use App\Models\Enrolled;
 use App\Models\Quiz;
-use App\Services\NotificationService;
+use App\Models\Subject;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use App\Support\TableQuery;
 use Maatwebsite\Excel\Facades\Excel;
 
-// G6: educator quizzes (questions). correct_answer is server-only ($hidden on the model);
-// never sent to a student. quiz_* notifications fire to enrolled students.
+// Task 51: educator question bank. Questions are scoped to educator+subject, reusable across
+// any number of assessments via each assessment's pool config (AssessmentQuestionPoolController).
+// correct_answer is server-only ($hidden on the model); never sent to a student.
 class QuizController extends Controller
 {
-    public function __construct(private NotificationService $notifications) {}
-
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', Quiz::class);
 
-        // Grouped by assessment (accordion) with each assessment's questions nested + MC/identification counts.
-        $assessments = Assessment::visibleTo(Auth::user())
-            ->with([
-                'subject:id,subject_code,subject_name',
-                'section:id,section_name',
-                'quizzes' => fn ($q) => $q->orderBy('id'),
-            ])
-            ->withCount([
-                'quizzes',
-                'quizzes as multiple_choice_count' => fn ($q) => $q->where('quiz_type', 'multiple_choice'),
-                'quizzes as identification_count' => fn ($q) => $q->where('quiz_type', 'identification'),
-            ])
-            ->orderByDesc('id')->get();
+        $query = Quiz::visibleTo(Auth::user())
+            ->with(['subject:id,subject_code,subject_name', 'eligibleAssessments:id,assessment_code']);
+        TableQuery::search($query, $request->query('search'), [
+            'question',
+            fn (Builder $q, string $term) => $q->orWhereHas('subject', fn ($s) => $s
+                ->where('subject_code', 'like', "%{$term}%")
+                ->orWhere('subject_name', 'like', "%{$term}%")),
+        ]);
+        TableQuery::filters($query, $request, [
+            'subject' => 'subject_id',
+            'type' => 'quiz_type',
+            'assessment' => fn (Builder $q, string $value) => $q->whereHas('eligibleAssessments', fn ($a) => $a->where('tbl_assessments.id', $value)),
+            'batch' => 'batch_label',
+        ]);
+        TableQuery::sort($query, $request, ['question' => 'question', 'id' => 'id'], 'id', 'desc');
 
-        return view('educator.quizzes.index', compact('assessments'));
+        $quizzes = $query->paginate(TableQuery::perPage($request))->withQueryString();
+        $subjects = $this->subjectOptions();
+        $assessments = $this->assessmentOptions();
+        $batches = $this->batchOptions();
+
+        return view('educator.quizzes.index', compact('quizzes', 'subjects', 'assessments', 'batches'));
     }
 
     public function create(Request $request): View
@@ -51,8 +59,9 @@ class QuizController extends Controller
         $this->authorize('create', Quiz::class);
 
         return view('educator.quizzes.create', [
+            'subjects' => $this->subjectOptions(),
+            'selectedSubject' => $request->query('subject_id'),
             'assessments' => $this->assessmentOptions(),
-            'selectedAssessment' => $request->query('assessment_id'),
         ]);
     }
 
@@ -61,18 +70,11 @@ class QuizController extends Controller
         $this->authorize('create', Quiz::class);
 
         $data = $request->validated();
-        $assessments = Assessment::visibleTo(Auth::user())->findOrFail($data['assessment_ids']);
+        $subject = Subject::visibleTo(Auth::user())->findOrFail($data['subject_id']);
+        $quiz = $this->makeQuiz($subject->id, $data);
+        $this->syncAssessments($quiz, $data['assessment_ids'] ?? []);
 
-        // Add the same question to each selected assessment.
-        foreach ($assessments as $assessment) {
-            $this->makeQuiz($assessment, $data);
-            $this->notifyEnrolled($assessment, 'quiz_created', 'New question added');
-        }
-
-        $n = $assessments->count();
-
-        return redirect()->route('educator.quizzes.index')
-            ->with('status', $n === 1 ? 'Question created.' : "Question added to {$n} assessments.");
+        return redirect()->route('educator.quizzes.index')->with('status', 'Question added to the bank.');
     }
 
     public function edit(Quiz $quiz): View
@@ -81,7 +83,9 @@ class QuizController extends Controller
 
         return view('educator.quizzes.edit', [
             'quiz' => $quiz,
+            'subjects' => $this->subjectOptions(),
             'assessments' => $this->assessmentOptions(),
+            'selectedAssessmentIds' => $quiz->eligibleAssessments()->pluck('tbl_assessments.id')->all(),
         ]);
     }
 
@@ -90,18 +94,15 @@ class QuizController extends Controller
         $this->authorize('update', $quiz);
 
         $data = $request->validated();
-        $assessment = Assessment::visibleTo(Auth::user())->findOrFail($data['assessment_id']);
+        $subject = Subject::visibleTo(Auth::user())->findOrFail($data['subject_id']);
         $quiz->update([
-            'assessment_id' => $assessment->id,
-            'subject_id' => $assessment->subject_id,
-            'section_id' => $assessment->section_id,
+            'subject_id' => $subject->id,
             'question' => $data['question'],
             'quiz_type' => $data['quiz_type'],
             'choices' => $data['quiz_type'] === 'multiple_choice' ? $data['choices'] : null,
             'correct_answer' => $this->correctAnswerFrom($data),
         ]);
-
-        $this->notifyEnrolled($quiz->assessment, 'quiz_updated', 'A question was updated');
+        $this->syncAssessments($quiz, $data['assessment_ids'] ?? []);
 
         return redirect()->route('educator.quizzes.index')->with('status', 'Question updated.');
     }
@@ -110,20 +111,9 @@ class QuizController extends Controller
     {
         $this->authorize('delete', $quiz);
 
-        $assessment = $quiz->assessment;
         $quiz->delete();
-        $this->notifyEnrolled($assessment, 'quiz_deleted', 'A question was removed');
 
         return redirect()->route('educator.quizzes.index')->with('status', 'Question deleted.');
-    }
-
-    public function destroyForAssessment(Assessment $assessment): RedirectResponse
-    {
-        $this->authorize('update', $assessment); // owns the assessment → may clear its questions
-
-        Quiz::where('assessment_id', $assessment->id)->where('educator_id', Auth::id())->delete();
-
-        return redirect()->route('educator.quizzes.index')->with('status', 'All questions deleted for the assessment.');
     }
 
     // G6 bulk upload.
@@ -139,8 +129,9 @@ class QuizController extends Controller
         $this->authorize('create', Quiz::class);
 
         $request->validate([
-            'assessment_ids' => ['required', 'array', 'min:1'],
-            'assessment_ids.*' => ['required'],
+            'subject_id' => ['required', 'integer'],
+            'assessment_ids' => ['nullable', 'array'],
+            'assessment_ids.*' => [Rule::exists('tbl_assessments', 'id')->where('educator_id', Auth::id())],
             'files' => ['required', 'array', 'min:1'],
             'files.*' => ['required', 'file', 'mimes:xlsx,xls,csv'],
         ], [
@@ -149,21 +140,24 @@ class QuizController extends Controller
             'files.*.file' => 'The upload was not a valid file.',
         ]);
 
-        $assessments = Assessment::visibleTo(Auth::user())->findOrFail($request->input('assessment_ids'));
+        $subject = Subject::visibleTo(Auth::user())->findOrFail($request->input('subject_id'));
+        $assessmentIds = array_filter((array) $request->input('assessment_ids', []));
+        if ($assessmentIds !== [] && Assessment::whereKey($assessmentIds)->where('subject_id', '!=', $subject->id)->exists()) {
+            throw ValidationException::withMessages(['assessment_ids' => 'Selected assessments must belong to the same subject as the upload.']);
+        }
         $files = $request->file('files');
+        $uploadedAt = now()->format('M j, Y g:i A');
 
-        // All-or-nothing: validate every row of every (assessment × file) FIRST. If ANY row is
-        // bad (wrong format, blank, missing/invalid columns), reject the whole upload — nothing is saved.
+        // All-or-nothing: validate every row of every file FIRST. If ANY row is bad (wrong
+        // format, blank, missing/invalid columns), reject the whole upload — nothing is saved.
         $errors = [];
-        $rowsByAssessment = []; // assessmentId => [quiz attribute rows]
-        foreach ($assessments as $assessment) {
-            $rowsByAssessment[$assessment->id] = [];
-            foreach ($files as $file) {
-                $import = new QuizzesImport($assessment, $file->getClientOriginalName());
-                Excel::import($import, $file);
-                $errors = array_merge($errors, $import->errors());
-                $rowsByAssessment[$assessment->id] = array_merge($rowsByAssessment[$assessment->id], $import->validRows());
-            }
+        $rows = [];
+        foreach ($files as $file) {
+            $batchLabel = "Upload: {$file->getClientOriginalName()} · {$uploadedAt}";
+            $import = new QuizzesImport($subject, $file->getClientOriginalName(), $batchLabel);
+            Excel::import($import, $file);
+            $errors = array_merge($errors, $import->errors());
+            $rows = array_merge($rows, $import->validRows());
         }
 
         if ($errors !== []) {
@@ -171,48 +165,60 @@ class QuizController extends Controller
             throw ValidationException::withMessages(['files' => $errors]);
         }
 
-        // Clean → insert everything atomically.
-        $created = DB::transaction(function () use ($assessments, $rowsByAssessment) {
-            $total = 0;
-            foreach ($assessments as $assessment) {
-                $rows = $rowsByAssessment[$assessment->id];
-                if ($rows === []) {
-                    continue;
-                }
-                foreach ($rows as $row) {
-                    Quiz::create($row); // create() applies the choices array cast + timestamps
-                }
-                $total += count($rows);
-                // single bundled quiz_uploaded notification per assessment (per the source).
-                $this->notifyEnrolled($assessment, 'quiz_uploaded', count($rows).' new questions');
+        $created = DB::transaction(function () use ($rows, $assessmentIds) {
+            $quizIds = [];
+            foreach ($rows as $row) {
+                $quizIds[] = Quiz::create($row)->id; // create() applies the choices array cast + timestamps
+            }
+            foreach (Assessment::whereKey($assessmentIds)->get() as $assessment) {
+                $assessment->eligibleQuizzes()->syncWithoutDetaching($quizIds);
             }
 
-            return $total;
+            return count($rows);
         });
 
-        return redirect()->route('educator.quizzes.index')->with('status',
-            "Uploaded {$created} question(s) across {$assessments->count()} assessment(s).");
+        return redirect()->route('educator.quizzes.index')->with('status', "Uploaded {$created} question(s) to the bank.");
     }
 
-    // Assessments for the picker, with subject/section eager-loaded for the rich label.
+    private function subjectOptions()
+    {
+        return Subject::visibleTo(Auth::user())->orderBy('subject_name')->get(['id', 'subject_code', 'subject_name']);
+    }
+
+    // Assessments for the "also add to these pools" picker, richly labeled by subject.
     private function assessmentOptions()
     {
         return Assessment::visibleTo(Auth::user())
-            ->with(['subject:id,subject_code,subject_name', 'section:id,section_name'])
+            ->with('subject:id,subject_code,subject_name')
             ->orderByDesc('id')->get();
     }
 
-    private function makeQuiz(Assessment $assessment, array $data): Quiz
+    private function syncAssessments(Quiz $quiz, array $assessmentIds): void
+    {
+        $quiz->eligibleAssessments()->sync(array_filter($assessmentIds));
+    }
+
+    // Distinct batch labels for this educator's questions, newest first, for the bank's filter dropdown.
+    private function batchOptions()
+    {
+        return Quiz::visibleTo(Auth::user())
+            ->whereNotNull('batch_label')
+            ->selectRaw('batch_label, MAX(id) as max_id')
+            ->groupBy('batch_label')
+            ->orderByDesc('max_id')
+            ->pluck('batch_label');
+    }
+
+    private function makeQuiz(int $subjectId, array $data): Quiz
     {
         return Quiz::create([
-            'assessment_id' => $assessment->id,
-            'subject_id' => $assessment->subject_id,
-            'section_id' => $assessment->section_id,
+            'subject_id' => $subjectId,
             'educator_id' => Auth::id(),
             'question' => $data['question'],
             'quiz_type' => $data['quiz_type'],
             'choices' => $data['quiz_type'] === 'multiple_choice' ? $data['choices'] : null,
             'correct_answer' => $this->correctAnswerFrom($data),
+            'batch_label' => 'Manual · '.now()->format('M j, Y g:i A'),
         ]);
     }
 
@@ -230,19 +236,5 @@ class QuizController extends Controller
         ));
 
         return count($answers) === 1 ? $answers[0] : json_encode($answers);
-    }
-
-    private function notifyEnrolled(Assessment $assessment, string $event, string $title): void
-    {
-        $studentIds = Enrolled::where('educator_id', Auth::id())
-            ->where('subject_id', $assessment->subject_id)
-            ->where('is_active', true)
-            ->pluck('student_id')->all();
-
-        $this->notifications->emitToMany(Auth::user(), $event, $studentIds, [
-            'subject_id' => $assessment->subject_id, 'assessment_id' => $assessment->id,
-            'section_id' => $assessment->section_id, 'title' => $title,
-            'link_path' => route('student.assessments.index'),
-        ]);
     }
 }

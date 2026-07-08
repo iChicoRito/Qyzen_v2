@@ -72,7 +72,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach ($score->assessment->quizzes as $quiz)
+                            @foreach ($reviewQuestions as $quiz)
                                 @php
                                     $given = $answers[$quiz->id] ?? ($answers[(string) $quiz->id] ?? null);
                                     $correct = $quiz->correct_answer; // server-side only

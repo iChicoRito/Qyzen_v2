@@ -17,7 +17,10 @@ class QuizGradingService
 {
     public const PASS_THRESHOLD = 0.75;
 
-    public function __construct(private NotificationService $notifications) {}
+    public function __construct(
+        private NotificationService $notifications,
+        private QuestionPoolDrawService $pool,
+    ) {}
 
     /**
      * Save an in-progress draft (mode=draft). No grading, no correct_answer touched.
@@ -32,13 +35,20 @@ class QuizGradingService
         $score = Score::firstOrNew(
             ['student_id' => $student->id, 'assessment_id' => $assessment->id, 'status' => 'in_progress'],
         );
+
+        // Task 51: the pool draw is pinned once, on the first save for this attempt — never
+        // re-rolled on later autosaves, or a refresh could show a different subset than grading
+        // and the stored answers are keyed against.
+        $drawnQuizIds = $score->exists ? $score->drawn_quiz_ids : $this->pool->drawFor($assessment);
+
         $score->fill([
             'educator_id' => $assessment->educator_id,
             'subject_id' => $assessment->subject_id,
             'section_id' => $assessment->section_id,
             'student_answer' => $answers,
             'warning_attempts' => $warnings,
-            'total_questions' => Quiz::where('assessment_id', $assessment->id)->count(),
+            'drawn_quiz_ids' => $drawnQuizIds,
+            'total_questions' => count($drawnQuizIds),
         ]);
         $score->taken_at ??= now();
         $score->save();
@@ -55,8 +65,15 @@ class QuizGradingService
     public function grade(User $student, Assessment $assessment, array $answers, int $warnings = 0): Score
     {
         return DB::transaction(function () use ($student, $assessment, $answers, $warnings) {
+            // Reuse the in-progress row if present, else create a fresh attempt. take()/saveDraft()
+            // always create this first, so drawn_quiz_ids should already be pinned here.
+            $score = Score::firstOrNew([
+                'student_id' => $student->id, 'assessment_id' => $assessment->id, 'status' => 'in_progress',
+            ]);
+            $drawnQuizIds = $score->drawn_quiz_ids ?: $this->pool->drawFor($assessment);
+
             // correct_answer is explicitly selected here — server side, never leaves this method.
-            $questions = Quiz::where('assessment_id', $assessment->id)
+            $questions = Quiz::whereIn('id', $drawnQuizIds)
                 ->get(['id', 'quiz_type', 'correct_answer']);
 
             $total = $questions->count();
@@ -70,16 +87,13 @@ class QuizGradingService
 
             $isPassed = $total > 0 && ($correct / $total) >= self::PASS_THRESHOLD;
 
-            // Reuse the in-progress row if present, else create a fresh attempt.
-            $score = Score::firstOrNew([
-                'student_id' => $student->id, 'assessment_id' => $assessment->id, 'status' => 'in_progress',
-            ]);
             $score->fill([
                 'educator_id' => $assessment->educator_id,
                 'subject_id' => $assessment->subject_id,
                 'section_id' => $assessment->section_id,
                 'student_answer' => $answers,
                 'warning_attempts' => $warnings,
+                'drawn_quiz_ids' => $drawnQuizIds,
                 'score' => $correct,
                 'total_questions' => $total,
                 'is_passed' => $isPassed,

@@ -75,12 +75,12 @@
                             @endif
                         </span>
                         <div class="flex items-center gap-1">
-                            <a class="kt-btn kt-btn-sm kt-btn-outline {{ $paginator->onFirstPage() ? 'disabled pointer-events-none opacity-50' : '' }}"
+                            <a data-table-page class="kt-btn kt-btn-sm kt-btn-outline {{ $paginator->onFirstPage() ? 'disabled pointer-events-none opacity-50' : '' }}"
                                href="{{ $paginator->previousPageUrl() ?: '#' }}">Previous</a>
                             @foreach ($paginator->getUrlRange(max(1, $paginator->currentPage() - 2), min($paginator->lastPage(), $paginator->currentPage() + 2)) as $page => $url)
-                                <a class="kt-btn kt-btn-sm {{ $page === $paginator->currentPage() ? 'kt-btn-primary' : 'kt-btn-outline' }}" href="{{ $url }}">{{ $page }}</a>
+                                <a data-table-page class="kt-btn kt-btn-sm {{ $page === $paginator->currentPage() ? 'kt-btn-primary' : 'kt-btn-outline' }}" href="{{ $url }}">{{ $page }}</a>
                             @endforeach
-                            <a class="kt-btn kt-btn-sm kt-btn-outline {{ $paginator->hasMorePages() ? '' : 'disabled pointer-events-none opacity-50' }}"
+                            <a data-table-page class="kt-btn kt-btn-sm kt-btn-outline {{ $paginator->hasMorePages() ? '' : 'disabled pointer-events-none opacity-50' }}"
                                href="{{ $paginator->nextPageUrl() ?: '#' }}">Next</a>
                         </div>
                     @else
@@ -221,8 +221,9 @@
             });
         }
 
-        // Intercept pagination links
-        root.querySelectorAll('a[href]').forEach(function (a) {
+        // Intercept pagination links only — NOT every <a> in the card, which would also
+        // catch row-action links (e.g. "Question Pool") and AJAX-swap them instead of navigating.
+        root.querySelectorAll('[data-table-page]').forEach(function (a) {
             var href = a.getAttribute('href');
             if (!href || href === '#') return;
             a.addEventListener('click', function (e) {

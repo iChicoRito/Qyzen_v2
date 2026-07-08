@@ -44,7 +44,7 @@ class ScoreExportService
         $scores = Score::where('assessment_id', $assessment->id)->whereNotNull('submitted_at')->get();
 
         $context = $this->context($assessment);
-        $built = ScoreRowBuilder::build($roster, $scores, $assessment->quizzes()->count(), $context);
+        $built = ScoreRowBuilder::build($roster, $scores, $assessment->pool_size, $context);
 
         return WorkbookBuilder::singleSheetWorkbook(
             ['title' => "Scores — {$assessment->assessment_code}", ...$context, 'summary' => $built['summary']],
@@ -54,7 +54,7 @@ class ScoreExportService
 
     public function bulk(User $educator, array $filter): StreamedResponse
     {
-        $query = Assessment::visibleTo($educator)->withCount('quizzes')->with([
+        $query = Assessment::visibleTo($educator)->with([
             'subject:id,subject_code,subject_name',
             'section:id,section_name',
             'academicTerm:id,term_name,semester,academic_year_id',
@@ -94,7 +94,7 @@ class ScoreExportService
                 $built = ScoreRowBuilder::build(
                     $enrollmentsBySubject->get($a->subject_id, collect()),
                     $scoresByAssessment->get($a->id, collect()),
-                    $a->quizzes_count,
+                    $a->pool_size,
                     $context,
                 );
                 WorkbookBuilder::addSheet(

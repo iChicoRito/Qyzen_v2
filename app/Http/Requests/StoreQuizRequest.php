@@ -2,12 +2,13 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Assessment;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
-// G6: create question. multiple_choice (choices A-D + single correct key) or
-// identification (correct_answer string). Assessment must belong to this educator.
+// Task 51: create a bank question. multiple_choice (choices A-D + single correct key) or
+// identification (correct_answer string). Subject must belong to this educator.
 class StoreQuizRequest extends FormRequest
 {
     public function authorize(): bool
@@ -17,9 +18,11 @@ class StoreQuizRequest extends FormRequest
 
     public function rules(): array
     {
-        // Create: add the same question to one or more assessments.
         return [
-            'assessment_ids' => ['required', 'array', 'min:1'],
+            'subject_id' => ['required', Rule::exists('tbl_subjects', 'id')->where('educator_id', Auth::id())],
+            // Optional convenience: immediately add this question to one or more assessments'
+            // pools, instead of a separate trip to each assessment's Question Pool screen.
+            'assessment_ids' => ['nullable', 'array'],
             'assessment_ids.*' => [Rule::exists('tbl_assessments', 'id')->where('educator_id', Auth::id())],
         ] + $this->questionRules();
     }
@@ -57,6 +60,18 @@ class StoreQuizRequest extends FormRequest
                 $answers = array_filter((array) $this->input('answers', []), fn ($a) => trim((string) $a) !== '');
                 if (count($answers) < 1) {
                     $v->errors()->add('answers', 'Enter at least one correct answer.');
+                }
+            }
+
+            // A question can only be added to an assessment's pool if they share the same
+            // subject — the pool picker only ever lists same-subject questions to begin with.
+            $assessmentIds = array_filter((array) $this->input('assessment_ids', []));
+            if ($assessmentIds !== [] && $this->filled('subject_id')) {
+                $mismatched = Assessment::whereKey($assessmentIds)
+                    ->where('subject_id', '!=', $this->input('subject_id'))
+                    ->exists();
+                if ($mismatched) {
+                    $v->errors()->add('assessment_ids', 'Selected assessments must belong to the same subject as this question.');
                 }
             }
         });

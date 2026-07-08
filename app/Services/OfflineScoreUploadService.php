@@ -19,8 +19,6 @@ class OfflineScoreUploadService
             throw ValidationException::withMessages(['file' => ['The upload has no score rows.']]);
         }
 
-        $assessment->loadCount('quizzes');
-
         $errors = [];
         $clean = [];
         $seen = [];
@@ -52,7 +50,7 @@ class OfflineScoreUploadService
 
                 continue;
             }
-            if ($assessment->quizzes_count > 0 && (int) $data['total_questions'] !== (int) $assessment->quizzes_count) {
+            if ($assessment->pool_size > 0 && (int) $data['total_questions'] !== (int) $assessment->pool_size) {
                 $errors[] = "Row {$line}: total_questions does not match the assessment quiz count.";
 
                 continue;

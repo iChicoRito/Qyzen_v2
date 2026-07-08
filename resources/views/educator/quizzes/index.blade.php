@@ -1,6 +1,6 @@
 @extends('educator.layout')
-@section('title', 'Quizzes')
-@section('heading', 'Quizzes (Questions)')
+@section('title', 'Question Bank')
+@section('heading', 'Question Bank')
 @section('toolbar')
     <button type="button" class="kt-btn kt-btn-sm kt-btn-secondary" data-kt-modal-toggle="#kt_quiz_upload">
         <i class="ki-filled ki-cloud-upload"></i> Upload File
@@ -10,103 +10,75 @@
 @endsection
 @section('content')
     @include('admin._status')
-
-    {{-- Client-side filters: hide accordion items whose data-* token doesn't match the picked
-         value. Options are the distinct codes/subjects/sections across the visible assessments. --}}
-    @if ($assessments->isNotEmpty())
-        @php
-            $codes = $assessments->pluck('assessment_code')->unique()->sort()->values();
-            $subjects = $assessments->pluck('subject')->filter()->unique('id')->sortBy('subject_code')->values();
-            $sections = $assessments->pluck('section')->filter()->unique('id')->sortBy('section_name')->values();
-        @endphp
-        <div id="quiz_filters" class="flex flex-nowrap items-center gap-2.5 mb-4">
-            <select class="kt-select min-w-0 flex-1" data-quiz-filter="code">
-                <option value="">All assessment codes</option>
-                @foreach ($codes as $c)<option value="{{ $c }}">{{ $c }}</option>@endforeach
-            </select>
-            <select class="kt-select min-w-0 flex-1" data-quiz-filter="subject">
+    <x-data-table id="quizzes_table" search-placeholder="Search questions" :paginator="$quizzes">
+        <x-slot:filters>
+            <select data-filter="subject" class="kt-select w-40">
                 <option value="">All subjects</option>
                 @foreach ($subjects as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} — {{ $s->subject_name }}</option>@endforeach
             </select>
-            <select class="kt-select min-w-0 flex-1" data-quiz-filter="section">
-                <option value="">All sections</option>
-                @foreach ($sections as $s)<option value="{{ $s->id }}">{{ $s->section_name }}</option>@endforeach
+            <select data-filter="type" class="kt-select w-40">
+                <option value="">All types</option>
+                <option value="multiple_choice">Multiple Choice</option>
+                <option value="identification">Identification</option>
             </select>
-            <button type="button" class="kt-btn kt-btn-sm kt-btn-outline shrink-0" data-quiz-filter-reset>Reset</button>
-        </div>
-    @endif
-
-    {{-- KTUI Outline Style accordion (kt-accordion-outline): each item is a bordered card;
-         outline CSS handles item borders + toggle/wrapper padding. --}}
-    <div class="kt-accordion kt-accordion-outline" data-kt-accordion="true">
-        @forelse ($assessments as $a)
-            {{-- KTUI finds the toggle via a DIRECT-CHILD lookup, so the toggle button must be a
-                 direct child of the item (no wrapper div around it). --}}
-            <div class="kt-accordion-item" data-kt-accordion-item="true"
-                 data-code="{{ $a->assessment_code }}" data-subject="{{ $a->subject_id }}" data-section="{{ $a->section_id }}">
-                <button type="button" class="kt-accordion-toggle w-full flex items-center gap-3"
-                        data-kt-accordion-toggle="#quiz_acc_{{ $a->id }}" aria-controls="quiz_acc_{{ $a->id }}">
-                    <span class="flex flex-col items-start gap-0.5 min-w-0">
-                        <span class="text-sm font-medium text-mono truncate">{{ $a->assessment_code }}</span>
-                        <span class="text-xs text-secondary-foreground">
-                            {{ optional($a->subject)->subject_name }}
-                            @if ($a->section) · {{ $a->section->section_name }} @endif
-                            · {{ $a->quizzes_count }} questions ({{ $a->multiple_choice_count }} MC / {{ $a->identification_count }} ID)
-                        </span>
-                    </span>
-                    <span class="ms-auto kt-accordion-active:hidden inline-flex shrink-0"><i class="ki-filled ki-plus text-muted-foreground text-sm"></i></span>
-                    <span class="ms-auto kt-accordion-active:inline-flex hidden shrink-0"><i class="ki-filled ki-minus text-muted-foreground text-sm"></i></span>
-                </button>
-                <div class="kt-accordion-content hidden" id="quiz_acc_{{ $a->id }}">
-                    <div class="kt-accordion-wrapper flex flex-col gap-2">
-                        @forelse ($a->quizzes as $i => $q)
-                                <div class="rounded-lg border border-border p-3 flex items-start justify-between gap-3">
-                                    <div class="flex flex-col gap-1 min-w-0">
-                                        <span class="text-sm text-mono">{{ $i + 1 }}. {{ $q->question }}</span>
-                                        <span class="text-xs text-secondary-foreground">
-                                            {{ $q->quiz_type === 'multiple_choice' ? 'Multiple Choice' : 'Identification' }}
-                                            · Answer:
-                                            @if ($q->quiz_type === 'multiple_choice')
-                                                {{ $q->correct_answer }}. {{ $q->choices[$q->correct_answer] ?? '' }}
-                                            @else
-                                                @php $ans = json_decode($q->correct_answer, true); @endphp
-                                                {{ is_array($ans) ? implode(', ', $ans) : $q->correct_answer }}
-                                            @endif
-                                        </span>
-                                    </div>
-                                    <x-table-actions
-                                        :edit-modal="route('educator.quizzes.edit', $q)" edit-modal-title="Edit question"
-                                        :delete="route('educator.quizzes.destroy', $q)" confirm="Delete this question?" />
-                                </div>
-                            @empty
-                                <span class="text-xs text-secondary-foreground px-1">No questions yet. Use “Add question” or Bulk upload.</span>
-                            @endforelse
-                            @if ($a->quizzes_count > 0)
-                                <form method="POST" action="{{ route('educator.quizzes.destroy-for-assessment', $a) }}" class="pt-1">
-                                    @csrf @method('DELETE')
-                                    <button type="button" class="kt-btn kt-btn-sm kt-btn-outline text-destructive"
-                                            data-confirm="Delete ALL questions for this assessment? This cannot be undone." data-confirm-title="Delete all?">
-                                        <i class="ki-filled ki-trash"></i> Delete all questions
-                                    </button>
-                                </form>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-            @empty
-                <div class="p-6 text-center text-sm text-secondary-foreground">No assessments.</div>
-            @endforelse
-    </div>
-    <div id="quiz_no_match" class="hidden p-6 text-center text-sm text-secondary-foreground">No assessments match the selected filters.</div>
+            <select data-filter="assessment" class="kt-select w-40">
+                <option value="">All assessments</option>
+                @foreach ($assessments as $a)<option value="{{ $a->id }}">{{ $a->assessment_code }}</option>@endforeach
+            </select>
+            <select data-filter="batch" class="kt-select w-56">
+                <option value="">All batches</option>
+                @foreach ($batches as $b)<option value="{{ $b }}">{{ $b }}</option>@endforeach
+            </select>
+        </x-slot:filters>
+        <x-slot:head>
+            <thead>
+                <tr>
+                    <th class="min-w-[240px]" data-sort="question"><span class="kt-table-col"><span class="kt-table-col-label">Question</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[140px]">Type</th>
+                    <th class="min-w-[160px]">Subject</th>
+                    <th class="min-w-[160px]">Answer</th>
+                    <th class="min-w-[160px]">Used In</th>
+                    <th class="min-w-[200px]">Batch</th>
+                    <th class="w-[60px]"></th>
+                </tr>
+            </thead>
+        </x-slot:head>
+        @forelse ($quizzes as $q)
+            <tr>
+                <td class="text-mono text-sm">{{ \Illuminate\Support\Str::limit($q->question, 70) }}</td>
+                <td>
+                    <span class="kt-badge kt-badge-outline">{{ $q->quiz_type === 'multiple_choice' ? 'Multiple Choice' : 'Identification' }}</span>
+                </td>
+                <td>{{ optional($q->subject)->subject_name }}</td>
+                <td class="text-secondary-foreground text-sm">
+                    @if ($q->quiz_type === 'multiple_choice')
+                        {{ $q->correct_answer }}. {{ $q->choices[$q->correct_answer] ?? '' }}
+                    @else
+                        @php $ans = json_decode($q->correct_answer, true); @endphp
+                        {{ is_array($ans) ? implode(', ', $ans) : $q->correct_answer }}
+                    @endif
+                </td>
+                <td>
+                    @forelse ($q->eligibleAssessments as $a)
+                        <span class="kt-badge kt-badge-sm kt-badge-outline">{{ $a->assessment_code }}</span>
+                    @empty
+                        <span class="text-xs text-secondary-foreground">Not used yet</span>
+                    @endforelse
+                </td>
+                <td class="text-xs text-secondary-foreground">{{ $q->batch_label ?? '—' }}</td>
+                <td class="text-center">
+                    <x-table-actions
+                        :edit-modal="route('educator.quizzes.edit', $q)" edit-modal-title="Edit question"
+                        :delete="route('educator.quizzes.destroy', $q)" confirm="Delete this question?" />
+                </td>
+            </tr>
+        @empty
+            <tr><td colspan="7" class="text-center text-secondary-foreground py-5">No questions yet. Use "Add question" or Bulk upload.</td></tr>
+        @endforelse
+    </x-data-table>
 
     <x-modal id="form_modal" width="640px" />
 
-    @php
-        // Rich option label: "CODE — SUBJECT (SECTION)" (same as the manual quiz picker).
-        $label = fn ($a) => trim($a->assessment_code
-            . ($a->subject ? ' — ' . $a->subject->subject_name : '')
-            . ($a->section ? ' (' . $a->section->section_name . ')' : ''));
-    @endphp
     {{-- Bulk upload: static form in the x-modal slot (same pattern as admin permissions' perm_add_modal). --}}
     <x-modal id="kt_quiz_upload" title="Upload Quiz Files" width="640px">
         <form method="POST" action="{{ route('educator.quizzes.upload') }}" enctype="multipart/form-data" class="flex flex-col gap-4">
@@ -119,17 +91,27 @@
                 </a>
             </div>
 
-            {{-- Target Assessment --}}
+            {{-- Target Subject --}}
             <div class="flex flex-col gap-1">
-                <label class="kt-form-label">Target Assessment</label>
-                <select name="assessment_ids[]" class="kt-select w-full" multiple required
-                        data-kt-select="true" data-kt-select-multiple="true" data-kt-select-enable-search="true"
-                        data-kt-select-placeholder="Select one or more assessments"
-                        data-kt-select-search-placeholder="Search assessments…"
-                        data-count-summary="assessment" data-target-assessments>
-                    @foreach ($assessments as $a)<option value="{{ $a->id }}">{{ $label($a) }}</option>@endforeach
+                <label class="kt-form-label">Target Subject</label>
+                <select name="subject_id" class="kt-select w-full" required
+                        data-kt-select="true" data-kt-select-enable-search="true"
+                        data-kt-select-placeholder="Select a subject"
+                        data-kt-select-search-placeholder="Search subjects…">
+                    @foreach ($subjects as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} — {{ $s->subject_name }}</option>@endforeach
                 </select>
-                <span class="text-xs text-secondary-foreground" data-selected-list data-empty="No target assessments selected.">No target assessments selected.</span>
+            </div>
+
+            {{-- Also add to assessments (optional) --}}
+            <div class="flex flex-col gap-1">
+                <label class="kt-form-label">Also Add To These Assessments <span class="text-secondary-foreground font-normal">(optional)</span></label>
+                <select name="assessment_ids[]" class="kt-select w-full" multiple
+                        data-kt-select="true" data-kt-select-multiple="true" data-kt-select-enable-search="true"
+                        data-kt-select-placeholder="Not attached to any assessment yet"
+                        data-kt-select-search-placeholder="Search assessments…">
+                    @foreach ($assessments as $a)<option value="{{ $a->id }}">{{ trim($a->assessment_code . ($a->subject ? ' — ' . $a->subject->subject_name : '')) }}</option>@endforeach
+                </select>
+                <span class="text-xs text-secondary-foreground">Must match the target subject above.</span>
             </div>
 
             {{-- Files --}}
@@ -150,36 +132,4 @@
             </div>
         </form>
     </x-modal>
-
-    @push('scripts')
-    <script nonce="{{ $cspNonce ?? '' }}">
-        (function () {
-            var bar = document.getElementById('quiz_filters');
-            if (!bar) return;
-            var acc = document.querySelector('[data-kt-accordion]');
-            var selects = bar.querySelectorAll('select[data-quiz-filter]');
-            var items = acc ? acc.querySelectorAll('.kt-accordion-item') : [];
-            var noMatch = document.getElementById('quiz_no_match');
-
-            function apply() {
-                var visible = 0;
-                items.forEach(function (item) {
-                    var show = true;
-                    selects.forEach(function (sel) {
-                        if (sel.value && item.getAttribute('data-' + sel.dataset.quizFilter) !== sel.value) show = false;
-                    });
-                    item.classList.toggle('hidden', !show);
-                    if (show) visible++;
-                });
-                if (noMatch) noMatch.classList.toggle('hidden', visible !== 0);
-            }
-
-            selects.forEach(function (s) { s.addEventListener('change', apply); });
-            bar.querySelector('[data-quiz-filter-reset]').addEventListener('click', function () {
-                selects.forEach(function (s) { s.value = ''; });
-                apply();
-            });
-        })();
-    </script>
-    @endpush
 @endsection

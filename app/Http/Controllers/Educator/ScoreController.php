@@ -13,6 +13,7 @@ use App\Models\Score;
 use App\Models\Section;
 use App\Models\Subject;
 use App\Models\StudentAssessmentRetake;
+use App\Models\Quiz;
 use App\Services\NotificationService;
 use App\Services\OfflineScoreUploadService;
 use App\Services\ScoreExportService;
@@ -136,9 +137,11 @@ class ScoreController extends Controller
 
         // Attempt detail: per-question correct answer + student answer + isCorrect.
         // correct_answer is loaded SERVER-SIDE here (educator view) — never serialized to a student.
-        $score->load(['student:id,given_name,surname,user_id', 'assessment.quizzes']);
+        // Only this attempt's pinned drawn subset — not the assessment's full eligible pool.
+        $score->load(['student:id,given_name,surname,user_id']);
+        $reviewQuestions = Quiz::whereIn('id', $score->drawn_quiz_ids ?? [])->get();
 
-        return view('educator.scores.show', compact('score'));
+        return view('educator.scores.show', compact('score', 'reviewQuestions'));
     }
 
     public function grantRetake(GrantRetakeRequest $request): RedirectResponse

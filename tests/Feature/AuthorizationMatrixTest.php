@@ -126,8 +126,8 @@ class AuthorizationMatrixTest extends TestCase
     public function test_quiz_scope_hides_from_non_enrolled_and_correct_answer_hidden(): void
     {
         $quiz = Quiz::create([
-            'assessment_id' => $this->assessmentA->id, 'subject_id' => $this->subjectA->id, 'section_id' => $this->sectionA->id,
-            'educator_id' => $this->eduA->id, 'question' => '2+2', 'quiz_type' => 'multiple_choice',
+            'subject_id' => $this->subjectA->id, 'educator_id' => $this->eduA->id,
+            'question' => '2+2', 'quiz_type' => 'multiple_choice',
             'choices' => ['A' => '3', 'B' => '4'], 'correct_answer' => 'B',
         ]);
 

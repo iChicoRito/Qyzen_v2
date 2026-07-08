@@ -135,11 +135,15 @@ class DemoSeeder extends Seeder
             $quizzes = [];
             foreach ($questions as [$q, $type, $choices, $correct]) {
                 $quizzes[] = Quiz::create([
-                    'assessment_id' => $assessment->id, 'subject_id' => $subject->id, 'section_id' => $section->id,
-                    'educator_id' => $educator->id, 'question' => $q, 'quiz_type' => $type,
-                    'choices' => $choices, 'correct_answer' => $correct,
+                    'subject_id' => $subject->id, 'educator_id' => $educator->id,
+                    'question' => $q, 'quiz_type' => $type, 'choices' => $choices, 'correct_answer' => $correct,
                 ]);
             }
+
+            // The whole bank is eligible; pool draws all 4 every time (matches the old fixed set).
+            $quizIds = collect($quizzes)->pluck('id')->all();
+            $assessment->eligibleQuizzes()->sync($quizIds);
+            $assessment->update(['pool_size' => count($quizIds)]);
 
             // A couple of submitted scores so dashboards / history populate.
             foreach (array_slice($students, 0, 3) as $idx => $student) {
@@ -153,6 +157,7 @@ class DemoSeeder extends Seeder
                     'student_id' => $student->id, 'educator_id' => $educator->id, 'assessment_id' => $assessment->id,
                     'subject_id' => $subject->id, 'section_id' => $section->id,
                     'score' => $correctCount, 'total_questions' => 4, 'student_answer' => $answers,
+                    'drawn_quiz_ids' => $quizIds,
                     'warning_attempts' => 0, 'status' => $isPassed ? 'passed' : 'failed', 'is_passed' => $isPassed,
                     'taken_at' => now()->subHour(), 'submitted_at' => now()->subHour(),
                 ]);

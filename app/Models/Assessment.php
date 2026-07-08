@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -48,7 +49,7 @@ class Assessment extends Model
         'educator_id', 'subject_id', 'section_id', 'assessment_code', 'time_limit',
         'cheating_attempts', 'is_shuffle', 'is_active', 'start_date', 'end_date',
         'start_time', 'end_time', 'term', 'allow_review', 'allow_hint', 'hint_count',
-        'allow_retake', 'retake_count',
+        'allow_retake', 'retake_count', 'pool_size',
     ];
 
     protected $casts = [
@@ -62,6 +63,7 @@ class Assessment extends Model
         'hint_count' => 'integer',
         'allow_retake' => 'boolean',
         'retake_count' => 'integer',
+        'pool_size' => 'integer',
     ];
 
     public function educator(): BelongsTo
@@ -109,9 +111,20 @@ class Assessment extends Model
         ];
     }
 
-    public function quizzes(): HasMany
+    // Task 51: the eligible bank-question set this assessment may randomly draw from.
+    // Named distinctly from the old quizzes() (removed) so every call site was forced to be
+    // touched deliberately rather than silently changing meaning.
+    public function eligibleQuizzes(): BelongsToMany
     {
-        return $this->hasMany(Quiz::class, 'assessment_id');
+        return $this->belongsToMany(Quiz::class, 'tbl_assessment_question_pool', 'assessment_id', 'quiz_id')
+            ->withTimestamps();
+    }
+
+    // How many questions a student will actually get: pool_size capped by what's eligible, so a
+    // stale/misconfigured pool (e.g. a question deleted after save) never under/over-draws silently.
+    public function effectivePoolSize(): int
+    {
+        return min($this->pool_size, $this->eligibleQuizzes()->count());
     }
 
     public function scores(): HasMany

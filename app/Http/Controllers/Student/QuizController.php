@@ -35,8 +35,7 @@ class QuizController extends Controller
         $user = Auth::user();
 
         $query = Assessment::visibleTo($user)
-            ->with(['subject:id,subject_code,subject_name', 'section:id,section_name', 'academicTerm:id,term_name'])
-            ->withCount('quizzes');
+            ->with(['subject:id,subject_code,subject_name', 'section:id,section_name', 'academicTerm:id,term_name']);
         TableQuery::search($query, $request->query('search'), [
             'assessment_code',
             fn (Builder $q, string $term) => $q->orWhereHas('subject', fn ($s) => $s
@@ -51,7 +50,7 @@ class QuizController extends Controller
         $assessments->setCollection($assessments->getCollection()->map(function (Assessment $a) use ($user) {
             $av = $this->availability->summarize($a, $user->id);
             $a->setAttribute('availability', $av);
-            [$label, $color] = $this->displayStatus($av['badge'], (int) $a->quizzes_count);
+            [$label, $color] = $this->displayStatus($av['badge'], $a->pool_size);
             // Task 21: a finished, no-retake-left attempt reads "Already Taken" (was
             // mislabelled "Available"). Takes precedence — it can never be retaken.
             if ($av['submitted_attempts'] > 0 && $av['remaining'] === 0) {
@@ -60,7 +59,7 @@ class QuizController extends Controller
             $a->setAttribute('status_label', $label);
             $a->setAttribute('status_color', $color);
             // Can only start when takeable AND questions exist (take() redirects on empty).
-            $a->setAttribute('startable', $av['can_take'] && $a->quizzes_count > 0);
+            $a->setAttribute('startable', $av['can_take'] && $a->pool_size > 0);
 
             return $a;
         }));
@@ -96,7 +95,7 @@ class QuizController extends Controller
         $this->authorize('view', $assessment); // enrollment-gated via AssessmentPolicy
 
         $availability = $this->availability->summarize($assessment, Auth::id());
-        $questionCount = Quiz::where('assessment_id', $assessment->id)->count();
+        $questionCount = $assessment->effectivePoolSize();
         $attempts = Score::where('assessment_id', $assessment->id)
             ->where('student_id', Auth::id())
             ->orderByDesc('submitted_at')->get(['id', 'uuid', 'score', 'total_questions', 'is_passed', 'status', 'submitted_at']);
@@ -125,21 +124,30 @@ class QuizController extends Controller
                     ->with('status', 'This assessment is not available to take right now.');
         }
 
+        // Don't anchor an attempt (and burn a pool draw) for an assessment with no eligible
+        // questions at all — bail before creating any Score row.
+        if ($assessment->effectivePoolSize() === 0) {
+            return redirect()->route('student.assessments.details', $assessment)
+                ->with('status', 'This assessment has no questions yet.');
+        }
+
+        // Anchor the attempt: ensure the in-progress row exists so taken_at (the true start
+        // for the timer) is fixed on first screen load, before any autosave. This is also where
+        // the pool draw is pinned (Task 51) — must resolve before loading questions below.
+        $draft = Score::where('assessment_id', $assessment->id)
+            ->where('student_id', Auth::id())
+            ->where('status', 'in_progress')->first()
+            ?? $this->grading->saveDraft(Auth::user(), $assessment, [], 0);
+
         // Questions WITHOUT correct_answer (model hides it; we also select explicit columns).
-        $questions = Quiz::where('assessment_id', $assessment->id)
+        // Only the pinned drawn subset for this attempt — never the full eligible pool.
+        $questions = Quiz::whereIn('id', $draft->drawn_quiz_ids ?? [])
             ->get(['id', 'question', 'quiz_type', 'choices']);
 
         if ($questions->isEmpty()) {
             return redirect()->route('student.assessments.details', $assessment)
                 ->with('status', 'This assessment has no questions yet.');
         }
-
-        // Anchor the attempt: ensure the in-progress row exists so taken_at (the true start
-        // for the timer) is fixed on first screen load, before any autosave.
-        $draft = Score::where('assessment_id', $assessment->id)
-            ->where('student_id', Auth::id())
-            ->where('status', 'in_progress')->first()
-            ?? $this->grading->saveDraft(Auth::user(), $assessment, [], 0);
 
         // Task 21: shuffle a fresh order on every load when is_shuffle is on. Answers are keyed by
         // question id (name="answers[{id}]") and MC values are the choice key, so reordering the

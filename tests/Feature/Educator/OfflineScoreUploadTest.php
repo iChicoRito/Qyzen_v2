@@ -59,16 +59,16 @@ class OfflineScoreUploadTest extends TestCase
             'start_time' => '08:00',
             'end_time' => '09:00',
         ]);
-        Quiz::create([
-            'assessment_id' => $this->assessment->id,
+        $quiz = Quiz::create([
             'subject_id' => $subject->id,
-            'section_id' => $section->id,
             'educator_id' => $this->educator->id,
             'question' => '2+2',
             'quiz_type' => 'multiple_choice',
             'choices' => ['A' => '3', 'B' => '4'],
             'correct_answer' => 'B',
         ]);
+        $this->assessment->eligibleQuizzes()->sync([$quiz->id]);
+        $this->assessment->update(['pool_size' => 1]);
         Enrolled::create([
             'student_id' => $this->student->id,
             'educator_id' => $this->educator->id,

@@ -29,7 +29,7 @@ class PrelimScoreSeeder extends Seeder
         DB::transaction(function () use ($assessments, $notifications, &$created) {
             foreach ($assessments as $assessment) {
                 $roster = Enrolled::with('student')->where('subject_id', $assessment->subject_id)->where('is_active', true)->get();
-                $quizzes = $assessment->quizzes()->get(['id', 'correct_answer']);
+                $quizzes = $assessment->eligibleQuizzes()->get(['tbl_quizzes.id', 'correct_answer']);
 
                 foreach ($roster as $enrolled) {
                     $score = Score::firstOrCreate(
@@ -72,6 +72,7 @@ class PrelimScoreSeeder extends Seeder
             'score' => $correctCount,
             'total_questions' => $total,
             'student_answer' => $answers,
+            'drawn_quiz_ids' => $quizzes->pluck('id')->all(),
             'warning_attempts' => 0,
             'status' => $isPassed ? 'passed' : 'failed',
             'is_passed' => $isPassed,

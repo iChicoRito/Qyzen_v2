@@ -12,6 +12,7 @@ use App\Http\Controllers\Auth\ForcePasswordChangeController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\Educator\AssessmentController;
+use App\Http\Controllers\Educator\AssessmentQuestionPoolController;
 use App\Http\Controllers\Educator\ChatController;
 use App\Http\Controllers\Educator\DashboardController as EducatorDashboardController;
 use App\Http\Controllers\Educator\EnrollmentController;
@@ -169,10 +170,13 @@ Route::middleware(['auth', 'verified', 'role:educator'])
 
         Route::resource('assessments', AssessmentController::class)->except('show');
 
-        // G6 quizzes: bulk upload + delete-all-for-assessment.
+        // Task 51: question pool config — which bank questions are eligible + draw size N.
+        Route::get('assessments/{assessment}/pool', [AssessmentQuestionPoolController::class, 'edit'])->name('assessments.pool.edit');
+        Route::put('assessments/{assessment}/pool', [AssessmentQuestionPoolController::class, 'update'])->name('assessments.pool.update');
+
+        // G6 quizzes (now the question bank): bulk upload.
         Route::get('quizzes/upload/template', [QuizController::class, 'uploadTemplate'])->name('quizzes.upload.template');
         Route::post('quizzes/upload', [QuizController::class, 'upload'])->name('quizzes.upload');
-        Route::delete('quizzes/assessment/{assessment}', [QuizController::class, 'destroyForAssessment'])->name('quizzes.destroy-for-assessment');
         Route::resource('quizzes', QuizController::class)->except('show');
 
         // G7 scores (read-only) + grant retake.

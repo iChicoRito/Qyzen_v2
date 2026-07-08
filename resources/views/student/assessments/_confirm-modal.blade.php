@@ -1,5 +1,5 @@
 {{-- Task 17: per-card confirmation modal. Static KTUI modal (enrollment-import pattern),
-     toggled by the card's "Take Assessment" button. $a carries ->availability + ->quizzes_count.
+     toggled by the card's "Take Assessment" button. $a carries ->availability + ->pool_size.
      ponytail: one modal per card — fine for the handful a student sees. --}}
 @php
     $av = $a->availability;
@@ -25,7 +25,7 @@
                     {{ optional($a->subject)->subject_code }} — {{ optional($a->subject)->subject_name }}
                     @if ($a->section) · {{ $a->section->section_name }} @endif
                 </span>
-                <span class="text-sm text-secondary-foreground">{{ $a->quizzes_count }} question(s) · {{ $a->time_limit }} min time limit</span>
+                <span class="text-sm text-secondary-foreground">{{ $a->pool_size }} question(s) · {{ $a->time_limit }} min time limit</span>
             </div>
 
             {{-- 2. Schedule --}}
@@ -86,7 +86,7 @@
                     <a href="{{ route('student.take-quiz', $a) }}" class="kt-btn kt-btn-primary"><i class="ki-filled ki-rocket"></i> Start Assessment</a>
                 @else
                     @php
-                        $reason = $a->quizzes_count === 0 ? 'Not ready yet — no questions'
+                        $reason = $a->pool_size === 0 ? 'Not ready yet — no questions'
                             : ($av['badge'] === 'Upcoming' ? 'Not yet open'
                             : ($av['badge'] === 'Expired' ? 'No longer available'
                             : ($av['remaining'] <= 0 ? 'No attempts remaining' : 'Not available right now')));

@@ -10,7 +10,7 @@
         ['label' => 'Enrollment',  'url' => route('educator.enrollment.index'),  'active' => request()->routeIs('educator.enrollment.*'),                                 'icon' => 'people'],
         ['heading' => 'Assessment'],
         ['label' => 'Assessments', 'url' => route('educator.assessments.index'), 'active' => request()->routeIs('educator.assessments.*'),                                'icon' => 'questionnaire-tablet'],
-        ['label' => 'Quizzes',     'url' => route('educator.quizzes.index'),     'active' => request()->routeIs('educator.quizzes.*'),                                    'icon' => 'note-2'],
+        ['label' => 'Question Bank', 'url' => route('educator.quizzes.index'),   'active' => request()->routeIs('educator.quizzes.*'),                                    'icon' => 'note-2'],
         ['label' => 'Scores',      'url' => route('educator.scores.index'),      'active' => request()->routeIs('educator.scores.*'),                                     'icon' => 'chart-simple'],
         ['heading' => 'Resources'],
         ['label' => 'Materials',   'url' => route('educator.materials.index'),   'active' => request()->routeIs('educator.materials.*'),                                  'icon' => 'folder'],

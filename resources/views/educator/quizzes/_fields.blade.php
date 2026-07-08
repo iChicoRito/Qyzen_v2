@@ -1,7 +1,7 @@
 @php
     $q = $quiz ?? null;
     $choices = old('choices', $q?->choices ?? ['A' => '', 'B' => '', 'C' => '', 'D' => '']);
-    $selectedAssessment = old('assessment_id', $q?->assessment_id ?? ($selectedAssessment ?? null));
+    $selectedSubject = old('subject_id', $q?->subject_id ?? ($selectedSubject ?? null));
     $type = old('quiz_type', $q?->quiz_type ?? 'multiple_choice');
     $correct = old('correct_answer', $q?->correct_answer);
     // Identification answers: correct_answer may be a plain string or a JSON array of accepted answers.
@@ -11,35 +11,19 @@
         $idAnswers = is_array($decoded) ? $decoded : ($correct !== null && $correct !== '' ? [$correct] : ['']);
     }
     $isMc = $type === 'multiple_choice';
-    $editing = $q !== null;
-    // Rich option label: "CODE — SUBJECT (SECTION)".
-    $label = fn ($a) => trim($a->assessment_code
-        . ($a->subject ? ' — ' . $a->subject->subject_name : '')
-        . ($a->section ? ' (' . $a->section->section_name . ')' : ''));
-    $selectedIds = old('assessment_ids', $selectedAssessment ? [$selectedAssessment] : []);
+    $selectedAssessmentIds = old('assessment_ids', $selectedAssessmentIds ?? []);
+    // Rich option label: "CODE — SUBJECT".
+    $assessmentLabel = fn ($a) => trim($a->assessment_code . ($a->subject ? ' — ' . $a->subject->subject_name : ''));
 @endphp
 <div class="flex flex-col gap-5">
     <div class="flex flex-col gap-1">
-        <label class="kt-form-label">Choose Assessment</label>
-        @if ($editing)
-            {{-- Edit acts on one question → single searchable select. --}}
-            <select name="assessment_id" class="kt-select w-full"
-                    data-kt-select="true" data-kt-select-enable-search="true"
-                    data-kt-select-search-placeholder="Search assessments…">
-                @foreach ($assessments as $a)<option value="{{ $a->id }}" @selected($selectedAssessment==$a->id)>{{ $label($a) }}</option>@endforeach
-            </select>
-        @else
-            {{-- Create: add the same question to one or more assessments (searchable multi-select). --}}
-            <select name="assessment_ids[]" class="kt-select w-full" multiple
-                    data-kt-select="true" data-kt-select-multiple="true" data-kt-select-enable-search="true"
-                    data-kt-select-placeholder="Select assessments…"
-                    data-kt-select-search-placeholder="Search assessments…"
-                    data-count-summary="assessment">
-                @foreach ($assessments as $a)<option value="{{ $a->id }}" @selected(in_array($a->id, $selectedIds))>{{ $label($a) }}</option>@endforeach
-            </select>
-        @endif
-        @error('assessment_id')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
-        @error('assessment_ids')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
+        <label class="kt-form-label">Choose Subject</label>
+        <select name="subject_id" class="kt-select w-full"
+                data-kt-select="true" data-kt-select-enable-search="true"
+                data-kt-select-search-placeholder="Search subjects…">
+            @foreach ($subjects as $s)<option value="{{ $s->id }}" @selected($selectedSubject==$s->id)>{{ $s->subject_code }} — {{ $s->subject_name }}</option>@endforeach
+        </select>
+        @error('subject_id')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
 
     {{-- Quiz Type: full-width select drives which section shows (delegated JS on [data-quiz-type]). --}}
@@ -92,5 +76,20 @@
                 </div>
             @endforeach
         </div>
+    </div>
+
+    {{-- Optional: skip a separate trip to each assessment's Question Pool screen — attach this
+         question to one or more assessments' pools right now. Draw size (N) is unaffected; adjust
+         it on the assessment's own Question Pool screen if needed. --}}
+    <div class="flex flex-col gap-1">
+        <label class="kt-form-label">Also Add To These Assessments <span class="text-secondary-foreground font-normal">(optional)</span></label>
+        <select name="assessment_ids[]" class="kt-select w-full" multiple
+                data-kt-select="true" data-kt-select-multiple="true" data-kt-select-enable-search="true"
+                data-kt-select-placeholder="Not attached to any assessment yet"
+                data-kt-select-search-placeholder="Search assessments…">
+            @foreach ($assessments as $a)<option value="{{ $a->id }}" @selected(in_array($a->id, $selectedAssessmentIds))>{{ $assessmentLabel($a) }}</option>@endforeach
+        </select>
+        <span class="text-xs text-secondary-foreground">Immediately makes this question eligible to be drawn for the selected assessments.</span>
+        @error('assessment_ids')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
 </div>

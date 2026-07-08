@@ -140,11 +140,13 @@ class ScoreExportTest extends TestCase
             'assessment_code' => 'Q1', 'time_limit' => '30', 'term' => $this->term->id,
             'start_date' => '2026-07-01', 'end_date' => '2026-07-02', 'start_time' => '08:00', 'end_time' => '09:00',
         ]);
-        Quiz::create([
-            'assessment_id' => $assessment->id, 'subject_id' => $subject->id, 'section_id' => $section->id,
-            'educator_id' => $this->eduA->id, 'question' => '2+2', 'quiz_type' => 'multiple_choice',
+        $quiz = Quiz::create([
+            'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+            'question' => '2+2', 'quiz_type' => 'multiple_choice',
             'choices' => ['A' => '3', 'B' => '4'], 'correct_answer' => 'B',
         ]);
+        $assessment->eligibleQuizzes()->sync([$quiz->id]);
+        $assessment->update(['pool_size' => 1]);
 
         $submitted = $this->makeUser('student', ['surname' => 'Zamora', 'given_name' => 'Ann']);
         $notSubmitted = $this->makeUser('student', ['surname' => 'Cruz', 'given_name' => 'Bea']);

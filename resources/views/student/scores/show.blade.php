@@ -7,7 +7,7 @@
     $a = $score->assessment;
     $pct = $score->total_questions ? round($score->score / $score->total_questions * 100) : 0;
     $incorrect = max(0, $score->total_questions - $score->score);
-    $bestPct = $score->total_questions ? round($bestScore / $score->total_questions * 100) : 0;
+    $bestPct = $bestTotal ? round($bestScore / $bestTotal * 100) : 0;
     $ring = $score->is_passed ? '#22c55e' : '#ef4444';
     $isBest = $score->id === $bestAttemptId;
     $fmtTime = fn ($t) => $t ? \Carbon\Carbon::parse($t)->format('g:i A') : '—';
@@ -69,7 +69,7 @@
                 {{-- Non-best note --}}
                 @unless ($isBest)
                     <div class="rounded-lg border border-border border-dashed p-2.5 text-xs text-secondary-foreground text-center">
-                        You are viewing a past attempt. Your best score is {{ $bestScore }}/{{ $score->total_questions }} ({{ $bestPct }}%).
+                        You are viewing a past attempt. Your best score is {{ $bestScore }}/{{ $bestTotal }} ({{ $bestPct }}%).
                     </div>
                 @endunless
 
@@ -78,7 +78,7 @@
                     $snapshot = [
                         ['Score', $score->score.'/'.$score->total_questions],
                         ['Percentage', $pct.'%'],
-                        ['Best score', $bestScore.'/'.$score->total_questions.' ('.$bestPct.'%)'],
+                        ['Best score', $bestScore.'/'.$bestTotal.' ('.$bestPct.'%)'],
                         ['Educator', optional($a->educator)->name ?? '—'],
                         ['Passing requirement', '≥ 75%'],
                     ];

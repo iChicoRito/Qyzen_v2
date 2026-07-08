@@ -51,7 +51,9 @@
             @php
                 $a = $s->assessment;
                 $pct = $s->total_questions ? round($s->score / $s->total_questions * 100) : 0;
-                $best = $bestByAssessment[$s->assessment_id] ?? $s->score;
+                $bestRow = $bestByAssessment[$s->assessment_id] ?? $s;
+                $best = $bestRow->score;
+                $bestTotal = $bestRow->total_questions;
             @endphp
             <tr>
                 <td class="text-mono font-medium text-sm">
@@ -72,7 +74,7 @@
                 <td>
                     <div class="flex flex-col">
                         <span class="text-mono">{{ $s->score }}/{{ $s->total_questions }}</span>
-                        <span class="text-xs text-secondary-foreground">Best {{ $best }}/{{ $s->total_questions }}</span>
+                        <span class="text-xs text-secondary-foreground">Best {{ $best }}/{{ $bestTotal }}</span>
                     </div>
                 </td>
                 <td class="text-mono">{{ $s->attempts_count }}</td>

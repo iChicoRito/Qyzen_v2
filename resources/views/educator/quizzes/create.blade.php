@@ -4,8 +4,8 @@
 @section('content')
     @include('admin._status')
     <div class="kt-card"><div class="kt-card-content p-5">
-        @if ($assessments->isEmpty())
-            <div class="kt-alert kt-alert-warning">Create an assessment first.</div>
+        @if ($subjects->isEmpty())
+            <div class="kt-alert kt-alert-warning">Create a subject first.</div>
         @else
             <form method="POST" action="{{ route('educator.quizzes.store') }}">@csrf
                 @include('educator.quizzes._fields')

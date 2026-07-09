@@ -39,6 +39,19 @@ class NotificationController extends Controller
         ]);
     }
 
+    public function open(int $notification): RedirectResponse
+    {
+        $row = Notification::forRecipient((int) Auth::id())->findOrFail($notification);
+
+        if (! $row->is_read) {
+            $row->update(['is_read' => true, 'read_at' => now()]);
+        }
+
+        return $row->link_href === '#'
+            ? back()
+            : redirect($row->link_href);
+    }
+
     public function markAllRead(Request $request): JsonResponse|RedirectResponse
     {
         Notification::forRecipient((int) Auth::id())

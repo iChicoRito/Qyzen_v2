@@ -17,6 +17,10 @@
                 <option value="">All sections</option>
                 @foreach ($filterSections as $s)<option value="{{ $s->id }}">{{ $s->section_name }}</option>@endforeach
             </select>
+            <select data-filter="assessment" class="kt-select w-40">
+                <option value="">All assessment codes</option>
+                @foreach ($filterAssessments as $assessmentCode)<option value="{{ $assessmentCode }}">{{ $assessmentCode }}</option>@endforeach
+            </select>
             <select data-filter="status" class="kt-select w-32">
                 <option value="">All statuses</option>
                 <option value="active">Active</option>
@@ -38,7 +42,7 @@
         </x-slot:head>
         @forelse ($assessments as $a)
             <tr>
-                <td class="text-mono font-medium text-sm">{{ $a->assessment_code }}</td>
+                <td class="text-mono font-medium text-sm"><span data-filter-value="assessment" data-filter-key="{{ $a->assessment_code }}" hidden></span>{{ $a->assessment_code }}</td>
                 <td><span data-filter-value="subject" data-filter-key="{{ $a->subject_id }}" hidden></span>{{ optional($a->subject)->subject_name }}</td>
                 <td><span data-filter-value="section" data-filter-key="{{ $a->section_id }}" hidden></span>{{ optional($a->section)->section_name }}</td>
                 <td>{{ optional($a->academicTerm)->term_name }}</td>

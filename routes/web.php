@@ -60,7 +60,6 @@ Route::middleware(['auth', 'verified', 'role:student'])
 
         // H2 assessment list.
         Route::get('assessments', [StudentQuizController::class, 'index'])->name('assessments.index');
-        Route::get('assessments/{assessment}', [StudentQuizController::class, 'details'])->name('assessments.details');
 
         // H3–H6 take-quiz: load, autosave draft, submit (server-side grading).
         Route::get('take-quiz/{assessment}', [StudentQuizController::class, 'take'])->name('take-quiz');
@@ -100,6 +99,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // read-all precedes {notification}/read so the literal segment isn't captured as an id.
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::get('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
 
     // Task 30 — private 1:1 student/educator messaging. Shared group: enrollment (subject-
@@ -185,7 +185,8 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         // G6 quizzes (now the question bank): bulk upload.
         Route::get('quizzes/upload/template', [QuizController::class, 'uploadTemplate'])->name('quizzes.upload.template');
         Route::post('quizzes/upload', [QuizController::class, 'upload'])->name('quizzes.upload');
-        Route::resource('quizzes', QuizController::class)->except('show');
+        Route::get('quizzes/form', [QuizController::class, 'create'])->name('quizzes.create');
+        Route::resource('quizzes', QuizController::class)->except(['show', 'create'])->whereNumber('quiz');
 
         // G7 scores (read-only) + grant retake.
         Route::get('scores', [ScoreController::class, 'index'])->name('scores.index');

@@ -87,6 +87,28 @@ class NotificationWorkflowTest extends TestCase
         $this->assertFalse($theirs->fresh()->is_read);
     }
 
+    public function test_clicking_a_notification_marks_only_it_read_then_redirects(): void
+    {
+        $mine = $this->makeNotif($this->student->id, [
+            'link_path' => route('student.assessments.index'),
+        ]);
+        $otherMine = $this->makeNotif($this->student->id);
+        $theirs = $this->makeNotif($this->otherStudent->id);
+
+        $this->actingAs($this->student)
+            ->get(route('notifications.open', $mine))
+            ->assertRedirect('/student/assessments');
+
+        $this->assertTrue($mine->fresh()->is_read);
+        $this->assertNotNull($mine->fresh()->read_at);
+        $this->assertFalse($otherMine->fresh()->is_read);
+        $this->assertFalse($theirs->fresh()->is_read);
+
+        $this->actingAs($this->student)
+            ->get(route('notifications.open', $theirs))
+            ->assertNotFound();
+    }
+
     public function test_mark_all_read_clears_only_callers_unread(): void
     {
         $this->makeNotif($this->student->id);
@@ -143,7 +165,7 @@ class NotificationWorkflowTest extends TestCase
     // path so a notification created under one host (e.g. 127.0.0.1:8000) still works on another.
     public function test_bell_link_renders_host_relative_path(): void
     {
-        $this->makeNotif($this->student->id, [
+        $notification = $this->makeNotif($this->student->id, [
             'title' => 'Go here', 'link_path' => 'http://127.0.0.1:8000/student/assessments',
         ]);
 
@@ -151,7 +173,7 @@ class NotificationWorkflowTest extends TestCase
 
         preg_match('/<a[^>]+data-kt-notif-item[^>]*>/', $res->getContent(), $matches);
 
-        $this->assertStringContainsString('href="/student/assessments"', $matches[0] ?? '');
+        $this->assertStringContainsString('href="'.route('notifications.open', $notification, false).'"', $matches[0] ?? '');
         $this->assertStringNotContainsString('http://127.0.0.1:8000/student/assessments', $matches[0] ?? '');
     }
 

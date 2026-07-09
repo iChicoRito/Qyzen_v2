@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Educator;
 
+use App\Events\ConversationActivity;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreAssessmentRequest;
 use App\Http\Requests\UpdateAssessmentRequest;
@@ -11,23 +12,31 @@ use App\Models\Enrolled;
 use App\Models\Section;
 use App\Models\StudentAssessmentExemption;
 use App\Models\Subject;
+use App\Models\User;
+use App\Services\ConversationService;
 use App\Services\NotificationService;
 use App\Support\TableQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 // G5: educator assessments. status inactive→active is the publish trigger → notify enrolled students.
 class AssessmentController extends Controller
 {
-    public function __construct(private NotificationService $notifications) {}
+    public function __construct(
+        private NotificationService $notifications,
+        private ConversationService $conversations,
+    ) {}
 
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Assessment::class);
 
+        $selectedSubject = $request->query('subject');
+        $selectedSection = $request->query('section');
         $query = Assessment::query()
             ->where('tbl_assessments.educator_id', Auth::id())
             ->with(['subject:id,subject_code,subject_name', 'section:id,section_name', 'academicTerm:id,term_name']);
@@ -36,7 +45,7 @@ class AssessmentController extends Controller
             fn (Builder $q, string $term) => $q->orWhereHas('subject', fn ($s) => $s->where('subject_code', 'like', "%{$term}%")->orWhere('subject_name', 'like', "%{$term}%")),
             fn (Builder $q, string $term) => $q->orWhereHas('section', fn ($s) => $s->where('section_name', 'like', "%{$term}%")),
         ]);
-        TableQuery::filters($query, $request, ['subject' => 'subject_id', 'section' => 'section_id', 'status' => 'is_active']);
+        TableQuery::filters($query, $request, ['subject' => 'subject_id', 'section' => 'section_id', 'assessment' => 'assessment_code', 'status' => 'is_active']);
         TableQuery::sort($query, $request, [
             'code' => 'assessment_code',
             'subject' => function (Builder $q, string $direction): void {
@@ -70,8 +79,15 @@ class AssessmentController extends Controller
 
         $filterSubjects = Subject::visibleTo(Auth::user())->orderBy('subject_code')->get(['id', 'subject_code', 'subject_name']);
         $filterSections = Section::visibleTo(Auth::user())->orderBy('section_name')->get(['id', 'section_name']);
+        $filterAssessments = Assessment::visibleTo(Auth::user())
+            ->when($selectedSection, fn ($q) => $q->whereHas('subject', fn ($s) => $s->where('sections_id', $selectedSection)))
+            ->when($selectedSubject, fn ($q) => $q->where('subject_id', $selectedSubject))
+            ->select('assessment_code')
+            ->distinct()
+            ->orderBy('assessment_code')
+            ->pluck('assessment_code');
 
-        return view('educator.assessments.index', compact('assessments', 'filterSubjects', 'filterSections'));
+        return view('educator.assessments.index', compact('assessments', 'filterSubjects', 'filterSections', 'filterAssessments'));
     }
 
     public function create(): View
@@ -194,6 +210,7 @@ class AssessmentController extends Controller
             'student_ids' => ['required', 'array', 'min:1'],
             'student_ids.*' => ['integer'],
             'action' => ['required', 'in:exempt,unexempt'],
+            'reason' => ['nullable', 'string', 'max:255', Rule::requiredIf($request->input('action') === 'exempt')],
         ]);
 
         // Only students actually enrolled in this assessment's subject can be exempted — a
@@ -204,10 +221,38 @@ class AssessmentController extends Controller
             ->pluck('student_id');
 
         foreach ($studentIds as $studentId) {
-            StudentAssessmentExemption::updateOrCreate(
-                ['educator_id' => Auth::id(), 'student_id' => $studentId, 'assessment_id' => $assessment->id],
-                ['is_active' => $data['action'] === 'exempt'],
-            );
+            $values = ['is_active' => $data['action'] === 'exempt'];
+            if ($data['action'] === 'exempt') {
+                $values['reason'] = $data['reason'];
+            }
+
+            StudentAssessmentExemption::updateOrCreate([
+                'educator_id' => Auth::id(), 'student_id' => $studentId, 'assessment_id' => $assessment->id,
+            ], $values);
+
+        }
+
+        if ($data['action'] === 'exempt') {
+            $exemptionMessage = 'You have been exempted from assessment '.$assessment->assessment_code.'. Reason: '.$data['reason'];
+
+            $this->notifications->emitToMany(Auth::user(), 'assessment_exempted', $studentIds->all(), [
+                'subject_id' => $assessment->subject_id,
+                'assessment_id' => $assessment->id,
+                'section_id' => $assessment->section_id,
+                'title' => 'Assessment exemption',
+                'message' => $exemptionMessage,
+                'link_path' => route('student.assessments.index'),
+                'metadata' => ['reason' => $data['reason']],
+            ]);
+
+            foreach ($studentIds as $studentId) {
+                $conversation = $this->conversations->findOrCreateConversation(
+                    Auth::user(),
+                    User::findOrFail($studentId),
+                );
+                $this->conversations->sendMessage($conversation, Auth::user(), $exemptionMessage);
+                broadcast(new ConversationActivity((int) $studentId, $conversation->id));
+            }
         }
 
         $verb = $data['action'] === 'exempt' ? 'exempted' : 'un-exempted';

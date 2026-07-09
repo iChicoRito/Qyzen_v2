@@ -12,16 +12,14 @@
     }
     $isMc = $type === 'multiple_choice';
     $selectedAssessmentIds = old('assessment_ids', $selectedAssessmentIds ?? []);
-    // Rich option label: "CODE — SUBJECT".
-    $assessmentLabel = fn ($a) => trim($a->assessment_code . ($a->subject ? ' — ' . $a->subject->subject_name : ''));
 @endphp
 <div class="flex flex-col gap-5">
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Choose Subject</label>
         <select name="subject_id" class="kt-select w-full"
                 data-kt-select="true" data-kt-select-enable-search="true"
-                data-kt-select-search-placeholder="Search subjects…">
-            @foreach ($subjects as $s)<option value="{{ $s->id }}" @selected($selectedSubject==$s->id)>{{ $s->subject_code }} — {{ $s->subject_name }} ({{ optional($s->section)->section_name ?? 'No section' }})</option>@endforeach
+                data-kt-select-search-placeholder="Search subjectsâ€¦">
+            @foreach ($subjects as $s)<option value="{{ $s->id }}" @selected($selectedSubject==$s->id)>{{ $s->subject_code }} â€” {{ $s->subject_name }} ({{ optional($s->section)->section_name ?? 'No section' }})</option>@endforeach
         </select>
         @error('subject_id')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
@@ -78,18 +76,16 @@
         </div>
     </div>
 
-    {{-- Optional: skip a separate trip to each assessment's Question Pool screen — attach this
-         question to one or more assessments' pools right now. Draw size (N) is unaffected; adjust
-         it on the assessment's own Question Pool screen if needed. --}}
+    {{-- Optional: questions can be attached to any of your assessments, even across subjects. --}}
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Also Add To These Assessments <span class="text-secondary-foreground font-normal">(optional)</span></label>
         <select name="assessment_ids[]" class="kt-select w-full" multiple
                 data-kt-select="true" data-kt-select-multiple="true" data-kt-select-enable-search="true"
                 data-kt-select-placeholder="Not attached to any assessment yet"
-                data-kt-select-search-placeholder="Search assessments…">
-            @foreach ($assessments as $a)<option value="{{ $a->id }}" @selected(in_array($a->id, $selectedAssessmentIds))>{{ $assessmentLabel($a) }}</option>@endforeach
+                data-kt-select-search-placeholder="Search assessmentsâ€¦">
+            @foreach ($assessments as $assessment)<option value="{{ $assessment->id }}" @selected(in_array($assessment->id, $selectedAssessmentIds))>{{ trim($assessment->assessment_code . ($assessment->subject ? ' â€” ' . $assessment->subject->subject_name : '')) }}</option>@endforeach
         </select>
-        <span class="text-xs text-secondary-foreground">Immediately makes this question eligible to be drawn for the selected assessments.</span>
+        <span class="text-xs text-secondary-foreground">Questions can be attached to any of your assessments, even across subjects.</span>
         @error('assessment_ids')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
 </div>

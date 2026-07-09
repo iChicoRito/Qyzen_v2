@@ -19,14 +19,10 @@ class UpdateQuestionPoolRequest extends FormRequest
 
     public function rules(): array
     {
-        $subjectId = $this->route('assessment')->subject_id;
-
         return [
             'eligible_quiz_ids' => ['array'],
             'eligible_quiz_ids.*' => [
-                Rule::exists('tbl_quizzes', 'id')
-                    ->where('educator_id', Auth::id())
-                    ->where('subject_id', $subjectId),
+                Rule::exists('tbl_quizzes', 'id')->where('educator_id', Auth::id()),
             ],
             'pool_size' => ['required', 'integer', 'min:0'],
         ];

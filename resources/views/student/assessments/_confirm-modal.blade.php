@@ -41,6 +41,13 @@
                 </div>
             </div>
 
+            @if ($a->availability['badge'] === 'Exempted')
+                <div class="grid gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3.5">
+                    <h4 class="text-sm font-semibold text-mono">Exemption reason</h4>
+                    <p class="text-sm text-secondary-foreground">{{ $a->exemption_reason ?: 'No reason was provided.' }}</p>
+                </div>
+            @endif
+
             {{-- 3. Policies (receipt layout, matching the Schedule box) --}}
             <div class="grid gap-2">
                 <h4 class="text-sm font-semibold text-mono">Policies</h4>

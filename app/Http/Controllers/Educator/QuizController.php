@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateQuizRequest;
 use App\Imports\QuizzesImport;
 use App\Models\Assessment;
 use App\Models\Quiz;
+use App\Models\Section;
 use App\Models\Subject;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -30,6 +31,10 @@ class QuizController extends Controller
     {
         $this->authorize('viewAny', Quiz::class);
 
+        $selectedSection = $request->query('section');
+        $selectedSubject = $request->query('subject');
+        $selectedAssessment = $request->query('assessment');
+
         $query = Quiz::visibleTo(Auth::user())
             ->with(['subject:id,subject_code,subject_name,sections_id', 'subject.section:id,section_name', 'eligibleAssessments:id,assessment_code']);
         TableQuery::search($query, $request->query('search'), [
@@ -39,26 +44,28 @@ class QuizController extends Controller
                 ->orWhere('subject_name', 'like', "%{$term}%")),
         ]);
         TableQuery::filters($query, $request, [
+            'section' => fn (Builder $q, string $value) => $q->whereHas('subject', fn ($s) => $s->where('sections_id', $value)),
             'subject' => 'subject_id',
-            'type' => 'quiz_type',
-            'assessment' => fn (Builder $q, string $value) => $q->whereHas('eligibleAssessments', fn ($a) => $a->where('tbl_assessments.id', $value)),
+            'assessment' => fn (Builder $q, string $value) => $q->whereHas('eligibleAssessments', fn ($a) => $a->where('assessment_code', $value)),
             'batch' => 'batch_label',
         ]);
         TableQuery::sort($query, $request, ['question' => 'question', 'id' => 'id'], 'id', 'desc');
 
         $quizzes = $query->paginate(TableQuery::perPage($request))->withQueryString();
-        $subjects = $this->subjectOptions();
-        $assessments = $this->assessmentOptions();
-        $batches = $this->batchOptions();
+        $filterSections = $this->sectionOptions();
+        $filterSubjects = $this->subjectOptions($selectedSection);
+        $filterAssessments = $this->assessmentFilterOptions($selectedSection, $selectedSubject);
+        $assessmentOptions = $this->assessmentOptions();
+        $batches = $this->batchOptions($selectedSection, $selectedSubject, $selectedAssessment);
 
-        return view('educator.quizzes.index', compact('quizzes', 'subjects', 'assessments', 'batches'));
+        return view('educator.quizzes.index', compact('quizzes', 'filterSections', 'filterSubjects', 'filterAssessments', 'assessmentOptions', 'batches'));
     }
 
     public function create(Request $request): View
     {
         $this->authorize('create', Quiz::class);
 
-        return view('educator.quizzes.create', [
+        return view('educator.quizzes.form', [
             'subjects' => $this->subjectOptions(),
             'selectedSubject' => $request->query('subject_id'),
             'assessments' => $this->assessmentOptions(),
@@ -142,9 +149,6 @@ class QuizController extends Controller
 
         $subject = Subject::visibleTo(Auth::user())->findOrFail($request->input('subject_id'));
         $assessmentIds = array_filter((array) $request->input('assessment_ids', []));
-        if ($assessmentIds !== [] && Assessment::whereKey($assessmentIds)->where('subject_id', '!=', $subject->id)->exists()) {
-            throw ValidationException::withMessages(['assessment_ids' => 'Selected assessments must belong to the same subject as the upload.']);
-        }
         $files = $request->file('files');
         $uploadedAt = now()->format('M j, Y g:i A');
 
@@ -180,18 +184,37 @@ class QuizController extends Controller
         return redirect()->route('educator.quizzes.index')->with('status', "Uploaded {$created} question(s) to the bank.");
     }
 
-    private function subjectOptions()
+    private function sectionOptions()
     {
-        return Subject::visibleTo(Auth::user())->with('section:id,section_name')
+        return Section::visibleTo(Auth::user())
+            ->orderBy('section_name')->get(['id', 'section_name']);
+    }
+
+    private function subjectOptions(?string $sectionId = null)
+    {
+        return Subject::visibleTo(Auth::user())
+            ->when($sectionId, fn ($q) => $q->where('sections_id', $sectionId))
+            ->with('section:id,section_name')
             ->orderBy('subject_name')->get(['id', 'subject_code', 'subject_name', 'sections_id']);
     }
 
-    // Assessments for the "also add to these pools" picker, richly labeled by subject.
     private function assessmentOptions()
     {
         return Assessment::visibleTo(Auth::user())
             ->with('subject:id,subject_code,subject_name')
-            ->orderByDesc('id')->get();
+            ->orderBy('assessment_code')
+            ->get(['id', 'assessment_code', 'subject_id']);
+    }
+
+    private function assessmentFilterOptions(?string $sectionId = null, ?string $subjectId = null)
+    {
+        return Assessment::visibleTo(Auth::user())
+            ->when($sectionId, fn ($q) => $q->whereHas('subject', fn ($s) => $s->where('sections_id', $sectionId)))
+            ->when($subjectId, fn ($q) => $q->where('subject_id', $subjectId))
+            ->select('assessment_code')
+            ->distinct()
+            ->orderBy('assessment_code')
+            ->pluck('assessment_code');
     }
 
     private function syncAssessments(Quiz $quiz, array $assessmentIds): void
@@ -200,9 +223,12 @@ class QuizController extends Controller
     }
 
     // Distinct batch labels for this educator's questions, newest first, for the bank's filter dropdown.
-    private function batchOptions()
+    private function batchOptions(?string $sectionId = null, ?string $subjectId = null, ?string $assessmentCode = null)
     {
         return Quiz::visibleTo(Auth::user())
+            ->when($sectionId, fn ($q) => $q->whereHas('subject', fn ($s) => $s->where('sections_id', $sectionId)))
+            ->when($subjectId, fn ($q) => $q->where('subject_id', $subjectId))
+            ->when($assessmentCode, fn ($q) => $q->whereHas('eligibleAssessments', fn ($a) => $a->where('assessment_code', $assessmentCode)))
             ->whereNotNull('batch_label')
             ->selectRaw('batch_label, MAX(id) as max_id')
             ->groupBy('batch_label')

@@ -23,8 +23,7 @@ class AssessmentQuestionPoolController extends Controller
         $this->authorize('update', $assessment);
 
         $bankQuestions = Quiz::visibleTo(Auth::user())
-            ->where('subject_id', $assessment->subject_id)
-            ->with('eligibleAssessments:id,assessment_code')
+            ->with(['subject:id,subject_code,subject_name,sections_id', 'subject.section:id,section_name', 'eligibleAssessments:id,assessment_code'])
             ->orderBy('id')->get();
         $eligibleIds = $assessment->eligibleQuizzes()->pluck('tbl_quizzes.id')->all();
         $batches = $bankQuestions->pluck('batch_label')->filter()->unique()->values();

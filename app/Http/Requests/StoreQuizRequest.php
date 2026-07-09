@@ -63,17 +63,6 @@ class StoreQuizRequest extends FormRequest
                 }
             }
 
-            // A question can only be added to an assessment's pool if they share the same
-            // subject — the pool picker only ever lists same-subject questions to begin with.
-            $assessmentIds = array_filter((array) $this->input('assessment_ids', []));
-            if ($assessmentIds !== [] && $this->filled('subject_id')) {
-                $mismatched = Assessment::whereKey($assessmentIds)
-                    ->where('subject_id', '!=', $this->input('subject_id'))
-                    ->exists();
-                if ($mismatched) {
-                    $v->errors()->add('assessment_ids', 'Selected assessments must belong to the same subject as this question.');
-                }
-            }
         });
     }
 }

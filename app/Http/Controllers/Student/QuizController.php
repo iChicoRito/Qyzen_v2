@@ -8,6 +8,7 @@ use App\Models\Assessment;
 use App\Models\Quiz;
 use App\Models\Score;
 use App\Models\Section;
+use App\Models\StudentAssessmentExemption;
 use App\Models\Subject;
 use App\Services\AssessmentAvailabilityService;
 use App\Services\QuizGradingService;
@@ -47,6 +48,10 @@ class QuizController extends Controller
         TableQuery::sort($query, $request, ['assessment' => 'assessment_code', 'id' => 'id'], 'id', 'desc');
 
         $assessments = $query->paginate(TableQuery::perPage($request))->withQueryString();
+        $exemptionReasons = StudentAssessmentExemption::where('student_id', $user->id)
+            ->where('is_active', true)
+            ->whereIn('assessment_id', $assessments->getCollection()->pluck('id'))
+            ->pluck('reason', 'assessment_id');
         $assessments->setCollection($assessments->getCollection()->map(function (Assessment $a) use ($user) {
             $av = $this->availability->summarize($a, $user->id);
             $a->setAttribute('availability', $av);
@@ -63,6 +68,9 @@ class QuizController extends Controller
 
             return $a;
         }));
+        $assessments->getCollection()->each(function (Assessment $a) use ($exemptionReasons): void {
+            $a->setAttribute('exemption_reason', $exemptionReasons->get($a->id));
+        });
 
         $subjects = Subject::visibleTo($user)->orderBy('subject_name')->get(['id', 'subject_code', 'subject_name']);
         $sections = Section::visibleTo($user)->orderBy('section_name')->get(['id', 'section_name']);
@@ -91,20 +99,6 @@ class QuizController extends Controller
         };
     }
 
-    // H2: details panel.
-    public function details(Assessment $assessment): View
-    {
-        $this->authorize('view', $assessment); // enrollment-gated via AssessmentPolicy
-
-        $availability = $this->availability->summarize($assessment, Auth::id());
-        $questionCount = $assessment->effectivePoolSize();
-        $attempts = Score::where('assessment_id', $assessment->id)
-            ->where('student_id', Auth::id())
-            ->orderByDesc('submitted_at')->get(['id', 'uuid', 'score', 'total_questions', 'is_passed', 'status', 'submitted_at']);
-
-        return view('student.assessments.details', compact('assessment', 'availability', 'questionCount', 'attempts'));
-    }
-
     // H3: take-quiz session load — eligibility + draft restore + stable shuffle + server timer.
     public function take(Assessment $assessment): Response|RedirectResponse
     {
@@ -129,7 +123,7 @@ class QuizController extends Controller
         // Don't anchor an attempt (and burn a pool draw) for an assessment with no eligible
         // questions at all — bail before creating any Score row.
         if ($assessment->effectivePoolSize() === 0) {
-            return redirect()->route('student.assessments.details', $assessment)
+            return redirect()->route('student.assessments.index')
                 ->with('status', 'This assessment has no questions yet.');
         }
 
@@ -147,7 +141,7 @@ class QuizController extends Controller
             ->get(['id', 'question', 'quiz_type', 'choices']);
 
         if ($questions->isEmpty()) {
-            return redirect()->route('student.assessments.details', $assessment)
+            return redirect()->route('student.assessments.index')
                 ->with('status', 'This assessment has no questions yet.');
         }
 
@@ -263,7 +257,7 @@ class QuizController extends Controller
         // Re-validate eligibility server-side (don't trust the client's gate).
         $summary = $this->availability->summarize($assessment, Auth::id());
         if (! $summary['can_take']) {
-            return redirect()->route('student.assessments.details', $assessment)
+            return redirect()->route('student.assessments.index')
                 ->with('status', 'This attempt is no longer eligible.');
         }
 

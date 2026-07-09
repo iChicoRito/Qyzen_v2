@@ -5,6 +5,7 @@ namespace Tests\Feature\Educator;
 use App\Models\AcademicTerm;
 use App\Models\AcademicYear;
 use App\Models\Assessment;
+use App\Models\Conversation;
 use App\Models\Enrolled;
 use App\Models\Permission;
 use App\Models\Quiz;
@@ -16,6 +17,8 @@ use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Testing\File;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx as SpreadsheetWriter;
 use Tests\TestCase;
 
 // Stage G: educator feature tests. The critical concern is the OWNERSHIP GATE — educator A must
@@ -208,6 +211,7 @@ class EducatorFeaturesTest extends TestCase
         $this->actingAs($this->eduA)
             ->post(route('educator.assessments.exemptions.toggle', $assessment), [
                 'student_ids' => [$this->student->id, $otherStudent->id], 'action' => 'exempt',
+                'reason' => 'Absent during the assessment window',
             ])
             ->assertRedirect(route('educator.assessments.index'));
         $this->assertDatabaseHas('tbl_student_assessment_exemptions', [
@@ -221,7 +225,9 @@ class EducatorFeaturesTest extends TestCase
         $this->actingAs($this->eduA)
             ->post(route('educator.assessments.exemptions.toggle', $assessment), [
                 'student_ids' => [$this->student->id], 'action' => 'unexempt',
-            ]);
+            ])
+            ->assertRedirect()
+            ->assertSessionDoesntHaveErrors();
         $this->assertDatabaseHas('tbl_student_assessment_exemptions', [
             'assessment_id' => $assessment->id, 'student_id' => $this->student->id, 'is_active' => 0,
         ]);
@@ -233,6 +239,7 @@ class EducatorFeaturesTest extends TestCase
         $this->actingAs($this->eduB)
             ->post(route('educator.assessments.exemptions.toggle', $assessment), [
                 'student_ids' => [$this->student->id], 'action' => 'exempt',
+                'reason' => 'Unauthorized attempt',
             ])
             ->assertForbidden();
         $this->actingAs($this->eduB)->get(route('educator.assessments.exemptions', $assessment))->assertForbidden();
@@ -250,15 +257,82 @@ class EducatorFeaturesTest extends TestCase
         $this->actingAs($this->eduA)
             ->post(route('educator.assessments.exemptions.toggle', $assessment), [
                 'student_ids' => [$this->student->id, $notEnrolled->id], 'action' => 'exempt',
+                'reason' => 'Absent during the assessment window',
             ])
             ->assertRedirect();
 
         $this->assertDatabaseHas('tbl_student_assessment_exemptions', [
-            'assessment_id' => $assessment->id, 'student_id' => $this->student->id, 'is_active' => 1,
+            'assessment_id' => $assessment->id, 'student_id' => $this->student->id,
+            'reason' => 'Absent during the assessment window', 'is_active' => 1,
         ]);
         $this->assertDatabaseMissing('tbl_student_assessment_exemptions', [
             'assessment_id' => $assessment->id, 'student_id' => $notEnrolled->id,
         ]);
+    }
+
+    public function test_exempting_a_student_sends_the_assessment_and_reason(): void
+    {
+        $subject = $this->subject($this->eduA);
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create(array_merge($this->assessmentModelData($subject), ['assessment_code' => 'MIDTERM']));
+
+        $this->actingAs($this->eduA)
+            ->post(route('educator.assessments.exemptions.toggle', $assessment), [
+                'student_ids' => [$this->student->id], 'action' => 'exempt', 'reason' => 'Medical absence',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('tbl_notifications', [
+            'recipient_user_id' => $this->student->id,
+            'event_type' => 'assessment_exempted',
+            'title' => 'Assessment exemption',
+            'message' => 'You have been exempted from assessment MIDTERM. Reason: Medical absence',
+            'assessment_id' => $assessment->id,
+        ]);
+    }
+
+    public function test_exempting_students_starts_private_chats_with_the_reason(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $otherStudent = $this->makeUser('student', 'student');
+        $unselectedStudent = $this->makeUser('student', 'student');
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        Enrolled::create(['student_id' => $otherStudent->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create(array_merge($this->assessmentModelData($subject), ['assessment_code' => 'MIDTERM']));
+
+        $this->actingAs($this->eduA)
+            ->post(route('educator.assessments.exemptions.toggle', $assessment), [
+                'student_ids' => [$this->student->id, $otherStudent->id, $unselectedStudent->id],
+                'action' => 'exempt',
+                'reason' => 'Medical absence',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseCount('tbl_conversations', 2);
+        foreach ([$this->student, $otherStudent] as $student) {
+            $conversation = Conversation::where('educator_id', $this->eduA->id)
+                ->where('student_id', $student->id)->firstOrFail();
+
+            $this->assertDatabaseHas('tbl_conversation_messages', [
+                'conversation_id' => $conversation->id,
+                'sender_user_id' => $this->eduA->id,
+                'content' => 'You have been exempted from assessment MIDTERM. Reason: Medical absence',
+            ]);
+        }
+        $this->assertDatabaseMissing('tbl_conversations', ['student_id' => $unselectedStudent->id]);
+    }
+
+    public function test_exemption_form_accepts_a_reason(): void
+    {
+        $subject = $this->subject($this->eduA);
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.assessments.exemptions', ['assessment' => $assessment, 'modal' => 1]))
+            ->assertOk()
+            ->assertSee('name="reason"', false)
+            ->assertSee('Why is this student being exempted?', false);
     }
 
     // Task 01: the exemptions list pre-checks an already-exempted student's checkbox (mirroring
@@ -333,6 +407,166 @@ class EducatorFeaturesTest extends TestCase
             ->assertSeeInOrder(['Alpha Subject', 'Zulu Subject']);
     }
 
+    public function test_assessments_index_exposes_an_assessment_code_filter(): void
+    {
+        $subject = $this->subject($this->eduA);
+        Assessment::create($this->assessmentModelData($subject));
+        Assessment::create(array_merge($this->assessmentModelData($subject), ['assessment_code' => 'X2']));
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.assessments.index'))
+            ->assertOk()
+            ->assertSee('data-filter="assessment"', false)
+            ->assertSee('All assessment codes', false);
+    }
+
+    public function test_exemptions_modal_hides_the_footer_close_button(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $student = $this->student;
+        Enrolled::create(['student_id' => $student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $html = $this->actingAs($this->eduA)
+            ->get(route('educator.assessments.exemptions', ['assessment' => $assessment, 'modal' => 1]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('data-modal-cancel', $html);
+        $this->assertStringNotContainsString('Close', $html);
+        $this->assertStringContainsString('Exempt Selected', $html);
+        $this->assertStringContainsString('Un-exempt Selected', $html);
+    }
+
+    public function test_exemptions_modal_renders_students_in_a_table(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $student = $this->student;
+        Enrolled::create(['student_id' => $student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $html = $this->actingAs($this->eduA)
+            ->get(route('educator.assessments.exemptions', ['assessment' => $assessment, 'modal' => 1]))
+            ->assertOk()
+            ->getContent();
+
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($html);
+        $xpath = new \DOMXPath($dom);
+
+        $this->assertSame(1, $xpath->query('//table[contains(@class, "kt-table")]')->length);
+        $this->assertSame(1, $xpath->query('//tbody/tr')->length);
+        $this->assertSame(1, $xpath->query('//input[@data-exempt-select-all]')->length);
+    }
+
+    public function test_quiz_bank_page_exposes_section_subject_code_and_batch_filters(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.quizzes.index'))
+            ->assertOk()
+            ->assertSee('data-filter="section"', false)
+            ->assertSee('data-filter="subject"', false)
+            ->assertSee('data-filter="assessment"', false)
+            ->assertSee('data-filter="batch"', false)
+            ->assertDontSee('data-filter="type"', false);
+
+        $this->assertTrue($assessment->exists);
+    }
+
+    public function test_quiz_bank_filters_narrow_options_by_section_subject_and_assessment(): void
+    {
+        $sectionA = $this->section($this->eduA, 'Section A');
+        $sectionB = $this->section($this->eduA, 'Section B');
+
+        $subjectA = Subject::create([
+            'educator_id' => $this->eduA->id, 'sections_id' => $sectionA->id,
+            'subject_code' => 'A101', 'subject_name' => 'Alpha', 'is_active' => true,
+        ]);
+        $subjectB = Subject::create([
+            'educator_id' => $this->eduA->id, 'sections_id' => $sectionB->id,
+            'subject_code' => 'B202', 'subject_name' => 'Beta', 'is_active' => true,
+        ]);
+
+        $assessmentA = Assessment::create(array_merge($this->assessmentModelData($subjectA), ['assessment_code' => 'A-Quiz']));
+        $assessmentB = Assessment::create(array_merge($this->assessmentModelData($subjectB), ['assessment_code' => 'B-Quiz']));
+
+        Quiz::create([
+            'subject_id' => $subjectA->id, 'educator_id' => $this->eduA->id,
+            'question' => 'A question', 'quiz_type' => 'identification', 'correct_answer' => 'yes',
+            'batch_label' => 'Batch A',
+        ])->eligibleAssessments()->sync([$assessmentA->id]);
+        Quiz::create([
+            'subject_id' => $subjectB->id, 'educator_id' => $this->eduA->id,
+            'question' => 'B question', 'quiz_type' => 'identification', 'correct_answer' => 'yes',
+            'batch_label' => 'Batch B',
+        ])->eligibleAssessments()->sync([$assessmentB->id]);
+
+        $sectionHtml = $this->actingAs($this->eduA)
+            ->get(route('educator.quizzes.index', ['section' => $sectionA->id]))
+            ->assertOk()
+            ->getContent();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($sectionHtml);
+        $xpath = new \DOMXPath($dom);
+        $subjectSelect = $xpath->query("//select[@data-filter='subject']")->item(0);
+        $assessmentSelect = $xpath->query("//select[@data-filter='assessment']")->item(0);
+        $this->assertNotNull($subjectSelect);
+        $this->assertNotNull($assessmentSelect);
+        $this->assertStringContainsString('A101', $subjectSelect->textContent);
+        $this->assertStringNotContainsString('B202', $subjectSelect->textContent);
+        $this->assertStringContainsString('A-Quiz', $assessmentSelect->textContent);
+        $this->assertStringNotContainsString('B-Quiz', $assessmentSelect->textContent);
+
+        $subjectHtml = $this->actingAs($this->eduA)
+            ->get(route('educator.quizzes.index', ['subject' => $subjectA->id]))
+            ->assertOk()
+            ->getContent();
+        @$dom->loadHTML($subjectHtml);
+        $xpath = new \DOMXPath($dom);
+        $assessmentSelect = $xpath->query("//select[@data-filter='assessment']")->item(0);
+        $this->assertNotNull($assessmentSelect);
+        $this->assertStringContainsString('A-Quiz', $assessmentSelect->textContent);
+        $this->assertStringNotContainsString('B-Quiz', $assessmentSelect->textContent);
+
+        $assessmentHtml = $this->actingAs($this->eduA)
+            ->get(route('educator.quizzes.index', ['assessment' => 'A-Quiz']))
+            ->assertOk()
+            ->getContent();
+        @$dom->loadHTML($assessmentHtml);
+        $xpath = new \DOMXPath($dom);
+        $batchSelect = $xpath->query("//select[@data-filter='batch']")->item(0);
+        $this->assertNotNull($batchSelect);
+        $this->assertStringContainsString('Batch A', $batchSelect->textContent);
+        $this->assertStringNotContainsString('Batch B', $batchSelect->textContent);
+    }
+
+    public function test_pool_page_shows_questions_from_other_subjects(): void
+    {
+        $subjectA = $this->subject($this->eduA);
+        $subjectB = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subjectA));
+
+        $crossSubjectQuiz = Quiz::create([
+            'subject_id' => $subjectB->id, 'educator_id' => $this->eduA->id,
+            'question' => 'Cross subject pool question', 'quiz_type' => 'identification',
+            'correct_answer' => 'yes',
+        ]);
+
+        $html = $this->actingAs($this->eduA)
+            ->get(route('educator.assessments.pool.edit', $assessment))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Cross subject pool question', $html);
+        $this->assertStringContainsString($subjectB->subject_code, $html);
+        $this->assertStringContainsString('Question Pool', $html);
+        $this->assertStringContainsString('Not used elsewhere', $html);
+        $this->assertTrue($crossSubjectQuiz->exists);
+    }
+
     public function test_editing_assessment_can_add_extra_subjects(): void
     {
         $subjectA = $this->subject($this->eduA);
@@ -400,6 +634,21 @@ class EducatorFeaturesTest extends TestCase
         $this->assertSame(['red', 'blue'], json_decode(Quiz::latest('id')->first()->correct_answer, true));
     }
 
+    public function test_quiz_create_route_is_modal_only_and_returns_a_fragment(): void
+    {
+        $this->subject($this->eduA);
+
+        $this->actingAs($this->eduA)
+            ->get('/educator/quizzes/create')
+            ->assertNotFound();
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.quizzes.create', ['modal' => 1]))
+            ->assertOk()
+            ->assertSee('Choose Subject', false)
+            ->assertSee('Create', false);
+    }
+
     // Task 51: a bank question is reusable — attaching it to multiple assessments' pools no
     // longer duplicates the row, it links the same quiz id into each assessment's eligible set.
     public function test_bank_question_can_be_attached_to_multiple_assessment_pools(): void
@@ -426,6 +675,24 @@ class EducatorFeaturesTest extends TestCase
         $this->assertDatabaseHas('tbl_assessment_question_pool', ['assessment_id' => $a2->id, 'quiz_id' => $quiz->id]);
     }
 
+    public function test_store_quiz_can_attach_to_assessments_from_another_subject(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $otherSubject = $this->subject($this->eduA);
+        $otherAssessment = Assessment::create($this->assessmentModelData($otherSubject));
+
+        $this->actingAs($this->eduA)->post(route('educator.quizzes.store'), [
+            'subject_id' => $subject->id, 'question' => 'Cross subject?', 'quiz_type' => 'identification',
+            'answers' => ['yes'], 'assessment_ids' => [$otherAssessment->id],
+        ])->assertRedirect();
+
+        $quiz = Quiz::where('question', 'Cross subject?')->firstOrFail();
+        $this->assertDatabaseHas('tbl_assessment_question_pool', [
+            'assessment_id' => $otherAssessment->id,
+            'quiz_id' => $quiz->id,
+        ]);
+    }
+
     // Task 51 follow-up: creating a question can immediately attach it to one or more
     // assessments' pools, skipping the separate trip to each assessment's Question Pool screen.
     public function test_store_quiz_can_attach_to_assessments_pool_immediately(): void
@@ -444,18 +711,27 @@ class EducatorFeaturesTest extends TestCase
         $this->assertDatabaseHas('tbl_assessment_question_pool', ['assessment_id' => $a2->id, 'quiz_id' => $quiz->id]);
     }
 
-    public function test_store_quiz_rejects_assessment_from_a_different_subject(): void
+    public function test_bulk_upload_can_attach_questions_to_assessments_from_another_subject(): void
     {
         $subject = $this->subject($this->eduA);
         $otherSubject = $this->subject($this->eduA);
         $wrongAssessment = Assessment::create($this->assessmentModelData($otherSubject));
 
-        $this->actingAs($this->eduA)->post(route('educator.quizzes.store'), [
-            'subject_id' => $subject->id, 'question' => 'Mismatched?', 'quiz_type' => 'identification',
-            'answers' => ['yes'], 'assessment_ids' => [$wrongAssessment->id],
-        ])->assertSessionHasErrors('assessment_ids');
+        $file = $this->quizUploadFile('cross-upload.xlsx', [
+            ['Cross upload?', 'identification', '', '', '', '', 'yes'],
+        ]);
 
-        $this->assertDatabaseMissing('tbl_quizzes', ['question' => 'Mismatched?']);
+        $this->actingAs($this->eduA)->post(route('educator.quizzes.upload'), [
+            'subject_id' => $subject->id,
+            'assessment_ids' => [$wrongAssessment->id],
+            'files' => [$file],
+        ])->assertRedirect();
+
+        $quiz = Quiz::where('question', 'Cross upload?')->firstOrFail();
+        $this->assertDatabaseHas('tbl_assessment_question_pool', [
+            'assessment_id' => $wrongAssessment->id,
+            'quiz_id' => $quiz->id,
+        ]);
     }
 
     // Task 51 follow-up: every question gets an auto-labeled creation batch (manual add vs.
@@ -472,9 +748,9 @@ class EducatorFeaturesTest extends TestCase
         $manual = Quiz::where('question', 'Manual batch?')->firstOrFail();
         $this->assertStringStartsWith('Manual · ', $manual->batch_label);
 
-        $csv = "question,quiz_type,choice_a,choice_b,choice_c,choice_d,correct_answer\n"
-            ."2+2?,multiple_choice,3,4,5,6,B\n";
-        $file = File::createWithContent('batch-quiz.csv', $csv);
+        $file = $this->quizUploadFile('batch-quiz.xlsx', [
+            ['2+2?', 'multiple_choice', '3', '4', '5', '6', 'B'],
+        ]);
 
         $this->actingAs($this->eduA)->post(route('educator.quizzes.upload'), [
             'subject_id' => $subject->id,
@@ -482,7 +758,7 @@ class EducatorFeaturesTest extends TestCase
         ])->assertRedirect();
 
         $uploaded = Quiz::where('question', '2+2?')->firstOrFail();
-        $this->assertStringStartsWith('Upload: batch-quiz.csv · ', $uploaded->batch_label);
+        $this->assertStringStartsWith('Upload: batch-quiz.xlsx · ', $uploaded->batch_label);
         $this->assertNotSame($manual->batch_label, $uploaded->batch_label);
     }
 
@@ -506,10 +782,10 @@ class EducatorFeaturesTest extends TestCase
     {
         $subject = $this->subject($this->eduA);
 
-        $csv = "question,quiz_type,choice_a,choice_b,choice_c,choice_d,correct_answer\n"
-            ."2+2?,multiple_choice,3,4,5,6,B\n"
-            ."Capital of PH?,identification,,,,,Manila\n";
-        $file = File::createWithContent('quiz.csv', $csv);
+        $file = $this->quizUploadFile('quiz.xlsx', [
+            ['2+2?', 'multiple_choice', '3', '4', '5', '6', 'B'],
+            ['Capital of PH?', 'identification', '', '', '', '', 'Manila'],
+        ]);
 
         $this->actingAs($this->eduA)->post(route('educator.quizzes.upload'), [
             'subject_id' => $subject->id,
@@ -556,9 +832,10 @@ class EducatorFeaturesTest extends TestCase
     {
         $subject = $this->subject($this->eduA);
 
-        // A real CSV, but not the template — missing required columns.
-        $csv = "name,email\nJuan,juan@example.com\n";
-        $file = File::createWithContent('contacts.csv', $csv);
+        // A real XLSX, but not the template — missing required columns.
+        $file = $this->quizUploadFile('contacts.xlsx', [
+            ['Juan', 'juan@example.com'],
+        ], ['name', 'email']);
 
         $response = $this->actingAs($this->eduA)->post(route('educator.quizzes.upload'), [
             'subject_id' => $subject->id,
@@ -712,5 +989,32 @@ class EducatorFeaturesTest extends TestCase
             'assessment_code' => 'Q1', 'time_limit' => '30', 'term' => $this->term->id,
             'start_date' => '2026-07-01', 'end_date' => '2026-07-02', 'start_time' => '08:00', 'end_time' => '09:00',
         ];
+    }
+
+    /**
+     * @param  array<int, string>  $rows
+     * @param  array<int, string>  $headers
+     */
+    private function quizUploadFile(string $name, array $rows, array $headers = ['question', 'quiz_type', 'choice_a', 'choice_b', 'choice_c', 'choice_d', 'correct_answer']): File
+    {
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Quiz Upload Template');
+        $sheet->setCellValue('A1', 'Qyzen Quiz Upload Template');
+        foreach (array_values($headers) as $i => $header) {
+            $sheet->setCellValue(chr(65 + $i).'2', $header);
+        }
+        foreach ($rows as $rowIndex => $row) {
+            foreach (array_values($row) as $i => $value) {
+                $sheet->setCellValue(chr(65 + $i).(3 + $rowIndex), $value);
+            }
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'quiz-upload').'.xlsx';
+        (new SpreadsheetWriter($spreadsheet))->save($tmp);
+        $bytes = file_get_contents($tmp);
+        @unlink($tmp);
+
+        return File::createWithContent($name, $bytes === false ? '' : $bytes);
     }
 }

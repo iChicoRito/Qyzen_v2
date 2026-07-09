@@ -12,6 +12,7 @@ class NotificationAuthorizer
     /** Event types an educator may emit (everything except quiz_submitted). */
     public const EDUCATOR_EVENTS = [
         'assessment_created', 'assessment_updated', 'assessment_deleted',
+        'assessment_exempted',
         'learning_material_uploaded', 'learning_material_deleted',
         'quiz_created', 'quiz_uploaded', 'quiz_updated', 'quiz_deleted',
         'enrollment_created', 'enrollment_updated', 'enrollment_deleted', 'retake_updated',

@@ -13,7 +13,7 @@
 
                 @if ($bankQuestions->isEmpty())
                     <div class="kt-alert kt-alert-warning">
-                        No bank questions for this assessment's subject yet.
+                        No bank questions yet.
                         <a href="{{ route('educator.quizzes.create', ['subject_id' => $assessment->subject_id]) }}" class="kt-link">Add one</a>.
                     </div>
                 @endif
@@ -33,7 +33,7 @@
                         <div class="flex flex-wrap items-center gap-2">
                             <label class="kt-input grow min-w-52">
                                 <i class="ki-filled ki-magnifier"></i>
-                                <input type="text" placeholder="Search questions in this subject…" data-pool-search autocomplete="off">
+                                <input type="text" placeholder="Search questions in this bank…" data-pool-search autocomplete="off">
                             </label>
                             <select class="kt-select w-40" data-pool-filter-type>
                                 <option value="">All types</option>
@@ -54,6 +54,11 @@
                             @php
                                 $usedIn = $q->eligibleAssessments->where('id', '!=', $assessment->id)->pluck('assessment_code');
                                 $desc = $q->quiz_type === 'multiple_choice' ? 'Multiple Choice' : 'Identification';
+                                $origin = trim(($q->subject?->subject_code ?? '').' — '.($q->subject?->subject_name ?? ''));
+                                if ($q->subject?->section) {
+                                    $origin .= ' ('.$q->subject->section->section_name.')';
+                                }
+                                $desc .= $origin !== '' ? ' · '.$origin : '';
                                 $desc .= $usedIn->isNotEmpty() ? ' · Also used in: '.$usedIn->join(', ') : ' · Not used elsewhere';
                             @endphp
                             <x-checkbox-card

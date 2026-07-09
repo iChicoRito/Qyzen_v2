@@ -7,12 +7,12 @@ use App\Models\AcademicYear;
 use App\Models\Assessment;
 use App\Models\Enrolled;
 use App\Models\GroupChat;
-use App\Models\GroupChatMessage;
 use App\Models\LearningMaterial;
 use App\Models\Quiz;
 use App\Models\Role;
 use App\Models\Score;
 use App\Models\Section;
+use App\Models\StudentAssessmentExemption;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -87,8 +87,31 @@ class StudentFeaturesTest extends TestCase
     public function test_student_sees_only_enrolled_assessments(): void
     {
         $this->actingAs($this->student)->get(route('student.assessments.index'))->assertOk()->assertSee('Q1');
-        // non-enrolled student can't view details (policy denies)
-        $this->actingAs($this->otherStudent)->get(route('student.assessments.details', $this->assessment))->assertForbidden();
+    }
+
+    public function test_legacy_student_assessment_details_page_is_removed(): void
+    {
+        $this->actingAs($this->student)
+            ->get('/student/assessments/'.$this->assessment->getRouteKey())
+            ->assertNotFound();
+    }
+
+    public function test_student_sees_exemption_reason_in_assessment_modal_and_details(): void
+    {
+        StudentAssessmentExemption::create([
+            'educator_id' => $this->educator->id,
+            'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id,
+            'reason' => 'Medical absence',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($this->student)
+            ->get(route('student.assessments.index'))
+            ->assertOk()
+            ->assertSee('Exemption reason', false)
+            ->assertSee('Medical absence', false);
+
     }
 
     // ---- H6 INVARIANT: correct_answer never reaches the client ----

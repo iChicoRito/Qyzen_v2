@@ -35,13 +35,9 @@
            <span class="rounded-full bg-green-500 size-[5px] absolute top-2 rtl:start-0 end-0 transform translate-y-1/2 translate-x-full">
            </span>
           </button>
-          <button class="kt-tab-toggle py-3" data-kt-tab-toggle="#notifications_tab_team">
-           Team
-          </button>
-          <button class="kt-tab-toggle py-3" data-kt-tab-toggle="#notifications_tab_following">
-           Following
-          </button>
+          {{-- Team and Following tabs are reserved for a future notification feature. --}}
          </div>
+         {{-- The notification settings menu is reserved until its actions are implemented.
          <div class="kt-menu" data-kt-menu="true">
           <div class="kt-menu-item" data-kt-menu-item-offset="0,10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click|lg:hover">
            <button class="kt-menu-toggle kt-btn kt-btn-icon kt-btn-ghost">
@@ -134,7 +130,7 @@
             </div>
            </div>
           </div>
-         </div>
+         </div> --}}
         </div>
         <div class="grow flex flex-col" id="notifications_tab_all">
          <div class="grow kt-scrollable-y-auto" data-kt-scrollable="true" data-kt-scrollable-dependencies="#header" data-kt-scrollable-max-height="auto" data-kt-scrollable-offset="150px">

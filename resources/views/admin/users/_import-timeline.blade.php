@@ -7,8 +7,12 @@
 <div data-import-timeline data-active="{{ $active ? '1' : '0' }}">
     @if ($imports->isNotEmpty())
         <div class="kt-card">
-            <div class="kt-card-header">
+            <div class="kt-card-header flex items-center justify-between gap-2">
                 <h3 class="kt-card-title">Recent student uploads</h3>
+                <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0"
+                        data-kt-toggle="#users_layout" data-kt-toggle-class="kt-timeline-collapsed" title="Collapse panel">
+                    <i class="ki-filled ki-arrow-left qz-timeline-toggle-icon"></i>
+                </button>
             </div>
             <div class="kt-card-content">
                 <div class="flex flex-col">

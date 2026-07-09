@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -105,6 +106,28 @@ class EnrollmentController extends Controller
         return view('educator.enrollment.show', compact('subject', 'enrollments'));
     }
 
+    // Task 01: bulk-remove every student enrolled in one subject/section.
+    public function unenrollAllForSubject(Subject $subject): RedirectResponse
+    {
+        $this->authorize('viewAny', Enrolled::class);
+        abort_unless(Subject::visibleTo(Auth::user())->whereKey($subject->getKey())->exists(), 403);
+
+        $rows = Enrolled::where('educator_id', Auth::id())->where('subject_id', $subject->id)->get();
+        $studentIds = $rows->pluck('student_id')->all();
+        Enrolled::whereKey($rows->pluck('id'))->delete();
+
+        if ($studentIds) {
+            $this->notifications->emitToMany(Auth::user(), 'enrollment_deleted', $studentIds, [
+                'subject_id' => $subject->id,
+                'title' => 'Unenrolled from a subject',
+                'link_path' => route('student.assessments.index'),
+            ]);
+        }
+
+        return redirect()->route('educator.enrollment.index')
+            ->with('status', count($studentIds).' student(s) unenrolled.');
+    }
+
     // Task 43: profile card fragment for one enrolled student, opened in the shared modal.
     // Gated by enrollment ownership — an educator only sees students they actually teach.
     public function showStudent(User $user): View
@@ -126,7 +149,7 @@ class EnrollmentController extends Controller
 
         return view('educator.enrollment.create', [
             'students' => User::where('user_type', 'student')->orderBy('surname')->get(),
-            'subjects' => Subject::visibleTo(Auth::user())->orderBy('subject_code')->get(),
+            'subjects' => Subject::visibleTo(Auth::user())->with('section:id,section_name')->orderBy('subject_code')->get(),
         ]);
     }
 
@@ -163,7 +186,7 @@ class EnrollmentController extends Controller
         return view('educator.enrollment.edit', [
             'enrolled' => $enrolled,
             'students' => User::where('user_type', 'student')->orderBy('surname')->get(),
-            'subjects' => Subject::visibleTo(Auth::user())->orderBy('subject_code')->get(),
+            'subjects' => Subject::visibleTo(Auth::user())->with('section:id,section_name')->orderBy('subject_code')->get(),
         ]);
     }
 
@@ -248,5 +271,15 @@ class EnrollmentController extends Controller
         $this->authorize('view', $enrollmentImport);
 
         return view('educator.enrollment.import-show', compact('enrollmentImport'));
+    }
+
+    public function downloadImportReport(EnrollmentImport $enrollmentImport)
+    {
+        $this->authorize('view', $enrollmentImport);
+
+        abort_unless($enrollmentImport->failed_report_path, 404);
+        abort_unless(Storage::disk('local')->exists($enrollmentImport->failed_report_path), 404);
+
+        return Storage::disk('local')->download($enrollmentImport->failed_report_path, 'enrollment-upload-failed.xlsx');
     }
 }

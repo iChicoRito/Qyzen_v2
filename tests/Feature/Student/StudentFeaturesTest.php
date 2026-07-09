@@ -177,6 +177,78 @@ class StudentFeaturesTest extends TestCase
         $this->assertStringNotContainsString('Paris', $html);
     }
 
+    // Task 01: a disabled review must hide the whole per-question block, not just leak the
+    // correct_answer value on questions the student got right.
+    public function test_result_hides_entire_review_block_when_review_disabled(): void
+    {
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
+        // answer the first question CORRECTLY — the old gate exposed correct_answer here.
+        $this->actingAs($this->student)->post(route('student.take-quiz.submit', $this->assessment), [
+            'answers' => [$quizzes[0]->id => 'B'],
+        ])->assertRedirect();
+
+        $score = Score::where('student_id', $this->student->id)->first();
+        $response = $this->actingAs($this->student)->get(route('student.scores.show', $score))->assertOk();
+
+        $response->assertSee('Review is not enabled for this assessment.');
+        $response->assertDontSee('2+2'); // question text must not render per-question at all
+    }
+
+    public function test_result_shows_review_block_when_review_enabled(): void
+    {
+        $this->assessment->update(['allow_review' => true]);
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
+        $this->actingAs($this->student)->post(route('student.take-quiz.submit', $this->assessment), [
+            'answers' => [$quizzes[0]->id => 'B'],
+        ])->assertRedirect();
+
+        $score = Score::where('student_id', $this->student->id)->first();
+        $response = $this->actingAs($this->student)->get(route('student.scores.show', $score))->assertOk();
+
+        $response->assertDontSee('Review is not enabled for this assessment.');
+        $response->assertSee('2+2');
+    }
+
+    // Task 01: hints — bounded reveal, only when the educator turned them on.
+    public function test_hint_reveals_answer_when_enabled_and_respects_hint_count(): void
+    {
+        $this->assessment->update(['allow_hint' => true, 'hint_count' => 1]);
+        $this->actingAs($this->student)->get(route('student.take-quiz', $this->assessment))->assertOk();
+        $quiz = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->first();
+
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.hint', $this->assessment), ['quiz_id' => $quiz->id])
+            ->assertOk()
+            ->assertJson(['remaining' => 0]);
+
+        // hint_count is 1 and already used — a second reveal must be rejected.
+        $otherQuiz = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->skip(1)->first();
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.hint', $this->assessment), ['quiz_id' => $otherQuiz->id])
+            ->assertStatus(422);
+    }
+
+    public function test_hint_endpoint_rejects_when_assessment_has_hints_disabled(): void
+    {
+        $this->actingAs($this->student)->get(route('student.take-quiz', $this->assessment))->assertOk();
+        $quiz = $this->assessment->eligibleQuizzes()->first();
+
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.hint', $this->assessment), ['quiz_id' => $quiz->id])
+            ->assertStatus(422);
+    }
+
+    // Task 01: a deactivated assessment must be rejected server-side even if a student's
+    // already-loaded page still shows "Take Assessment" (stale client-side status).
+    public function test_take_quiz_rejects_deactivated_assessment_server_side(): void
+    {
+        $this->assessment->update(['is_active' => false]);
+
+        $this->actingAs($this->student)
+            ->get(route('student.take-quiz', $this->assessment))
+            ->assertRedirect(route('student.assessments.index'));
+    }
+
     public function test_student_cannot_view_others_score(): void
     {
         $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();

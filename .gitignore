@@ -1,33 +1,58 @@
-*.log
+# ==============
+# OS / Editor / IDE
+# ==============
 .DS_Store
-.env
-.env.backup
-.env.production
-.phpactor.json
-.phpunit.result.cache
+Thumbs.db
+Homestead.json
+Homestead.yaml
+
 /.claude/
 /.codex
 /.cursor/
-/.idea
-/.nova
-/.phpunit.cache
-/.vscode
-/.zed
-/auth.json
-/node_modules
-/public/build
-/public/fonts-manifest.dev.json
-/public/hot
-/public/storage
-/storage/*.key
-/storage/pail
-/vendor
-_ide_helper.php
-Homestead.json
-Homestead.yaml
-Thumbs.db
+/.idea/
+/.nova/
+/.phpunit.cache/
+/.vscode/
+/.zed/
 
-# Metronic uncompiled template source (only dist/ is served)
-/public/metronic-tailwind-html-demos/src
-# Template build tooling — not served; dist/ assets are committed pre-built
-/public/metronic-tailwind-html-demos/node_modules
+# ==============
+# Environment
+# ==============
+.env
+.env.backup
+.env.production
+
+# ==============
+# PHP / Composer
+# ==============
+/vendor/
+/auth.json
+.phpactor.json
+.phpunit.result.cache
+_ide_helper.php
+
+# ==============
+# Node / NPM
+# ==============
+/node_modules/
+
+# ==============
+# Laravel specific
+# ==============
+/storage/*.key
+/storage/pail/
+/public/storage/
+/public/build/
+/public/hot/
+/public/fonts-manifest.dev.json
+
+# ==============
+# Metronic template (source only; dist/ is served)
+# ==============
+/public/metronic-tailwind-html-demos/src/
+/public/metronic-tailwind-html-demos/node_modules/
+
+# ==============
+# Laravel Artisan (root level)
+# ==============
+/artisan

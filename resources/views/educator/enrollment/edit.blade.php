@@ -24,7 +24,7 @@
                             data-kt-select-enable-search="true"
                             data-kt-select-search-placeholder="Search subjects…">
                         @foreach ($subjects as $sub)
-                            <option value="{{ $sub->id }}" @selected(old('subject_id', $enrolled->subject_id)==$sub->id)>{{ $sub->subject_code }} — {{ $sub->subject_name }}</option>
+                            <option value="{{ $sub->id }}" @selected(old('subject_id', $enrolled->subject_id)==$sub->id)>{{ $sub->subject_code }} — {{ $sub->subject_name }} ({{ optional($sub->section)->section_name ?? 'No section' }})</option>
                         @endforeach
                     </select>
                 </div>

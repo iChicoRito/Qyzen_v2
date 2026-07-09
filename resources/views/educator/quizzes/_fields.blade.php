@@ -21,7 +21,7 @@
         <select name="subject_id" class="kt-select w-full"
                 data-kt-select="true" data-kt-select-enable-search="true"
                 data-kt-select-search-placeholder="Search subjects…">
-            @foreach ($subjects as $s)<option value="{{ $s->id }}" @selected($selectedSubject==$s->id)>{{ $s->subject_code }} — {{ $s->subject_name }}</option>@endforeach
+            @foreach ($subjects as $s)<option value="{{ $s->id }}" @selected($selectedSubject==$s->id)>{{ $s->subject_code }} — {{ $s->subject_name }} ({{ optional($s->section)->section_name ?? 'No section' }})</option>@endforeach
         </select>
         @error('subject_id')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>

@@ -67,6 +67,11 @@ return [
 
     'timezone' => env('APP_TIMEZONE', 'UTC'),
 
+    // Wall-clock zone assessment start/end date+time inputs are entered in (educators type local
+    // time, e.g. "8:23 AM"). Storage stays UTC-configured app-wide; this only anchors the
+    // schedule-vs-now comparison in AssessmentAvailabilityService::combine().
+    'school_timezone' => env('SCHOOL_TIMEZONE', 'Asia/Manila'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

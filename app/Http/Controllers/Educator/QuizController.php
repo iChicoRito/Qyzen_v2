@@ -31,7 +31,7 @@ class QuizController extends Controller
         $this->authorize('viewAny', Quiz::class);
 
         $query = Quiz::visibleTo(Auth::user())
-            ->with(['subject:id,subject_code,subject_name', 'eligibleAssessments:id,assessment_code']);
+            ->with(['subject:id,subject_code,subject_name,sections_id', 'subject.section:id,section_name', 'eligibleAssessments:id,assessment_code']);
         TableQuery::search($query, $request->query('search'), [
             'question',
             fn (Builder $q, string $term) => $q->orWhereHas('subject', fn ($s) => $s
@@ -182,7 +182,8 @@ class QuizController extends Controller
 
     private function subjectOptions()
     {
-        return Subject::visibleTo(Auth::user())->orderBy('subject_name')->get(['id', 'subject_code', 'subject_name']);
+        return Subject::visibleTo(Auth::user())->with('section:id,section_name')
+            ->orderBy('subject_name')->get(['id', 'subject_code', 'subject_name', 'sections_id']);
     }
 
     // Assessments for the "also add to these pools" picker, richly labeled by subject.

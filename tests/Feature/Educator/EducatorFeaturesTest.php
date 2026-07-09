@@ -11,6 +11,7 @@ use App\Models\Quiz;
 use App\Models\Role;
 use App\Models\Score;
 use App\Models\Section;
+use App\Models\StudentAssessmentExemption;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -146,6 +147,34 @@ class EducatorFeaturesTest extends TestCase
         $this->assertFalse(Enrolled::visibleTo($this->eduB)->whereKey($enr->id)->exists());
     }
 
+    // Task 01: bulk "Unenroll All Students" removes only the target subject's rows, scoped to
+    // the owning educator — must not touch another subject's enrollments or another educator's.
+    public function test_unenroll_all_removes_only_target_subjects_students_scoped_to_owner(): void
+    {
+        $subjectA1 = $this->subject($this->eduA);
+        $subjectA2 = $this->subject($this->eduA);
+        $otherStudent = $this->makeUser('student', 'student');
+
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subjectA1->id, 'is_active' => true]);
+        Enrolled::create(['student_id' => $otherStudent->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subjectA1->id, 'is_active' => true]);
+        $untouched = Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subjectA2->id, 'is_active' => true]);
+
+        $this->actingAs($this->eduA)
+            ->post(route('educator.enrollment.subject.unenrollAll', $subjectA1))
+            ->assertRedirect(route('educator.enrollment.index'));
+
+        $this->assertSame(0, Enrolled::where('subject_id', $subjectA1->id)->count());
+        $this->assertTrue(Enrolled::whereKey($untouched->id)->exists());
+
+        // eduB may not bulk-unenroll a subject they don't own.
+        $subjectB = $this->subject($this->eduB);
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduB->id, 'subject_id' => $subjectB->id, 'is_active' => true]);
+        $this->actingAs($this->eduA)
+            ->post(route('educator.enrollment.subject.unenrollAll', $subjectB))
+            ->assertForbidden();
+        $this->assertSame(1, Enrolled::where('subject_id', $subjectB->id)->count());
+    }
+
     // ---- G5 assessments: publish-on-activate notifies enrolled students ----
 
     public function test_activating_assessment_notifies_enrolled_students(): void
@@ -164,6 +193,104 @@ class EducatorFeaturesTest extends TestCase
         $this->assertDatabaseHas('tbl_notifications', [
             'recipient_user_id' => $this->student->id, 'event_type' => 'assessment_created',
         ]);
+    }
+
+    // Task 01: bulk exempt/un-exempt students from an assessment (e.g. absent). Ownership is
+    // checked via the assessment update policy; only actually-enrolled students are affected.
+    public function test_educator_can_bulk_exempt_and_unexempt_students(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $otherStudent = $this->makeUser('student', 'student');
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        Enrolled::create(['student_id' => $otherStudent->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)
+            ->post(route('educator.assessments.exemptions.toggle', $assessment), [
+                'student_ids' => [$this->student->id, $otherStudent->id], 'action' => 'exempt',
+            ])
+            ->assertRedirect(route('educator.assessments.index'));
+        $this->assertDatabaseHas('tbl_student_assessment_exemptions', [
+            'assessment_id' => $assessment->id, 'student_id' => $this->student->id, 'is_active' => 1,
+        ]);
+        $this->assertDatabaseHas('tbl_student_assessment_exemptions', [
+            'assessment_id' => $assessment->id, 'student_id' => $otherStudent->id, 'is_active' => 1,
+        ]);
+
+        // un-exempting one of them leaves the other exempted.
+        $this->actingAs($this->eduA)
+            ->post(route('educator.assessments.exemptions.toggle', $assessment), [
+                'student_ids' => [$this->student->id], 'action' => 'unexempt',
+            ]);
+        $this->assertDatabaseHas('tbl_student_assessment_exemptions', [
+            'assessment_id' => $assessment->id, 'student_id' => $this->student->id, 'is_active' => 0,
+        ]);
+        $this->assertDatabaseHas('tbl_student_assessment_exemptions', [
+            'assessment_id' => $assessment->id, 'student_id' => $otherStudent->id, 'is_active' => 1,
+        ]);
+
+        // eduB cannot manage exemptions on eduA's assessment.
+        $this->actingAs($this->eduB)
+            ->post(route('educator.assessments.exemptions.toggle', $assessment), [
+                'student_ids' => [$this->student->id], 'action' => 'exempt',
+            ])
+            ->assertForbidden();
+        $this->actingAs($this->eduB)->get(route('educator.assessments.exemptions', $assessment))->assertForbidden();
+    }
+
+    // A student id not actually enrolled in the assessment's subject (forged/stale payload)
+    // must be silently ignored, not create a stray exemption row.
+    public function test_bulk_exemption_ignores_students_not_enrolled_in_the_subject(): void
+    {
+        $subject = $this->subject($this->eduA);
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        $notEnrolled = $this->makeUser('student', 'student');
+
+        $this->actingAs($this->eduA)
+            ->post(route('educator.assessments.exemptions.toggle', $assessment), [
+                'student_ids' => [$this->student->id, $notEnrolled->id], 'action' => 'exempt',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('tbl_student_assessment_exemptions', [
+            'assessment_id' => $assessment->id, 'student_id' => $this->student->id, 'is_active' => 1,
+        ]);
+        $this->assertDatabaseMissing('tbl_student_assessment_exemptions', [
+            'assessment_id' => $assessment->id, 'student_id' => $notEnrolled->id,
+        ]);
+    }
+
+    // Task 01: the exemptions list pre-checks an already-exempted student's checkbox (mirroring
+    // the "Exempted" badge), so "Un-exempt Selected" works without having to re-select them.
+    public function test_exemptions_list_pre_checks_already_exempted_students(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $exemptedStudent = $this->student;
+        $notExemptedStudent = $this->makeUser('student', 'student');
+        Enrolled::create(['student_id' => $exemptedStudent->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        Enrolled::create(['student_id' => $notExemptedStudent->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        StudentAssessmentExemption::create([
+            'educator_id' => $this->eduA->id, 'student_id' => $exemptedStudent->id,
+            'assessment_id' => $assessment->id, 'is_active' => true,
+        ]);
+
+        $html = $this->actingAs($this->eduA)
+            ->get(route('educator.assessments.exemptions', ['assessment' => $assessment, 'modal' => 1]))
+            ->assertOk()->getContent();
+
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($html);
+        $xpath = new \DOMXPath($dom);
+
+        $exemptedBox = $xpath->query("//input[@value='{$exemptedStudent->id}']")->item(0);
+        $notExemptedBox = $xpath->query("//input[@value='{$notExemptedStudent->id}']")->item(0);
+
+        $this->assertNotNull($exemptedBox);
+        $this->assertTrue($exemptedBox->hasAttribute('checked'));
+        $this->assertNotNull($notExemptedBox);
+        $this->assertFalse($notExemptedBox->hasAttribute('checked'));
     }
 
     public function test_creating_assessment_with_multiple_subjects_makes_one_each(): void

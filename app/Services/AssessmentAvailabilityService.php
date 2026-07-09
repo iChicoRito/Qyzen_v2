@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Assessment;
 use App\Models\Score;
+use App\Models\StudentAssessmentExemption;
 use App\Models\StudentAssessmentRetake;
 use Carbon\Carbon;
 
@@ -17,6 +18,29 @@ class AssessmentAvailabilityService
     public function summarize(Assessment $assessment, int $studentId, ?Carbon $now = null): array
     {
         $now ??= Carbon::now();
+
+        // Inactive/unpublished assessments must never be startable, even inside their date
+        // window — this was previously unchecked here, so take()/submit() (which trust this
+        // summary) let a deactivated assessment through as long as "now" was between the dates.
+        if (! $assessment->is_active) {
+            return [
+                'badge' => 'Inactive', 'can_take' => false, 'remaining' => 0,
+                'submitted_attempts' => 0, 'effective_retakes' => 0, 'window_open' => false,
+            ];
+        }
+
+        // Exemption overrides everything else — an educator-exempted student (e.g. absent) never
+        // sees this as takeable, regardless of schedule/retake state.
+        $exempt = StudentAssessmentExemption::where('assessment_id', $assessment->id)
+            ->where('student_id', $studentId)
+            ->where('is_active', true)
+            ->exists();
+        if ($exempt) {
+            return [
+                'badge' => 'Exempted', 'can_take' => false, 'remaining' => 0,
+                'submitted_attempts' => 0, 'effective_retakes' => 0, 'window_open' => false,
+            ];
+        }
 
         $start = $this->combine($assessment->start_date, $assessment->start_time);
         $end = $this->combine($assessment->end_date, $assessment->end_time);
@@ -75,7 +99,11 @@ class AssessmentAvailabilityService
             return null;
         }
         try {
-            return Carbon::parse(Carbon::parse($date)->toDateString().' '.$time);
+            // Educators type start/end date+time as their own local wall-clock (no tz info is
+            // captured client-side) — parse it as school-local time, not the app's default UTC,
+            // or an assessment starting "now" compares as hours in the future/past. Carbon's
+            // instant comparisons (lt/gt/betweenIncluded) work correctly across tz representations.
+            return Carbon::parse(Carbon::parse($date)->toDateString().' '.$time, config('app.school_timezone'));
         } catch (\Throwable) {
             return null;
         }

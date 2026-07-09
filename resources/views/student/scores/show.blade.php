@@ -200,9 +200,15 @@
                     </div>
                 @endif
 
-                {{-- Question-by-question review --}}
+                {{-- Question-by-question review — hidden entirely when the educator disabled review,
+                     not just the correct_answer value (a disabled review must show nothing per-question). --}}
                 <div class="grid gap-3">
                     <h4 class="text-sm font-semibold text-mono">Review</h4>
+                    @unless ($allowReview)
+                        <div class="text-sm text-secondary-foreground rounded-lg border border-border p-4">
+                            Review is not enabled for this assessment.
+                        </div>
+                    @else
                     @foreach ($review as $i => $r)
                         <div class="grid gap-3">
                             <div class="flex items-start justify-between gap-3">
@@ -262,6 +268,7 @@
                             @endif
                         </div>
                     @endforeach
+                    @endunless
                 </div>
             </div>
             <div class="kt-card-footer justify-end gap-2">

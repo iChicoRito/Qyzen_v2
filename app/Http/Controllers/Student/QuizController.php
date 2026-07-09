@@ -80,6 +80,8 @@ class QuizController extends Controller
     private function displayStatus(string $badge, int $questionCount): array
     {
         return match (true) {
+            $badge === 'Exempted' => ['Exempted', 'secondary'],
+            $badge === 'Inactive' => ['Not Ready Yet', 'secondary'],
             $badge === 'Upcoming' => ['Starts Soon', 'warning'],
             $badge === 'Expired' => ['No Longer Available', 'secondary'],
             $badge === 'Schedule issue' => ['Not Ready Yet', 'secondary'],
@@ -177,6 +179,10 @@ class QuizController extends Controller
             'academicTerm:id,term_name',
         ]);
 
+        $hintsRemaining = $assessment->allow_hint
+            ? max(0, $assessment->hint_count - $draft->hints_used)
+            : 0;
+
         // no-store so the Back button can't re-show a finished quiz from cache/bfcache — it
         // refetches and hits the can_take gate above.
         return response()->view('student.take-quiz', [
@@ -185,6 +191,7 @@ class QuizController extends Controller
             'draftAnswers' => $draft->student_answer ?? [],
             'warnings' => $draft->warning_attempts ?? 0,
             'remainingSeconds' => $remainingSeconds,
+            'hintsRemaining' => $hintsRemaining,
         ])->withHeaders([
             'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
             'Pragma' => 'no-cache',
@@ -204,6 +211,39 @@ class QuizController extends Controller
         $this->grading->saveDraft(Auth::user(), $assessment, $data['answers'] ?? [], (int) ($data['warnings'] ?? 0));
 
         return response()->json(['saved' => true, 'at' => now()->toTimeString()]);
+    }
+
+    // Task 01: reveal one question's correct answer, bounded by allow_hint/hint_count.
+    public function hint(Request $request, Assessment $assessment)
+    {
+        $this->authorize('view', $assessment);
+
+        $summary = $this->availability->summarize($assessment, Auth::id());
+        if (! $summary['can_take']) {
+            return response()->json(['message' => 'This attempt is no longer eligible.'], 422);
+        }
+
+        $data = $request->validate(['quiz_id' => ['required', 'integer']]);
+
+        $score = Score::where('assessment_id', $assessment->id)
+            ->where('student_id', Auth::id())
+            ->where('status', 'in_progress')->first();
+
+        // Only a question actually drawn for this attempt can be hinted.
+        if (! $score || ! in_array((int) $data['quiz_id'], $score->drawn_quiz_ids ?? [], true)) {
+            return response()->json(['message' => 'Question not found in this attempt.'], 422);
+        }
+
+        $quiz = Quiz::where('id', $data['quiz_id'])->first(['id', 'quiz_type', 'choices', 'correct_answer']);
+        $hint = $quiz ? $this->grading->revealHint(Auth::user(), $assessment, $quiz) : null;
+
+        if ($hint === null) {
+            return response()->json(['message' => 'No hints remaining.'], 422);
+        }
+
+        $remaining = max(0, $assessment->hint_count - $score->fresh()->hints_used);
+
+        return response()->json(['hint' => $hint, 'remaining' => $remaining]);
     }
 
     // H6 ⚠ submit → server-side grading. correct_answer is loaded server-side in the service only.

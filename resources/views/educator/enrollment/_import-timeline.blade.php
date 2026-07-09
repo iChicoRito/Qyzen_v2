@@ -4,15 +4,22 @@
 <div data-import-timeline data-active="{{ $active ? '1' : '0' }}">
     @if ($imports->isNotEmpty())
         <div class="kt-card">
-            <div class="kt-card-header">
+            <div class="kt-card-header flex items-center justify-between gap-2">
                 <h3 class="kt-card-title">Recent enrollment uploads</h3>
+                <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0"
+                        data-kt-toggle="#enrollment_layout" data-kt-toggle-class="kt-timeline-collapsed" title="Collapse panel">
+                    <i class="ki-filled ki-arrow-left qz-timeline-toggle-icon"></i>
+                </button>
             </div>
             <div class="kt-card-content">
                 <div class="flex flex-col">
                     @foreach ($imports as $import)
                         @php
+                            $failedCount = count($import->failed_rows ?? []);
                             [$icon, $tone] = match ($import->status) {
-                                'completed' => ['ki-check-circle', 'text-green-600'],
+                                'completed' => $failedCount > 0
+                                    ? ['ki-cross-circle', 'text-destructive']
+                                    : ['ki-check-circle', 'text-green-600'],
                                 'failed' => ['ki-cross-circle', 'text-destructive'],
                                 'processing' => ['ki-loading', ''],
                                 default => ['ki-time', 'text-yellow-600'],
@@ -34,7 +41,7 @@
                                             data-modal-title="{{ $import->original_filename }}">{{ $import->original_filename }}</button>
                                         @switch($import->status)
                                             @case('completed')
-                                                imported {{ $import->created_count }} enrollment(s).
+                                                imported — {{ $import->created_count }} created, {{ $failedCount }} failed.
                                                 @break
                                             @case('processing')
                                                 is processing.
@@ -51,6 +58,9 @@
                                         <span class="text-xs text-destructive">{{ $import->error_message }}</span>
                                     @endif
                                 </div>
+                                @if ($import->failed_report_path)
+                                    <a href="{{ route('educator.enrollment.import.report', $import) }}" class="kt-link kt-link-underlined kt-link-dashed text-sm mt-1">Download failed rows</a>
+                                @endif
                             </div>
                         </div>
                     @endforeach

@@ -2,7 +2,6 @@
 
 namespace App\Imports;
 
-use App\Exceptions\EnrollmentRowException;
 use App\Models\Enrolled;
 use App\Models\Subject;
 use App\Models\User;
@@ -10,14 +9,16 @@ use App\Services\NotificationService;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 
-// Task 39: bulk enrollment import. Columns read POSITIONALLY (A-D): student_user_id,
+// Task 39/01: bulk enrollment import. Columns read POSITIONALLY (A-D): student_user_id,
 // subject_code, section_name, status — header text is ignored. Reads only the first
-// worksheet, skips fully blank rows, and HALTS at the first invalid row (throws
-// EnrollmentRowException with the spreadsheet row number). Subjects/sections must belong
-// to the importing educator; students matched case-insensitively.
+// worksheet, skips fully blank rows. Invalid rows are collected (not fatal) so the rest of
+// the file still imports; the educator gets a downloadable report of what failed and why.
+// Subjects/sections must belong to the importing educator; students matched case-insensitively.
 class EnrollmentsImport implements ToCollection
 {
     private int $created = 0;
+
+    private array $failed = [];
 
     private bool $processed = false; // first worksheet only
 
@@ -58,7 +59,14 @@ class EnrollmentsImport implements ToCollection
                 ->first();
 
             if (! $student || ! $subject || ! in_array($status, ['active', 'inactive'], true)) {
-                throw new EnrollmentRowException($number);
+                $reason = ! $student ? 'Unknown student_user_id.'
+                    : (! $subject ? 'Unknown subject_code/section_name for this educator.' : 'status must be active or inactive.');
+                $this->failed[] = [
+                    'student_user_id' => $studentUserId, 'subject_code' => $code, 'section_name' => $sectionName,
+                    'error' => "Row {$number}: {$reason}",
+                ];
+
+                continue;
             }
 
             $rowModel = Enrolled::firstOrCreate(
@@ -79,5 +87,10 @@ class EnrollmentsImport implements ToCollection
     public function createdCount(): int
     {
         return $this->created;
+    }
+
+    public function failedRows(): array
+    {
+        return $this->failed;
     }
 }

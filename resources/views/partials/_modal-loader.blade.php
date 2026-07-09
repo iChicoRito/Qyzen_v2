@@ -178,6 +178,39 @@
             summary.textContent = n ? n + ' selected' : summary.getAttribute('data-subject-summary-default');
         });
 
+        {{-- Task 01: exemption list (educator/assessments/exemptions.blade.php) — live search filter,
+             select-all (only touches currently-visible rows), and carrying the clicked action button's
+             intent into a hidden field. Delegated (not a page-local script) so it works both as a full
+             page load and injected into the shared modal via innerHTML. --}}
+        document.addEventListener('input', function (e) {
+            var search = e.target.closest('[data-exempt-search]');
+            if (!search) return;
+            var scope = search.closest('[data-exempt-list]') || document;
+            var term = search.value.trim().toLowerCase();
+            var visible = 0;
+            scope.querySelectorAll('[data-exempt-row]').forEach(function (row) {
+                var match = !term || (row.dataset.exemptName || '').indexOf(term) !== -1;
+                row.classList.toggle('hidden', !match);
+                if (match) visible++;
+            });
+            var noMatch = scope.querySelector('[data-exempt-no-match]');
+            if (noMatch) noMatch.classList.toggle('hidden', visible !== 0);
+        });
+        document.addEventListener('change', function (e) {
+            var all = e.target.closest('[data-exempt-select-all]');
+            if (!all) return;
+            var scope = all.closest('[data-exempt-list]') || document;
+            scope.querySelectorAll('[data-exempt-row]:not(.hidden) [data-exempt-checkbox]').forEach(function (box) {
+                box.checked = all.checked;
+            });
+        });
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-exempt-action]');
+            if (!btn) return;
+            var input = btn.closest('form') && btn.closest('form').querySelector('[data-exempt-action-input]');
+            if (input) input.value = btn.dataset.exemptAction;
+        });
+
         {{-- KTUI multi-select with data-count-summary: collapse the display to "N <noun>s selected"
              when 2+ are picked; keep the real label for a single selection. KTUI writes the joined
              labels into its values container ([data-kt-select-combobox-values]) and re-renders on every

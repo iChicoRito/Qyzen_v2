@@ -41,7 +41,14 @@
     {{-- Two-panel split: flexible table + fixed-width timeline. The static Metronic bundle has no
          col-span-4, so an arbitrary wide/narrow ratio is set with a nonce'd grid-template override. --}}
     <style nonce="{{ $cspNonce ?? '' }}">
-        @media (min-width: 1024px) { #users_layout { grid-template-columns: minmax(0, 1fr) 300px; } }
+        @media (min-width: 1024px) {
+            #users_layout { grid-template-columns: minmax(0, 1fr) 300px; transition: grid-template-columns .2s ease; }
+            #users_layout.kt-timeline-collapsed { grid-template-columns: minmax(0, 1fr) 3rem; }
+        }
+        #users_layout.kt-timeline-collapsed #import_timeline { overflow: hidden; }
+        #users_layout.kt-timeline-collapsed #import_timeline .kt-card-title,
+        #users_layout.kt-timeline-collapsed #import_timeline .kt-card-content { display: none; }
+        #users_layout.kt-timeline-collapsed #import_timeline .qz-timeline-toggle-icon { transform: rotate(180deg); }
     </style>
     <div id="users_layout" class="grid gap-5 lg:gap-7.5">
         {{-- Left panel: users table (flexible width). --}}
@@ -341,7 +348,13 @@
             function poll() {
                 fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' })
                     .then(function (r) { return r.ok ? r.text() : null; })
-                    .then(function (html) { if (html !== null) panel.innerHTML = html; })
+                    .then(function (html) {
+                        if (html === null) return;
+                        panel.innerHTML = html;
+                        // The collapse toggle button is re-rendered every swap; KTUI only
+                        // auto-inits [data-kt-toggle] elements present at DOMContentLoaded.
+                        if (window.KTToggle) KTToggle.init();
+                    })
                     .catch(function () { /* transient error — retry next tick */ })
                     .finally(schedule);
             }

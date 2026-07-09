@@ -32,7 +32,7 @@
                                 data-kt-select-placeholder="Select subjects…"
                                 data-kt-select-search-placeholder="Search subjects…">
                             @foreach ($subjects as $sub)
-                                <option value="{{ $sub->id }}">{{ $sub->subject_code }} — {{ $sub->subject_name }}</option>
+                                <option value="{{ $sub->id }}">{{ $sub->subject_code }} — {{ $sub->subject_name }} ({{ optional($sub->section)->section_name ?? 'No section' }})</option>
                             @endforeach
                         </select>
                         @error('subject_ids')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror

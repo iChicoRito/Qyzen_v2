@@ -68,6 +68,8 @@ Route::middleware(['auth', 'verified', 'role:student'])
             ->middleware('throttle:quiz-writes')->name('take-quiz.draft');
         Route::post('take-quiz/{assessment}/submit', [StudentQuizController::class, 'submit'])
             ->middleware('throttle:quiz-writes')->name('take-quiz.submit');
+        Route::post('take-quiz/{assessment}/hint', [StudentQuizController::class, 'hint'])
+            ->middleware('throttle:quiz-writes')->name('take-quiz.hint');
 
         // H7 result/review + H8 scores history (own only).
         Route::get('scores', [StudentScoreController::class, 'index'])->name('scores.index');
@@ -163,8 +165,10 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         Route::get('enrollment/import/template', [EnrollmentController::class, 'importTemplate'])->name('enrollment.import.template');
         Route::post('enrollment/import', [EnrollmentController::class, 'import'])->name('enrollment.import');
         Route::get('enrollment/imports/timeline', [EnrollmentController::class, 'importTimeline'])->name('enrollment.imports.timeline');
+        Route::get('enrollment/imports/{enrollmentImport}/report', [EnrollmentController::class, 'downloadImportReport'])->name('enrollment.import.report');
         Route::get('enrollment/imports/{enrollmentImport}', [EnrollmentController::class, 'showImport'])->name('enrollment.imports.show');
         Route::get('enrollment/subject/{subject}', [EnrollmentController::class, 'showSubject'])->name('enrollment.subject');
+        Route::post('enrollment/subject/{subject}/unenroll-all', [EnrollmentController::class, 'unenrollAllForSubject'])->name('enrollment.subject.unenrollAll');
         Route::get('enrollment/student/{user}', [EnrollmentController::class, 'showStudent'])->name('enrollment.student');
         Route::resource('enrollment', EnrollmentController::class)->except('show')->parameters(['enrollment' => 'enrolled']);
 
@@ -173,6 +177,10 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         // Task 51: question pool config — which bank questions are eligible + draw size N.
         Route::get('assessments/{assessment}/pool', [AssessmentQuestionPoolController::class, 'edit'])->name('assessments.pool.edit');
         Route::put('assessments/{assessment}/pool', [AssessmentQuestionPoolController::class, 'update'])->name('assessments.pool.update');
+
+        // Task 01: per-student "cannot take this quiz" exemption (e.g. absent).
+        Route::get('assessments/{assessment}/exemptions', [AssessmentController::class, 'exemptions'])->name('assessments.exemptions');
+        Route::post('assessments/{assessment}/exemptions/toggle', [AssessmentController::class, 'toggleExemption'])->name('assessments.exemptions.toggle');
 
         // G6 quizzes (now the question bank): bulk upload.
         Route::get('quizzes/upload/template', [QuizController::class, 'uploadTemplate'])->name('quizzes.upload.template');

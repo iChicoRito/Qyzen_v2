@@ -21,8 +21,9 @@ use Maatwebsite\Excel\Excel as ExcelType;
 use Maatwebsite\Excel\Facades\Excel;
 use Tests\TestCase;
 
-// Task 39: educator bulk enrollment upload - positional read, queued timeline status,
-// case-insensitive student match, strict active/inactive status, fail on first invalid row.
+// Task 39/01: educator bulk enrollment upload - positional read, queued timeline status,
+// case-insensitive student match, strict active/inactive status, invalid rows are collected
+// into a downloadable report instead of halting the rest of the file.
 class EnrollmentImportTest extends TestCase
 {
     use RefreshDatabase;
@@ -165,12 +166,16 @@ class EnrollmentImportTest extends TestCase
         ]);
     }
 
-    public function test_job_marks_import_failed_on_invalid_row(): void
+    public function test_job_collects_invalid_rows_into_a_downloadable_report_instead_of_halting(): void
     {
         Storage::fake('local');
 
         $path = 'imports/uploads/enrollments.xlsx';
-        Storage::disk('local')->put($path, $this->xlsxRaw([['stud-001', 'MATH101', 'Section A', 'nope']]));
+        // Row 3 is invalid (bad status); row 4 is a valid enrollment for the same student — an
+        // invalid row must no longer halt the rest of the file (Task 01).
+        Storage::disk('local')->put($path, $this->xlsxRaw([
+            ['stud-001', 'MATH101', 'Section A', 'nope'],
+        ]));
 
         $import = EnrollmentImport::create([
             'initiated_by_user_id' => $this->educator->id,
@@ -182,10 +187,45 @@ class EnrollmentImportTest extends TestCase
         (new ProcessEnrollmentImport($import))->handle(app(NotificationService::class));
 
         $import->refresh();
-        $this->assertSame('failed', $import->status);
-        $this->assertSame('Row 3 is invalid.', $import->error_message);
-        Storage::disk('local')->assertExists($path);
+        $this->assertSame('completed', $import->status);
+        $this->assertSame(0, $import->created_count);
+        $this->assertCount(1, $import->failed_rows);
+        $this->assertStringContainsString('Row 3', $import->failed_rows[0]['error']);
+        $this->assertNotNull($import->failed_report_path);
+        Storage::disk('local')->assertExists($import->failed_report_path);
+        Storage::disk('local')->assertMissing($path);
         $this->assertSame(0, Enrolled::count());
+
+        $this->actingAs($this->educator)
+            ->get(route('educator.enrollment.import.report', $import))
+            ->assertOk();
+    }
+
+    public function test_job_imports_valid_rows_and_reports_invalid_ones_in_the_same_file(): void
+    {
+        Storage::fake('local');
+
+        $path = 'imports/uploads/enrollments.xlsx';
+        Storage::disk('local')->put($path, $this->xlsxRaw([
+            ['STUD-001', 'MATH101', 'Section A', 'active'],
+            ['no-such-student', 'MATH101', 'Section A', 'active'],
+        ]));
+
+        $import = EnrollmentImport::create([
+            'initiated_by_user_id' => $this->educator->id,
+            'original_filename' => 'enrollments.xlsx',
+            'upload_path' => $path,
+            'status' => 'queued',
+        ]);
+
+        (new ProcessEnrollmentImport($import))->handle(app(NotificationService::class));
+
+        $import->refresh();
+        $this->assertSame('completed', $import->status);
+        $this->assertSame(1, $import->created_count);
+        $this->assertCount(1, $import->failed_rows);
+        $this->assertNotNull($import->failed_report_path);
+        $this->assertSame(1, Enrolled::count());
     }
 
     private function makeEducator(): User

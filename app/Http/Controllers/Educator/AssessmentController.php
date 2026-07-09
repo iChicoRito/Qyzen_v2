@@ -9,6 +9,7 @@ use App\Models\AcademicTerm;
 use App\Models\Assessment;
 use App\Models\Enrolled;
 use App\Models\Section;
+use App\Models\StudentAssessmentExemption;
 use App\Models\Subject;
 use App\Services\NotificationService;
 use App\Support\TableQuery;
@@ -165,6 +166,57 @@ class AssessmentController extends Controller
         $assessment->delete();
 
         return redirect()->route('educator.assessments.index')->with('status', 'Assessment deleted.');
+    }
+
+    // Task 01: per-student "cannot take this quiz" exemption (e.g. an absent student).
+    public function exemptions(Assessment $assessment): View
+    {
+        $this->authorize('update', $assessment);
+
+        $students = Enrolled::where('educator_id', Auth::id())
+            ->where('subject_id', $assessment->subject_id)
+            ->where('is_active', true)
+            ->with('student:id,given_name,surname,user_id')
+            ->get();
+
+        $exemptStudentIds = StudentAssessmentExemption::where('assessment_id', $assessment->id)
+            ->where('is_active', true)
+            ->pluck('student_id')->all();
+
+        return view('educator.assessments.exemptions', compact('assessment', 'students', 'exemptStudentIds'));
+    }
+
+    public function toggleExemption(Request $request, Assessment $assessment): RedirectResponse
+    {
+        $this->authorize('update', $assessment);
+
+        $data = $request->validate([
+            'student_ids' => ['required', 'array', 'min:1'],
+            'student_ids.*' => ['integer'],
+            'action' => ['required', 'in:exempt,unexempt'],
+        ]);
+
+        // Only students actually enrolled in this assessment's subject can be exempted — a
+        // stray/forged id in the bulk payload is silently dropped, not a hard error.
+        $studentIds = Enrolled::where('educator_id', Auth::id())
+            ->where('subject_id', $assessment->subject_id)
+            ->whereIn('student_id', $data['student_ids'])
+            ->pluck('student_id');
+
+        foreach ($studentIds as $studentId) {
+            StudentAssessmentExemption::updateOrCreate(
+                ['educator_id' => Auth::id(), 'student_id' => $studentId, 'assessment_id' => $assessment->id],
+                ['is_active' => $data['action'] === 'exempt'],
+            );
+        }
+
+        $verb = $data['action'] === 'exempt' ? 'exempted' : 'un-exempted';
+
+        // The exemptions view is a modal-only fragment (no page layout) — redirect to the real
+        // index page like every other modal-form submission in this app, not back into the
+        // fragment route, which would render bare/unstyled on a full browser navigation.
+        return redirect()->route('educator.assessments.index')
+            ->with('status', $studentIds->count().' student(s) '.$verb.'.');
     }
 
     private function notifyEnrolled(Assessment $assessment, string $event, string $title): void

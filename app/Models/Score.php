@@ -55,7 +55,7 @@ class Score extends Model
     protected $fillable = [
         'student_id', 'educator_id', 'assessment_id', 'subject_id', 'section_id',
         'score', 'total_questions', 'student_answer', 'warning_attempts',
-        'status', 'is_passed', 'taken_at', 'submitted_at', 'drawn_quiz_ids',
+        'status', 'is_passed', 'taken_at', 'submitted_at', 'drawn_quiz_ids', 'hints_used',
     ];
 
     protected $casts = [
@@ -67,6 +67,7 @@ class Score extends Model
         'taken_at' => 'datetime',
         'submitted_at' => 'datetime',
         'drawn_quiz_ids' => 'array',
+        'hints_used' => 'integer',
     ];
 
     public function student(): BelongsTo

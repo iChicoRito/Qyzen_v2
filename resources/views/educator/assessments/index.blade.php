@@ -61,6 +61,12 @@
                                 <span class="kt-menu-title">Question Pool</span>
                             </a>
                         </div>
+                        <div class="kt-menu-item">
+                            <a class="kt-menu-link" href="#" data-modal-url="{{ route('educator.assessments.exemptions', $a) }}" data-modal-target="#form_modal" data-modal-title="Manage exemptions">
+                                <span class="kt-menu-icon"><i class="ki-filled ki-user-tick"></i></span>
+                                <span class="kt-menu-title">Manage Exemptions</span>
+                            </a>
+                        </div>
                     </x-table-actions>
                 </td>
             </tr>

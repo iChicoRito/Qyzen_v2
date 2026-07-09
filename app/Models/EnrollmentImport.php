@@ -16,7 +16,14 @@ class EnrollmentImport extends Model
         'status',
         'error_message',
         'created_count',
+        'failed_rows',
+        'failed_report_path',
     ];
+
+    protected function casts(): array
+    {
+        return ['failed_rows' => 'array'];
+    }
 
     public function owner(): BelongsTo
     {

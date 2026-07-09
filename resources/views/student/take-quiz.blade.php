@@ -87,6 +87,14 @@
                     <span class="qz-warn-reason text-xs text-destructive hidden"></span>
                 </div>
 
+                {{-- Hints remaining --}}
+                @if ($assessment->allow_hint && $hintsRemaining > 0)
+                    <div class="rounded-lg border border-border p-3 text-sm flex items-center justify-between gap-2">
+                        <span class="text-secondary-foreground">Hints remaining</span>
+                        <span class="qz-hints-remaining text-mono font-medium">{{ $hintsRemaining }}</span>
+                    </div>
+                @endif
+
                 {{-- Assessment + educator details --}}
                 @php
                     $rows = [
@@ -124,8 +132,16 @@
                         @php $given = $draftAnswers[$q->id] ?? ($draftAnswers[(string) $q->id] ?? null); @endphp
                         <div class="kt-card qz-q" data-idx="{{ $i }}">
                             <div class="kt-card-header flex-col items-start gap-1 py-4">
-                                <span class="text-xs font-semibold uppercase tracking-wide text-primary">Question No. {{ $i + 1 }}</span>
+                                <div class="flex items-center justify-between w-full gap-3">
+                                    <span class="text-xs font-semibold uppercase tracking-wide text-primary">Question No. {{ $i + 1 }}</span>
+                                    @if ($assessment->allow_hint && $hintsRemaining > 0)
+                                        <button type="button" class="kt-btn kt-btn-sm kt-btn-outline qz-hint-btn" data-quiz-id="{{ $q->id }}">
+                                            <i class="ki-filled ki-lamp"></i> Hint
+                                        </button>
+                                    @endif
+                                </div>
                                 <p class="text-base font-medium text-mono">{{ $q->question }}</p>
+                                <p class="qz-hint-text text-xs text-primary hidden"></p>
                             </div>
                             <div class="kt-card-content p-6">
                                 @if ($q->quiz_type === 'multiple_choice')
@@ -246,6 +262,29 @@
         }
         $('qz-submit').addEventListener('click', attemptSubmit);
         updateProgress();
+
+        // ---- Hints (optional, only rendered when the educator enabled them) ----
+        const hintUrl = @json(route('student.take-quiz.hint', $assessment));
+        $$('.qz-hint-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.disabled = true;
+                fetch(hintUrl, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'Accept': 'application/json'},
+                    body: JSON.stringify({quiz_id: btn.dataset.quizId})
+                }).then(r => r.json().then(data => ({ok: r.ok, data})))
+                  .then(({ok, data}) => {
+                    if (!ok) { Swal.fire({icon: 'info', title: 'No hint available', text: data.message || '', timer: 2000, showConfirmButton: false}); btn.remove(); return; }
+                    const text = btn.closest('.qz-q').querySelector('.qz-hint-text');
+                    text.textContent = 'Hint: ' + data.hint;
+                    text.classList.remove('hidden');
+                    btn.remove();
+                    $$('.qz-hints-remaining').forEach(el => { el.textContent = data.remaining; });
+                    if (data.remaining <= 0) $$('.qz-hint-btn').forEach(b => b.remove());
+                  })
+                  .catch(() => { btn.disabled = false; });
+            });
+        });
 
         // ---- Timer (server-authoritative; resumes from real elapsed) — drives all .qz-timer instances ----
         function setTimer(text, state) {

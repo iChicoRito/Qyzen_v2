@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Exceptions\EnrollmentRowException;
+use App\Exports\FailedEnrollmentRowsExport;
 use App\Imports\EnrollmentsImport;
 use App\Models\EnrollmentImport;
 use App\Services\NotificationService;
@@ -27,21 +27,20 @@ class ProcessEnrollmentImport implements ShouldQueue
         ])->save();
 
         $import = new EnrollmentsImport($record->owner, $notifications);
+        Excel::import($import, Storage::disk('local')->path($record->upload_path));
 
-        try {
-            Excel::import($import, Storage::disk('local')->path($record->upload_path));
-        } catch (EnrollmentRowException $e) {
-            $record->forceFill([
-                'status' => 'failed',
-                'error_message' => "Row {$e->row} is invalid.",
-            ])->save();
-
-            return;
+        $failedRows = $import->failedRows();
+        $reportPath = null;
+        if ($failedRows) {
+            $reportPath = 'imports/reports/enrollment-import-'.$record->id.'-failed.xlsx';
+            Excel::store(new FailedEnrollmentRowsExport($failedRows), $reportPath, 'local');
         }
 
         $record->forceFill([
             'status' => 'completed',
             'created_count' => $import->createdCount(),
+            'failed_rows' => $failedRows,
+            'failed_report_path' => $reportPath,
         ])->save();
 
         Storage::disk('local')->delete($record->upload_path);

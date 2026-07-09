@@ -116,6 +116,40 @@ class QuizGradingService
         });
     }
 
+    /**
+     * Task 01: reveal one question's correct answer as a hint, bounded by hint_count. Deliberate,
+     * educator-opted-in exception to the "correct_answer never reaches the client" guarantee above
+     * — that guarantee is about unsolicited exposure; this is a counted reveal the educator turned
+     * on via allow_hint. Returns null when hints are off, exhausted, or there's no active attempt.
+     */
+    public function revealHint(User $student, Assessment $assessment, Quiz $quiz): ?string
+    {
+        if (! $assessment->allow_hint) {
+            return null;
+        }
+
+        $score = Score::where('student_id', $student->id)
+            ->where('assessment_id', $assessment->id)
+            ->where('status', 'in_progress')
+            ->first();
+
+        if (! $score || $score->hints_used >= $assessment->hint_count) {
+            return null;
+        }
+
+        $score->increment('hints_used');
+
+        $correct = $quiz->correct_answer;
+        if ($quiz->quiz_type === 'multiple_choice' && is_array($quiz->choices)) {
+            return (string) ($quiz->choices[$correct] ?? $correct);
+        }
+
+        // Identification may store a single answer or a JSON array of acceptable answers.
+        $decoded = json_decode($correct, true);
+
+        return is_array($decoded) ? (string) reset($decoded) : $correct;
+    }
+
     // public so the results/review screen reuses the exact grading rule (incl. JSON-array
     // identification answers) — review and grading must never disagree.
     public function isCorrect(Quiz $quiz, string $given): bool

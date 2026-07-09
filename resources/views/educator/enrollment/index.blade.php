@@ -11,7 +11,14 @@
     @include('admin._status')
 
     <style nonce="{{ $cspNonce ?? '' }}">
-        @media (min-width: 1024px) { #enrollment_layout { grid-template-columns: minmax(0, 1fr) 300px; } }
+        @media (min-width: 1024px) {
+            #enrollment_layout { grid-template-columns: minmax(0, 1fr) 300px; transition: grid-template-columns .2s ease; }
+            #enrollment_layout.kt-timeline-collapsed { grid-template-columns: minmax(0, 1fr) 3rem; }
+        }
+        #enrollment_layout.kt-timeline-collapsed #enrollment_import_timeline { overflow: hidden; }
+        #enrollment_layout.kt-timeline-collapsed #enrollment_import_timeline .kt-card-title,
+        #enrollment_layout.kt-timeline-collapsed #enrollment_import_timeline .kt-card-content { display: none; }
+        #enrollment_layout.kt-timeline-collapsed #enrollment_import_timeline .qz-timeline-toggle-icon { transform: rotate(180deg); }
     </style>
     <div id="enrollment_layout" class="grid gap-5 lg:gap-7.5">
         <div class="min-w-0">
@@ -35,7 +42,16 @@
                             <span class="text-xs text-secondary-foreground">({{ $s->active_enrollments_count }} active)</span>
                         </td>
                         <td class="text-center">
-                            <x-table-actions :view="route('educator.enrollment.subject', $s)" />
+                            <x-table-actions :view="route('educator.enrollment.subject', $s)">
+                                <div class="kt-menu-separator"></div>
+                                <div class="kt-menu-item">
+                                    <a class="kt-menu-link" href="#" data-confirm="Unenroll all students from {{ $s->subject_code }}? This cannot be undone." data-confirm-title="Unenroll all?">
+                                        <span class="kt-menu-icon"><i class="ki-filled ki-cross-circle"></i></span>
+                                        <span class="kt-menu-title">Unenroll All Students</span>
+                                    </a>
+                                    <form method="POST" action="{{ route('educator.enrollment.subject.unenrollAll', $s) }}" class="hidden">@csrf</form>
+                                </div>
+                            </x-table-actions>
                         </td>
                     </tr>
                 @empty
@@ -89,7 +105,13 @@
             function poll() {
                 fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' })
                     .then(function (r) { return r.ok ? r.text() : null; })
-                    .then(function (html) { if (html !== null) panel.innerHTML = html; })
+                    .then(function (html) {
+                        if (html === null) return;
+                        panel.innerHTML = html;
+                        // The collapse toggle button is re-rendered every swap; KTUI only
+                        // auto-inits [data-kt-toggle] elements present at DOMContentLoaded.
+                        if (window.KTToggle) KTToggle.init();
+                    })
                     .catch(function () {})
                     .finally(schedule);
             }

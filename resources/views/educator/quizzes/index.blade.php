@@ -14,7 +14,7 @@
         <x-slot:filters>
             <select data-filter="subject" class="kt-select w-40">
                 <option value="">All subjects</option>
-                @foreach ($subjects as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} — {{ $s->subject_name }}</option>@endforeach
+                @foreach ($subjects as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} — {{ $s->subject_name }} ({{ optional($s->section)->section_name ?? 'No section' }})</option>@endforeach
             </select>
             <select data-filter="type" class="kt-select w-40">
                 <option value="">All types</option>
@@ -49,7 +49,12 @@
                 <td>
                     <span class="kt-badge kt-badge-outline">{{ $q->quiz_type === 'multiple_choice' ? 'Multiple Choice' : 'Identification' }}</span>
                 </td>
-                <td>{{ optional($q->subject)->subject_name }}</td>
+                <td>
+                    {{ optional($q->subject)->subject_name }}
+                    @if (optional($q->subject)->section)
+                        <span class="text-xs text-secondary-foreground">({{ $q->subject->section->section_name }})</span>
+                    @endif
+                </td>
                 <td class="text-secondary-foreground text-sm">
                     @if ($q->quiz_type === 'multiple_choice')
                         {{ $q->correct_answer }}. {{ $q->choices[$q->correct_answer] ?? '' }}
@@ -98,7 +103,7 @@
                         data-kt-select="true" data-kt-select-enable-search="true"
                         data-kt-select-placeholder="Select a subject"
                         data-kt-select-search-placeholder="Search subjects…">
-                    @foreach ($subjects as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} — {{ $s->subject_name }}</option>@endforeach
+                    @foreach ($subjects as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} — {{ $s->subject_name }} ({{ optional($s->section)->section_name ?? 'No section' }})</option>@endforeach
                 </select>
             </div>
 

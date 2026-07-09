@@ -146,6 +146,6 @@ class ScoreController extends Controller
         // Retake vs Back-to-Assessments (recomputed from finished attempts, not a stale count).
         $summary = $availability->summarize($score->assessment, Auth::id());
 
-        return view('student.scores.show', compact('score', 'review', 'attempts', 'bestScore', 'bestTotal', 'bestAttemptId', 'attemptNumbers', 'summary'));
+        return view('student.scores.show', compact('score', 'review', 'attempts', 'bestScore', 'bestTotal', 'bestAttemptId', 'attemptNumbers', 'summary', 'allowReview'));
     }
 }

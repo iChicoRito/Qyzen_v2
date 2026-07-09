@@ -213,7 +213,9 @@ class QuizController extends Controller
         return response()->json(['saved' => true, 'at' => now()->toTimeString()]);
     }
 
-    // Task 01: reveal one question's correct answer, bounded by allow_hint/hint_count.
+    // Task 02: resolve a hint mini-game attempt. `outcome` (won|lost|skipped) is client-reported
+    // (all games are self-contained, no secret quiz data involved). Exactly one hint credit is
+    // deducted per call; the answer is only revealed when outcome === 'won'.
     public function hint(Request $request, Assessment $assessment)
     {
         $this->authorize('view', $assessment);
@@ -223,7 +225,10 @@ class QuizController extends Controller
             return response()->json(['message' => 'This attempt is no longer eligible.'], 422);
         }
 
-        $data = $request->validate(['quiz_id' => ['required', 'integer']]);
+        $data = $request->validate([
+            'quiz_id' => ['required', 'integer'],
+            'outcome' => ['required', 'in:won,lost,skipped'],
+        ]);
 
         $score = Score::where('assessment_id', $assessment->id)
             ->where('student_id', Auth::id())
@@ -235,15 +240,19 @@ class QuizController extends Controller
         }
 
         $quiz = Quiz::where('id', $data['quiz_id'])->first(['id', 'quiz_type', 'choices', 'correct_answer']);
-        $hint = $quiz ? $this->grading->revealHint(Auth::user(), $assessment, $quiz) : null;
+        if (! $quiz) {
+            return response()->json(['message' => 'Question not found in this attempt.'], 422);
+        }
 
-        if ($hint === null) {
+        $won = $data['outcome'] === 'won';
+        $result = $this->grading->revealHint(Auth::user(), $assessment, $quiz, $won);
+        if ($result === null) {
             return response()->json(['message' => 'No hints remaining.'], 422);
         }
 
         $remaining = max(0, $assessment->hint_count - $score->fresh()->hints_used);
 
-        return response()->json(['hint' => $hint, 'remaining' => $remaining]);
+        return response()->json(['hint' => $result['answer'], 'remaining' => $remaining, 'won' => $won]);
     }
 
     // H6 ⚠ submit → server-side grading. correct_answer is loaded server-side in the service only.

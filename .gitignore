@@ -14,6 +14,7 @@ Homestead.yaml
 /.phpunit.cache/
 /.vscode/
 /.zed/
+/artisan
 
 # ==============
 # Environment

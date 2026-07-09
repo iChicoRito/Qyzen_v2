@@ -117,12 +117,16 @@ class QuizGradingService
     }
 
     /**
-     * Task 01: reveal one question's correct answer as a hint, bounded by hint_count. Deliberate,
+     * Task 02: reveal one question's correct answer as a hint, bounded by hint_count. Deliberate,
      * educator-opted-in exception to the "correct_answer never reaches the client" guarantee above
      * — that guarantee is about unsolicited exposure; this is a counted reveal the educator turned
-     * on via allow_hint. Returns null when hints are off, exhausted, or there's no active attempt.
+     * on via allow_hint. Returns null when hints are off, exhausted, or there's no active attempt
+     * (nothing deducted). Otherwise ALWAYS deducts one hint credit — win or lose, exactly one
+     * credit per mini-game attempt — and only includes the answer text when $won is true.
+     *
+     * @return array{answer: ?string}|null
      */
-    public function revealHint(User $student, Assessment $assessment, Quiz $quiz): ?string
+    public function revealHint(User $student, Assessment $assessment, Quiz $quiz, bool $won): ?array
     {
         if (! $assessment->allow_hint) {
             return null;
@@ -139,12 +143,18 @@ class QuizGradingService
 
         $score->increment('hints_used');
 
+        return ['answer' => $won ? $this->answerText($quiz) : null];
+    }
+
+    // Human-readable correct-answer text: the choice label for multiple choice, or the first
+    // acceptable value for identification (which may store a single answer or a JSON array).
+    private function answerText(Quiz $quiz): string
+    {
         $correct = $quiz->correct_answer;
         if ($quiz->quiz_type === 'multiple_choice' && is_array($quiz->choices)) {
             return (string) ($quiz->choices[$correct] ?? $correct);
         }
 
-        // Identification may store a single answer or a JSON array of acceptable answers.
         $decoded = json_decode($correct, true);
 
         return is_array($decoded) ? (string) reset($decoded) : $correct;

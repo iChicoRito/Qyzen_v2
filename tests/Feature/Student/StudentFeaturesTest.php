@@ -209,23 +209,42 @@ class StudentFeaturesTest extends TestCase
         $response->assertSee('2+2');
     }
 
-    // Task 01: hints — bounded reveal, only when the educator turned them on.
-    public function test_hint_reveals_answer_when_enabled_and_respects_hint_count(): void
+    // Task 02: hints — mini-game gated reveal, only when the educator turned them on. Winning
+    // reveals the answer; every resolve call (won or lost) deducts exactly one hint credit.
+    public function test_hint_reveals_answer_when_won_and_respects_hint_count(): void
     {
         $this->assessment->update(['allow_hint' => true, 'hint_count' => 1]);
         $this->actingAs($this->student)->get(route('student.take-quiz', $this->assessment))->assertOk();
         $quiz = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->first();
 
         $this->actingAs($this->student)
-            ->postJson(route('student.take-quiz.hint', $this->assessment), ['quiz_id' => $quiz->id])
+            ->postJson(route('student.take-quiz.hint', $this->assessment), ['quiz_id' => $quiz->id, 'outcome' => 'won'])
             ->assertOk()
-            ->assertJson(['remaining' => 0]);
+            ->assertJson(['remaining' => 0, 'won' => true])
+            ->assertJsonMissing(['hint' => null]);
 
         // hint_count is 1 and already used — a second reveal must be rejected.
         $otherQuiz = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->skip(1)->first();
         $this->actingAs($this->student)
-            ->postJson(route('student.take-quiz.hint', $this->assessment), ['quiz_id' => $otherQuiz->id])
+            ->postJson(route('student.take-quiz.hint', $this->assessment), ['quiz_id' => $otherQuiz->id, 'outcome' => 'won'])
             ->assertStatus(422);
+    }
+
+    public function test_hint_losing_or_skipping_consumes_credit_without_revealing(): void
+    {
+        $this->assessment->update(['allow_hint' => true, 'hint_count' => 2]);
+        $this->actingAs($this->student)->get(route('student.take-quiz', $this->assessment))->assertOk();
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
+
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.hint', $this->assessment), ['quiz_id' => $quizzes[0]->id, 'outcome' => 'lost'])
+            ->assertOk()
+            ->assertJson(['hint' => null, 'remaining' => 1, 'won' => false]);
+
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.hint', $this->assessment), ['quiz_id' => $quizzes[1]->id, 'outcome' => 'skipped'])
+            ->assertOk()
+            ->assertJson(['hint' => null, 'remaining' => 0, 'won' => false]);
     }
 
     public function test_hint_endpoint_rejects_when_assessment_has_hints_disabled(): void
@@ -234,7 +253,7 @@ class StudentFeaturesTest extends TestCase
         $quiz = $this->assessment->eligibleQuizzes()->first();
 
         $this->actingAs($this->student)
-            ->postJson(route('student.take-quiz.hint', $this->assessment), ['quiz_id' => $quiz->id])
+            ->postJson(route('student.take-quiz.hint', $this->assessment), ['quiz_id' => $quiz->id, 'outcome' => 'won'])
             ->assertStatus(422);
     }
 

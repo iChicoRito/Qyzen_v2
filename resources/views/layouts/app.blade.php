@@ -10,7 +10,7 @@
     <title>@yield('title', config('app.name'))</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <link rel="shortcut icon" href="{{ asset('assets/img/favicon.ico') }}" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+    {{-- <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" /> --}}
     @stack('styles')
     <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet" />
     <link href="{{ asset('metronic-tailwind-html-demos/dist/assets/css/styles.css') }}" rel="stylesheet" />
@@ -101,9 +101,6 @@
                     <div class="flex items-center">
                         <button class="kt-btn kt-btn-icon kt-btn-ghost" data-kt-drawer-toggle="#sidebar">
                             <i class="ki-filled ki-menu"></i>
-                        </button>
-                        <button class="kt-btn kt-btn-icon kt-btn-ghost" data-kt-drawer-toggle="#mega_menu_wrapper">
-                            <i class="ki-filled ki-burger-menu-2"></i>
                         </button>
                     </div>
                 </div>

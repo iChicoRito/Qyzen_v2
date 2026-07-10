@@ -818,6 +818,28 @@ class EducatorFeaturesTest extends TestCase
         $this->assertCount(10, $response->viewData('bankQuestions'));
     }
 
+    public function test_pool_page_batch_filter_includes_batches_beyond_the_first_page(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        for ($i = 1; $i <= 10; $i++) {
+            Quiz::create([
+                'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+                'question' => "Pool question {$i}", 'quiz_type' => 'identification', 'correct_answer' => 'yes',
+                'batch_label' => 'Page 1 batch',
+            ]);
+        }
+        Quiz::create([
+            'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+            'question' => 'Pool question 11', 'quiz_type' => 'identification', 'correct_answer' => 'yes',
+            'batch_label' => 'Page 2 batch',
+        ]);
+
+        $response = $this->actingAs($this->eduA)->get(route('educator.assessments.pool.edit', $assessment));
+
+        $response->assertOk()->assertSee('Page 2 batch');
+    }
+
     public function test_question_creation_and_navbar_do_not_render_disabled_controls(): void
     {
         $this->actingAs($this->eduA)->get(route('educator.quizzes.create'))

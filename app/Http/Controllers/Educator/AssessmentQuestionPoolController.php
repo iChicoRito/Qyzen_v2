@@ -31,7 +31,8 @@ class AssessmentQuestionPoolController extends Controller
             ->whereKey((array) request()->query('selected', []))
             ->pluck('id')->all();
         $eligibleIds = array_values(array_unique(array_merge($eligibleIds, $pendingIds)));
-        $batches = $bankQuestions->pluck('batch_label')->filter()->unique()->values();
+        $batches = Quiz::visibleTo(Auth::user())->whereNotNull('batch_label')
+            ->distinct()->orderBy('batch_label')->pluck('batch_label');
 
         return view('educator.assessments.pool', compact('assessment', 'bankQuestions', 'eligibleIds', 'batches'));
     }

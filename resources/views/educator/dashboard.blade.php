@@ -9,6 +9,7 @@
          col-span-N helpers, so the wide/narrow ratio is set with a nonce'd grid-template override). --}}
     <style nonce="{{ $cspNonce ?? '' }}">
         @media (min-width: 1280px) { #dash_layout { grid-template-columns: minmax(0, 1fr) 360px; } }
+        #educator_assessment_heatmap .apexcharts-legend { flex-direction: row !important; flex-wrap: wrap !important; }
     </style>
     {{-- Full-width KPI row (above the two-panel split so the cards get room to breathe). --}}
     <div class="grid grid-cols-2 xl:grid-cols-4 gap-5 mb-5 lg:mb-7.5">
@@ -21,16 +22,6 @@
     <div id="dash_layout" class="grid gap-5 lg:gap-7.5">
         {{-- ============ MAIN PANEL ============ --}}
         <div class="flex flex-col gap-5 lg:gap-7.5 min-w-0">
-            {{-- Grouped bar: avg score % per section by subject --}}
-            <div class="kt-card">
-                <div class="kt-card-header">
-                    <h3 class="kt-card-title">Average score by section</h3>
-                </div>
-                <div class="kt-card-content">
-                    <div id="educator_perf_chart"></div>
-                </div>
-            </div>
-
             {{-- Area: quiz-activity trend --}}
             <div class="kt-card">
                 <div class="kt-card-header">
@@ -39,6 +30,11 @@
                 <div class="kt-card-content">
                     <div id="educator_trend_chart"></div>
                 </div>
+            </div>
+
+            <div class="kt-card">
+                <div class="kt-card-header"><h3 class="kt-card-title">Assessments created</h3></div>
+                <div class="kt-card-content"><div id="educator_assessment_heatmap"></div></div>
             </div>
 
             {{-- Sections table --}}
@@ -106,43 +102,6 @@
                 </div>
             </div>
 
-            {{-- This week's assessments --}}
-            <div class="kt-card">
-                <div class="kt-card-header"><h3 class="kt-card-title">This week</h3></div>
-                <div class="kt-card-content flex flex-col gap-2.5">
-                    @forelse ($weekAssessments as $a)
-                        <div class="flex items-center justify-between gap-2 rounded-lg border border-border p-3">
-                            <div class="min-w-0">
-                                <div class="font-medium text-mono truncate">{{ $a->assessment_code }}</div>
-                                <div class="text-xs text-secondary-foreground truncate">{{ $a->subject?->subject_name }}</div>
-                            </div>
-                            <span class="text-xs text-muted-foreground shrink-0">{{ optional($a->end_date)->format('M j') }}</span>
-                        </div>
-                    @empty
-                        <div class="text-sm text-secondary-foreground">No assessments this week.</div>
-                    @endforelse
-                </div>
-            </div>
-
-            {{-- Notifications --}}
-            <div class="kt-card">
-                <div class="kt-card-header">
-                    <h3 class="kt-card-title">Notifications</h3>
-                    @if ($unreadCount)
-                        <span class="kt-badge kt-badge-sm kt-badge-primary">{{ $unreadCount }} new</span>
-                    @endif
-                </div>
-                <div class="kt-card-content flex flex-col gap-2.5">
-                    @forelse ($recentNotifications as $n)
-                        <a href="{{ $n->linkHref }}" class="flex flex-col gap-0.5 rounded-lg border border-border p-3 hover:bg-accent/40">
-                            <span class="text-sm font-medium text-mono truncate">{{ $n->title }}</span>
-                            <span class="text-xs text-secondary-foreground line-clamp-2">{{ $n->message }}</span>
-                        </a>
-                    @empty
-                        <div class="text-sm text-secondary-foreground">No notifications.</div>
-                    @endforelse
-                </div>
-            </div>
         </div>
     </div>
 
@@ -155,19 +114,69 @@
     <script nonce="{{ $cspNonce ?? '' }}">
         document.addEventListener('DOMContentLoaded', function () {
             var mutedColor = '#99a1b7';
-            // Grouped bar: avg score % per section, series per subject.
-            var perfEl = document.getElementById('educator_perf_chart');
-            if (perfEl && typeof ApexCharts !== 'undefined') {
-                new ApexCharts(perfEl, {
-                    chart: { type: 'bar', height: 300, toolbar: { show: false } },
-                    series: @json($perfSeries),
-                    xaxis: { categories: @json($perfCategories) },
-                    yaxis: { max: 100, labels: { formatter: function (v) { return Math.round(v) + '%'; } } },
-                    plotOptions: { bar: { columnWidth: '55%', borderRadius: 4 } },
-                    dataLabels: { enabled: false },
-                    legend: { position: 'top' },
-                    noData: { text: 'No score data yet' },
-                }).render();
+            var heatmapEl = document.getElementById('educator_assessment_heatmap');
+            if (heatmapEl && typeof ApexCharts !== 'undefined') {
+                var heatmapChart;
+                var renderHeatmap = function () {
+                    if (heatmapChart) {
+                        heatmapChart.destroy();
+                    }
+
+                    var rootStyles = getComputedStyle(document.documentElement);
+                    var isDark = document.documentElement.classList.contains('dark');
+                    var heatmapLegendColor = rootStyles.getPropertyValue('--foreground').trim() || (isDark ? '#e5e7eb' : '#111827');
+                    var heatmapPalette = isDark
+                        ? ['#0f172a', '#1e3a8a', '#2563eb', '#60a5fa']
+                        : ['#eef4ff', '#cfe0ff', '#8bb7ff', '#1b84ff'];
+
+                    heatmapChart = new ApexCharts(heatmapEl, {
+                        chart: {
+                            type: 'heatmap',
+                            height: 320,
+                            toolbar: { show: false },
+                            foreColor: heatmapLegendColor,
+                        },
+                        series: @json($assessmentHeatmap),
+                        xaxis: { categories: @json($heatmapLabels) },
+                        dataLabels: { enabled: false },
+                        stroke: { width: 3, colors: [isDark ? '#111827' : 'var(--card)'] },
+                        plotOptions: {
+                            heatmap: {
+                                radius: 2,
+                                colorScale: {
+                                    ranges: [
+                                        { from: 0, to: 0, name: 'No activity', color: heatmapPalette[0] },
+                                        { from: 1, to: 1, name: '1 assessment', color: heatmapPalette[1] },
+                                        { from: 2, to: 3, name: '2-3 assessments', color: heatmapPalette[2] },
+                                        { from: 4, to: Number.MAX_SAFE_INTEGER, name: '4+ assessments', color: heatmapPalette[3] },
+                                    ],
+                                },
+                            },
+                        },
+                        legend: {
+                            show: true,
+                            position: 'bottom',
+                            horizontalAlign: 'center',
+                            fontSize: '12px',
+                            labels: { colors: heatmapLegendColor },
+                            markers: { width: 10, height: 10, radius: 2 },
+                            itemMargin: { horizontal: 16, vertical: 0 },
+                        },
+                        tooltip: { y: { formatter: function (value) { return value + (value === 1 ? ' assessment' : ' assessments'); } } },
+                        noData: { text: 'No assessments created yet' },
+                    });
+
+                    heatmapChart.render();
+                };
+
+                renderHeatmap();
+
+                new MutationObserver(function () {
+                    renderHeatmap();
+                }).observe(document.documentElement, {
+                    attributes: true,
+                    attributeFilter: ['class', 'data-kt-theme-mode'],
+                });
             }
             // Area: quiz-activity trend.
             var trendEl = document.getElementById('educator_trend_chart');
@@ -186,3 +195,9 @@
     </script>
     @endpush
 @endsection
+
+
+
+
+
+

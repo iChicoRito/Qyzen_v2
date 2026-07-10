@@ -148,6 +148,19 @@ class NotificationWorkflowTest extends TestCase
             ->assertOk()->assertSee('id="notifications_bell_dot"', false)->assertSee('9+');
     }
 
+    public function test_notification_tabs_render_red_unread_indicators(): void
+    {
+        $this->makeNotif($this->student->id);
+
+        $res = $this->actingAs($this->student)->get(route('student.assessments.index'))->assertOk();
+
+        $res->assertSee('id="notifications_tab_all_dot"', false)
+            ->assertDontSee('bg-green-500 size-[5px]', false)
+            ->assertSee('data-notification-tab-dot', false)
+            ->assertSee('dismissedTabs[tab] = true', false)
+            ->assertSee('notifications_tabs', false);
+    }
+
     public function test_bell_general_notification_shows_detail_badges(): void
     {
         $this->makeNotif($this->student->id, [

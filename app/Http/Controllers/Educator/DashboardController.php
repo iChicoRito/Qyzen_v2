@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Educator;
 use App\Http\Controllers\Controller;
 use App\Models\Assessment;
 use App\Models\Enrolled;
-use App\Models\Notification;
 use App\Models\Score;
 use App\Models\Section;
 use App\Models\Subject;
@@ -27,23 +26,6 @@ class DashboardController extends Controller
             ->distinct('student_id')->count('student_id');
         $pendingCount = Assessment::visibleTo($user)->where('is_active', true)
             ->whereDate('end_date', '>=', $today)->count();
-
-        // --- Grouped bar: avg score % per section, one series per subject ---
-        $sections = Section::visibleTo($user)->orderBy('section_name')->get(['id', 'section_name']);
-        $subjects = Subject::visibleTo($user)->orderBy('subject_name')->get(['id', 'subject_name']);
-        $avgRows = Score::visibleTo($user)->where('total_questions', '>', 0)
-            ->selectRaw('section_id, subject_id, AVG(score * 100.0 / total_questions) AS avg_pct')
-            ->groupBy('section_id', 'subject_id')->get();
-
-        $avgMap = [];
-        foreach ($avgRows as $r) {
-            $avgMap[$r->section_id][$r->subject_id] = round((float) $r->avg_pct, 1);
-        }
-        $perfCategories = $sections->pluck('section_name')->values();
-        $perfSeries = $subjects->map(fn ($subj) => [
-            'name' => $subj->subject_name,
-            'data' => $sections->map(fn ($sec) => $avgMap[$sec->id][$subj->id] ?? 0)->values(),
-        ])->values();
 
         // --- Area: quiz-activity trend (submitted scores per ISO week) ---
         $trend = Score::weeklyTrend(Score::visibleTo($user));
@@ -70,12 +52,6 @@ class DashboardController extends Controller
                 'avg' => isset($avgBySection[$s->id]) ? round((float) $avgBySection[$s->id], 1) : null,
             ]);
 
-        // --- This-week assessments (cards) + calendar + next-up ---
-        $weekAssessments = Assessment::visibleTo($user)->with('subject:id,subject_name')
-            ->whereDate('start_date', '<=', $today->copy()->endOfWeek())
-            ->whereDate('end_date', '>=', $today->copy()->startOfWeek())
-            ->orderBy('start_date')->get();
-
         $calendarAssessments = Assessment::visibleTo($user)->with('subject:id,subject_name')
             ->whereNotNull('start_date')->whereNotNull('end_date')->get();
         $calendarEvents = $calendarAssessments->map->calendarEvent()->values();
@@ -83,15 +59,53 @@ class DashboardController extends Controller
         $nextAssessment = Assessment::visibleTo($user)->with('subject:id,subject_name')
             ->whereDate('start_date', '>=', $today)->orderBy('start_date')->first();
 
-        // --- Notifications ---
-        $unreadCount = Notification::forRecipient($user->id)->where('is_read', false)->count();
-        $recentNotifications = Notification::recentForBell($user->id, 5);
+        $heatmapMonth = now()->startOfMonth();
+        $heatmapEnd = $heatmapMonth->copy()->endOfMonth();
+        $assessmentCounts = Assessment::visibleTo($user)
+            ->whereBetween('created_at', [$heatmapMonth->copy()->startOfDay(), $heatmapEnd->copy()->endOfDay()])
+            ->get(['created_at'])
+            ->groupBy(fn (Assessment $assessment) => $assessment->created_at->format('Y-m-d'))
+            ->map->count();
+
+        $heatmapWeeks = collect();
+        $cursor = $heatmapMonth->copy()->startOfWeek();
+        $lastWeek = $heatmapEnd->copy()->endOfWeek();
+        while ($cursor->lessThanOrEqualTo($lastWeek)) {
+            $heatmapWeeks->push($cursor->copy());
+            $cursor->addWeek();
+        }
+
+        $weekdayRows = collect([
+            0 => 'Sun',
+            1 => 'Mon',
+            2 => 'Tue',
+            3 => 'Wed',
+            4 => 'Thu',
+            5 => 'Fri',
+            6 => 'Sat',
+        ]);
+
+        $assessmentHeatmap = $assessmentCounts->isEmpty() ? [] : $weekdayRows->map(function (string $label, int $weekday) use ($heatmapWeeks, $heatmapMonth, $heatmapEnd, $assessmentCounts) {
+            return [
+                'name' => $label,
+                'data' => $heatmapWeeks->map(function (Carbon $weekStart) use ($weekday, $heatmapMonth, $heatmapEnd, $assessmentCounts) {
+                    $date = $weekStart->copy()->addDays($weekday);
+                    if ($date->lt($heatmapMonth) || $date->gt($heatmapEnd)) {
+                        return 0;
+                    }
+
+                    return (int) ($assessmentCounts[$date->format('Y-m-d')] ?? 0);
+                })->all(),
+            ];
+        })->values()->all();
+
+        $heatmapLabels = $heatmapWeeks->map(fn (Carbon $weekStart) => $weekStart->format('M j'))->all();
 
         return view('educator.dashboard', compact(
             'sectionCount', 'subjectCount', 'studentCount', 'pendingCount',
-            'perfCategories', 'perfSeries', 'trendLabels', 'trendData',
-            'sectionTable', 'weekAssessments', 'calendarEvents', 'nextAssessment',
-            'unreadCount', 'recentNotifications',
+            'trendLabels', 'trendData',
+            'sectionTable', 'calendarEvents', 'nextAssessment',
+            'assessmentHeatmap', 'heatmapLabels',
         ));
     }
 }

@@ -89,6 +89,40 @@ class StudentFeaturesTest extends TestCase
         $this->actingAs($this->student)->get(route('student.assessments.index'))->assertOk()->assertSee('Q1');
     }
 
+    public function test_enrolled_subjects_lists_only_the_students_active_enrollments(): void
+    {
+        $subject = Subject::findOrFail($this->assessment->subject_id);
+        $inactive = Subject::create([
+            'educator_id' => $this->educator->id,
+            'sections_id' => $subject->sections_id,
+            'subject_code' => 'OLD',
+            'subject_name' => 'Inactive Subject',
+        ]);
+        Enrolled::create([
+            'student_id' => $this->student->id,
+            'educator_id' => $this->educator->id,
+            'subject_id' => $inactive->id,
+            'is_active' => false,
+        ]);
+
+        $response = $this->actingAs($this->student)->get(route('student.subjects.index'));
+
+        $response->assertOk()
+            ->assertSee($this->educator->name)
+            ->assertSee('Math')
+            ->assertSee('A1')
+            ->assertDontSee('Inactive Subject');
+        $this->assertCount(1, $response->viewData('enrollments'));
+    }
+
+    public function test_dashboard_no_longer_renders_recent_grades(): void
+    {
+        $response = $this->actingAs($this->student)->get(route('student.dashboard'));
+
+        $response->assertOk()->assertDontSee('Recent grades');
+        $this->assertArrayNotHasKey('recentGrades', $response->viewData());
+    }
+
     public function test_legacy_student_assessment_details_page_is_removed(): void
     {
         $this->actingAs($this->student)
@@ -398,6 +432,49 @@ class StudentFeaturesTest extends TestCase
         $this->assertNotNull($tableRoot);
         $this->assertSame('div', strtolower($tableRoot->nodeName));
         $this->assertSame(0, $xpath->query('//*[@id="form_modal"]/ancestor::form')->length);
+    }
+
+    public function test_scores_index_groups_attempts_by_assessment_with_best_and_latest_attempt(): void
+    {
+        $subject = Subject::findOrFail($this->assessment->subject_id);
+        $section = Section::findOrFail($this->assessment->section_id);
+        $first = Score::create([
+            'student_id' => $this->student->id,
+            'educator_id' => $this->educator->id,
+            'assessment_id' => $this->assessment->id,
+            'subject_id' => $subject->id,
+            'section_id' => $section->id,
+            'score' => 3,
+            'total_questions' => 4,
+            'student_answer' => [],
+            'status' => 'passed',
+            'is_passed' => true,
+            'submitted_at' => now()->subHour(),
+            'taken_at' => now()->subHour(),
+        ]);
+        $latest = Score::create([
+            'student_id' => $this->student->id,
+            'educator_id' => $this->educator->id,
+            'assessment_id' => $this->assessment->id,
+            'subject_id' => $subject->id,
+            'section_id' => $section->id,
+            'score' => 2,
+            'total_questions' => 4,
+            'student_answer' => [],
+            'status' => 'failed',
+            'is_passed' => false,
+            'submitted_at' => now(),
+            'taken_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->student)->get(route('student.scores.index'));
+
+        $response->assertOk()->assertSee('3/4')->assertSee('2');
+        $scores = $response->viewData('scores');
+        $this->assertCount(1, $scores);
+        $this->assertSame($latest->id, $scores->first()->id);
+        $this->assertSame(2, $scores->first()->attempts_count);
+        $this->assertSame($first->id, $scores->first()->best_attempt_id);
     }
 
     // ---- helper ----

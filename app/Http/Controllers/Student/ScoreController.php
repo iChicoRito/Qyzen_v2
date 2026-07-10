@@ -21,16 +21,29 @@ use Illuminate\View\View;
 // right — the gated display rule from the source.
 class ScoreController extends Controller
 {
-    // H8 / Task 23 + Task 46: scores history (own only), filtered and paginated server-side.
-    // Counts are per ATTEMPT, not per unique assessment.
+    // H8 / Task 23 + Task 46: one latest summary row per assessment, own only.
     public function index(Request $request): View
     {
         $query = Score::query()
             ->where('tbl_scores.student_id', Auth::id())
             ->whereIn('status', ['passed', 'failed', 'submitted'])
+            ->whereNotExists(function ($q) {
+                $q->selectRaw('1')->from('tbl_scores as newer')
+                    ->whereColumn('newer.student_id', 'tbl_scores.student_id')
+                    ->whereColumn('newer.assessment_id', 'tbl_scores.assessment_id')
+                    ->whereIn('newer.status', ['passed', 'failed', 'submitted'])
+                    ->where(function ($newer) {
+                        $newer->whereColumn('newer.submitted_at', '>', 'tbl_scores.submitted_at')
+                            ->orWhere(function ($tie) {
+                                $tie->whereColumn('newer.submitted_at', '=', 'tbl_scores.submitted_at')
+                                    ->whereColumn('newer.id', '>', 'tbl_scores.id');
+                            });
+                    });
+            })
             ->select('tbl_scores.*')
             ->selectRaw('CASE WHEN tbl_scores.total_questions = 0 THEN 0 ELSE ROUND((tbl_scores.score * 100.0) / tbl_scores.total_questions) END as percentage')
             ->selectRaw("(select count(*) from tbl_scores as attempts where attempts.student_id = tbl_scores.student_id and attempts.assessment_id = tbl_scores.assessment_id and attempts.status in ('submitted', 'passed', 'failed')) as attempts_count")
+            ->selectRaw("(select best.id from tbl_scores as best where best.student_id = tbl_scores.student_id and best.assessment_id = tbl_scores.assessment_id and best.status in ('submitted', 'passed', 'failed') order by case when best.total_questions = 0 then 0 else best.score * 100.0 / best.total_questions end desc, best.submitted_at asc, best.id asc limit 1) as best_attempt_id")
             ->leftJoin('tbl_assessments as sort_assessments', 'sort_assessments.id', '=', 'tbl_scores.assessment_id')
             ->leftJoin('tbl_subjects as sort_subjects', 'sort_subjects.id', '=', 'sort_assessments.subject_id')
             ->leftJoin('tbl_sections as sort_sections', 'sort_sections.id', '=', 'sort_assessments.section_id')
@@ -80,8 +93,8 @@ class ScoreController extends Controller
 
         $studentAssessmentIds = (clone $base)->pluck('assessment_id')->unique();
         $fAssessments = Assessment::whereIn('id', $studentAssessmentIds)->orderBy('assessment_code')->get(['id', 'assessment_code']);
-        $fSubjects    = Subject::whereIn('id', Assessment::whereIn('id', $studentAssessmentIds)->pluck('subject_id')->unique())->orderBy('subject_name')->get(['id', 'subject_name']);
-        $fTerms       = AcademicTerm::whereIn('id', Assessment::whereIn('id', $studentAssessmentIds)->pluck('term')->unique()->filter())->orderBy('term_name')->get(['id', 'term_name']);
+        $fSubjects = Subject::whereIn('id', Assessment::whereIn('id', $studentAssessmentIds)->pluck('subject_id')->unique())->orderBy('subject_name')->get(['id', 'subject_name']);
+        $fTerms = AcademicTerm::whereIn('id', Assessment::whereIn('id', $studentAssessmentIds)->pluck('term')->unique()->filter())->orderBy('term_name')->get(['id', 'term_name']);
 
         return view('student.scores.index', compact('scores', 'bestByAssessment', 'fAssessments', 'fSubjects', 'fTerms'));
     }

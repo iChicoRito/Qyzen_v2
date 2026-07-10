@@ -47,7 +47,7 @@
                                 <div class="kt-menu-item">
                                     <a class="kt-menu-link" href="#" data-confirm="Unenroll all students from {{ $s->subject_code }}? This cannot be undone." data-confirm-title="Unenroll all?">
                                         <span class="kt-menu-icon"><i class="ki-filled ki-cross-circle"></i></span>
-                                        <span class="kt-menu-title">Unenroll All Students</span>
+                                        <span class="kt-menu-title">Un-enroll</span>
                                     </a>
                                     <form method="POST" action="{{ route('educator.enrollment.subject.unenrollAll', $s) }}" class="hidden">@csrf</form>
                                 </div>

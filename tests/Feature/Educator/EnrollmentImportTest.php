@@ -116,6 +116,43 @@ class EnrollmentImportTest extends TestCase
             ->assertSee('data-active="1"', false);
     }
 
+    public function test_clear_history_removes_only_the_owners_import_records_and_files(): void
+    {
+        Storage::fake('local');
+
+        $own = EnrollmentImport::create([
+            'initiated_by_user_id' => $this->educator->id,
+            'original_filename' => 'mine.xlsx',
+            'upload_path' => 'imports/uploads/mine.xlsx',
+            'failed_report_path' => 'imports/failed/mine.xlsx',
+            'status' => 'failed',
+        ]);
+        $other = EnrollmentImport::create([
+            'initiated_by_user_id' => $this->makeEducator()->id,
+            'original_filename' => 'other.xlsx',
+            'upload_path' => 'imports/uploads/other.xlsx',
+            'failed_report_path' => 'imports/failed/other.xlsx',
+            'status' => 'failed',
+        ]);
+        Storage::disk('local')->put($own->upload_path, 'upload');
+        Storage::disk('local')->put($own->failed_report_path, 'report');
+        Storage::disk('local')->put($other->upload_path, 'upload');
+        Storage::disk('local')->put($other->failed_report_path, 'report');
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->educator->id, 'subject_id' => $this->subject->id, 'is_active' => true]);
+
+        $this->actingAs($this->educator)
+            ->delete(route('educator.enrollment.imports.clear'))
+            ->assertRedirect(route('educator.enrollment.index'));
+
+        $this->assertDatabaseMissing('tbl_enrollment_imports', ['id' => $own->id]);
+        $this->assertDatabaseHas('tbl_enrollment_imports', ['id' => $other->id]);
+        Storage::disk('local')->assertMissing($own->upload_path);
+        Storage::disk('local')->assertMissing($own->failed_report_path);
+        Storage::disk('local')->assertExists($other->upload_path);
+        Storage::disk('local')->assertExists($other->failed_report_path);
+        $this->assertDatabaseHas('tbl_enrolled', ['student_id' => $this->student->id, 'subject_id' => $this->subject->id]);
+    }
+
     public function test_import_detail_modal_is_owner_only(): void
     {
         $import = EnrollmentImport::create([

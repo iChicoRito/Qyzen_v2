@@ -18,7 +18,7 @@
             </select>
             <select data-filter="subject" class="kt-select w-48">
                 <option value="">All subjects</option>
-                @foreach ($filterSubjects as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} â€” {{ $s->subject_name }} ({{ optional($s->section)->section_name ?? 'No section' }})</option>@endforeach
+                @foreach ($filterSubjects as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} — {{ $s->subject_name }} ({{ optional($s->section)->section_name ?? 'No section' }})</option>@endforeach
             </select>
             <select data-filter="assessment" class="kt-select w-40">
                 <option value="">All assessment codes</option>
@@ -69,7 +69,7 @@
                         <span class="text-xs text-secondary-foreground">Not used yet</span>
                     @endforelse
                 </td>
-                <td class="text-xs text-secondary-foreground">{{ $q->batch_label ?? 'â€”' }}</td>
+                <td class="text-xs text-secondary-foreground">{{ $q->batch_label ?? '—' }}</td>
                 <td class="text-center">
                     <x-table-actions
                         :edit-modal="route('educator.quizzes.edit', $q)" edit-modal-title="Edit question"
@@ -101,8 +101,8 @@
                 <select name="subject_id" class="kt-select w-full" required
                         data-kt-select="true" data-kt-select-enable-search="true"
                         data-kt-select-placeholder="Select a subject"
-                        data-kt-select-search-placeholder="Search subjectsâ€¦">
-                    @foreach ($filterSubjects as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} â€” {{ $s->subject_name }} ({{ optional($s->section)->section_name ?? 'No section' }})</option>@endforeach
+                        data-kt-select-search-placeholder="Search subjects…">
+                    @foreach ($filterSubjects as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} — {{ $s->subject_name }} ({{ optional($s->section)->section_name ?? 'No section' }})</option>@endforeach
                 </select>
             </div>
 
@@ -112,8 +112,8 @@
                 <select name="assessment_ids[]" class="kt-select w-full" multiple
                         data-kt-select="true" data-kt-select-multiple="true" data-kt-select-enable-search="true"
                         data-kt-select-placeholder="Not attached to any assessment yet"
-                        data-kt-select-search-placeholder="Search assessmentsâ€¦">
-                    @foreach ($assessmentOptions as $assessment)<option value="{{ $assessment->id }}">{{ trim($assessment->assessment_code . ($assessment->subject ? ' â€” ' . $assessment->subject->subject_name : '')) }}</option>@endforeach
+                        data-kt-select-search-placeholder="Search assessments…">
+                    @foreach ($assessmentOptions as $assessment)<option value="{{ $assessment->id }}">{{ trim($assessment->assessment_code . ($assessment->subject ? ' — ' . $assessment->subject->subject_name : '')) }}</option>@endforeach
                 </select>
                 <span class="text-xs text-secondary-foreground">Questions can be attached to any of your assessments, even across subjects.</span>
             </div>

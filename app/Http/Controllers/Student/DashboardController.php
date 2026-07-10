@@ -74,13 +74,11 @@ class DashboardController extends Controller
             ->map->calendarEvent()->values();
         $nextDeadline = $upcoming->first();
         $sectionNames = $subjects->pluck('section.section_name')->filter()->unique()->values();
-        $recentGrades = Score::visibleTo($user)->with('subject:id,subject_name')
-            ->whereNotNull('submitted_at')->latest('submitted_at')->take(5)->get();
 
         return view('student.dashboard', compact(
             'overallAvg', 'subjectCount', 'passRate', 'pendingCount',
             'donutLabels', 'donutData', 'upcoming', 'badges', 'subjects', 'completion',
-            'calendarEvents', 'nextDeadline', 'sectionNames', 'recentGrades',
+            'calendarEvents', 'nextDeadline', 'sectionNames',
         ));
     }
 }

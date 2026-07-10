@@ -7,9 +7,16 @@
 
 @include('partials._fullcalendar_theme')
 
-<div class="kt-card">
-    <div class="kt-card-content p-5">
-        <div id="{{ $calId }}"></div>
+<style nonce="{{ $cspNonce ?? '' }}">
+    [data-calendar-responsive] { min-width: 0; overflow-x: hidden; }
+    [data-calendar-responsive] .fc { max-width: 100%; min-width: 0; }
+    [data-calendar-responsive] .fc-header-toolbar { flex-wrap: wrap; gap: .75rem; }
+    [data-calendar-responsive] .fc-view-harness { min-width: 0; }
+</style>
+
+<div class="kt-card min-w-0 overflow-x-hidden" data-calendar-responsive>
+    <div class="kt-card-content p-5 min-w-0 overflow-x-auto">
+        <div class="min-w-0" id="{{ $calId }}"></div>
     </div>
 </div>
 

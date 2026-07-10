@@ -71,6 +71,12 @@
                     @endforeach
                 </div>
             </div>
+            <div class="kt-card-footer">
+                <form method="POST" action="{{ route('admin.users.imports.clear') }}" class="w-full" data-confirm="Clear this import history? User records will not be changed." data-confirm-title="Clear history?">
+                    @csrf @method('DELETE')
+                    <button type="submit" class="kt-btn kt-btn-outline w-full justify-center">Clear History</button>
+                </form>
+            </div>
         </div>
     @else
         <div class="kt-card">

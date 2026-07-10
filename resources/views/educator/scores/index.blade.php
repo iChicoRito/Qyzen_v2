@@ -48,9 +48,9 @@
                     <th class="min-w-[160px]" data-sort="subject"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="min-w-[110px]" data-sort="section"><span class="kt-table-col"><span class="kt-table-col-label">Section</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="min-w-[120px]" data-sort="term"><span class="kt-table-col"><span class="kt-table-col-label">Term</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[90px]" data-sort="score"><span class="kt-table-col"><span class="kt-table-col-label">Score</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[110px]" data-sort="result"><span class="kt-table-col"><span class="kt-table-col-label">Result</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[160px]" data-sort="submitted"><span class="kt-table-col"><span class="kt-table-col-label">Submitted</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[110px]" data-sort="score"><span class="kt-table-col"><span class="kt-table-col-label">Best score</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[100px]" data-sort="attempts"><span class="kt-table-col"><span class="kt-table-col-label">Attempts</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[160px]" data-sort="submitted"><span class="kt-table-col"><span class="kt-table-col-label">Latest submission</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="w-[60px]"></th>
                 </tr>
             </thead>
@@ -84,13 +84,8 @@
                     <span data-filter-value="term" data-filter-key="{{ $s->assessment?->term }}" hidden></span>
                     {{ optional($s->assessment?->academicTerm)->term_name ?? '—' }}
                 </td>
-                <td>{{ $s->score }}/{{ $s->total_questions }}</td>
-                <td>
-                    <span data-filter-value="result" data-filter-key="{{ $s->is_passed ? 'passed' : 'failed' }}" hidden></span>
-                    <span class="kt-badge rounded-full kt-badge-outline kt-badge-{{ $s->is_passed ? 'success' : 'destructive' }} gap-1 items-center">
-                        <span class="kt-badge-dot size-1.5"></span>{{ $s->is_passed ? 'Passed' : 'Failed' }}
-                    </span>
-                </td>
+                <td>Best: {{ $s->best_score ?? 0 }}/{{ $s->best_total_questions ?? 0 }}</td>
+                <td>{{ $s->attempts_count }} {{ $s->attempts_count === 1 ? 'attempt' : 'attempts' }}</td>
                 <td class="text-secondary-foreground">{{ optional($s->submitted_at)->format('Y-m-d H:i') ?? '—' }}</td>
                 <td class="text-center">
                     <x-table-actions :view-modal="route('educator.scores.show', $s)" view-modal-title="Attempt detail" />

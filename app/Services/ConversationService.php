@@ -159,6 +159,25 @@ class ConversationService
         return $this->conversationListFor($user)->sum('unreadCount');
     }
 
+    /** Active subject/section contexts shared by the educator and student in this 1:1 thread. */
+    public function activeContextsFor(Conversation $conversation, User $viewer): Collection
+    {
+        if (! $viewer->hasRole('educator') || $viewer->id !== $conversation->educator_id) {
+            return collect();
+        }
+
+        return Enrolled::where('educator_id', $conversation->educator_id)
+            ->where('student_id', $conversation->student_id)
+            ->where('is_active', true)
+            ->with('subject:id,subject_code,subject_name,sections_id', 'subject.section:id,section_name')
+            ->get()
+            ->pluck('subject')
+            ->filter()
+            ->unique('id')
+            ->sortBy('subject_code')
+            ->values();
+    }
+
     /** Ordered messages with the OTHER participant's last_read_at attached for read-receipt checks. */
     public function threadFor(Conversation $conversation, User $viewer): Collection
     {

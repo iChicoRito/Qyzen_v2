@@ -130,6 +130,7 @@ class MessagingController extends Controller
     private function threadResponse(Conversation $conversation): JsonResponse
     {
         $thread = $this->conversations->threadFor($conversation, Auth::user());
+        $contexts = $this->conversations->activeContextsFor($conversation, Auth::user());
 
         return response()->json([
             'signature' => $this->threadSignature($thread),
@@ -137,6 +138,7 @@ class MessagingController extends Controller
                 'conversation' => $conversation,
                 'thread' => $thread,
             ])->render(),
+            'context_html' => view('layouts.partials._conversation_context_badges', ['contexts' => $contexts])->render(),
         ]);
     }
 

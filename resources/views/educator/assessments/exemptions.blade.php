@@ -1,7 +1,7 @@
 {{-- Task 01: per-student "cannot take this quiz" exemption. Modal-only fragment, rendered inside
      the shared modal under ?modal=1 (same convention as educator/enrollment/student.blade.php).
      The search/select-all/action-carry behavior is delegated in
-     resources/views/partials/_modal-loader.blade.php â€” an injected <script> tag never executes
+     resources/views/partials/_modal-loader.blade.php — an injected <script> tag never executes
      when this view is loaded via innerHTML, so this file carries no page-local JS. --}}
 @extends('layouts.fragment')
 @section('content')
@@ -23,7 +23,7 @@
                 <form method="POST" action="{{ route('educator.assessments.exemptions.toggle', $assessment) }}" class="flex flex-col gap-4">
                     @csrf
                     {{-- The global submit-spinner script disables the clicked submit button while handling
-                         the submit event, and a disabled control's name=value is dropped from what's sent â€”
+                         the submit event, and a disabled control's name=value is dropped from what's sent —
                          so the action can't live on the button itself. A hidden field set on click (which
                          fires before submit) carries it instead. --}}
                     <input type="hidden" name="action" data-exempt-action-input>

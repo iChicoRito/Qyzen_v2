@@ -9,11 +9,11 @@ use App\Http\Requests\GrantRetakeRequest;
 use App\Imports\OfflineScoresImport;
 use App\Models\AcademicTerm;
 use App\Models\Assessment;
+use App\Models\Quiz;
 use App\Models\Score;
 use App\Models\Section;
-use App\Models\Subject;
 use App\Models\StudentAssessmentRetake;
-use App\Models\Quiz;
+use App\Models\Subject;
 use App\Services\NotificationService;
 use App\Services\OfflineScoreUploadService;
 use App\Services\ScoreExportService;
@@ -45,6 +45,21 @@ class ScoreController extends Controller
         // sorting, and pagination before the shared table renders.
         $query = Score::query()
             ->where('tbl_scores.educator_id', Auth::id())
+            ->whereIn('tbl_scores.status', ['submitted', 'passed', 'failed'])
+            ->whereNotExists(function ($q) {
+                $q->selectRaw('1')->from('tbl_scores as newer')
+                    ->whereColumn('newer.educator_id', 'tbl_scores.educator_id')
+                    ->whereColumn('newer.student_id', 'tbl_scores.student_id')
+                    ->whereColumn('newer.assessment_id', 'tbl_scores.assessment_id')
+                    ->whereIn('newer.status', ['submitted', 'passed', 'failed'])
+                    ->where(function ($newer) {
+                        $newer->whereColumn('newer.submitted_at', '>', 'tbl_scores.submitted_at')
+                            ->orWhere(function ($tie) {
+                                $tie->whereColumn('newer.submitted_at', '=', 'tbl_scores.submitted_at')
+                                    ->whereColumn('newer.id', '>', 'tbl_scores.id');
+                            });
+                    });
+            })
             ->select('tbl_scores.*')
             ->leftJoin('tbl_users as sort_students', 'sort_students.id', '=', 'tbl_scores.student_id')
             ->leftJoin('tbl_assessments as sort_assessments', 'sort_assessments.id', '=', 'tbl_scores.assessment_id')
@@ -76,6 +91,12 @@ class ScoreController extends Controller
             'term' => fn (Builder $q, string $value) => $q->whereHas('assessment', fn ($a) => $a->where('term', $value)),
             'result' => fn (Builder $q, string $value) => $q->where('is_passed', $value === 'passed'),
         ]);
+        // One latest submitted row per student/assessment, while correlated aggregates retain the
+        // full attempt history needed by the concise table and existing detail route.
+        $query->selectRaw("(select count(*) from tbl_scores as attempts where attempts.educator_id = tbl_scores.educator_id and attempts.student_id = tbl_scores.student_id and attempts.assessment_id = tbl_scores.assessment_id and attempts.status in ('submitted', 'passed', 'failed')) as attempts_count")
+            ->selectRaw("(select best.score from tbl_scores as best where best.educator_id = tbl_scores.educator_id and best.student_id = tbl_scores.student_id and best.assessment_id = tbl_scores.assessment_id and best.status in ('submitted', 'passed', 'failed') order by case when best.total_questions > 0 then best.score * 1.0 / best.total_questions else 0 end desc, best.id desc limit 1) as best_score")
+            ->selectRaw("(select best.total_questions from tbl_scores as best where best.educator_id = tbl_scores.educator_id and best.student_id = tbl_scores.student_id and best.assessment_id = tbl_scores.assessment_id and best.status in ('submitted', 'passed', 'failed') order by case when best.total_questions > 0 then best.score * 1.0 / best.total_questions else 0 end desc, best.id desc limit 1) as best_total_questions")
+            ->selectRaw("(select case when best.total_questions > 0 then best.score * 100.0 / best.total_questions else 0 end from tbl_scores as best where best.educator_id = tbl_scores.educator_id and best.student_id = tbl_scores.student_id and best.assessment_id = tbl_scores.assessment_id and best.status in ('submitted', 'passed', 'failed') order by case when best.total_questions > 0 then best.score * 1.0 / best.total_questions else 0 end desc, best.id desc limit 1) as best_percentage");
         TableQuery::sort($query, $request, [
             'student' => function (Builder $q, string $direction): void {
                 $q->orderBy('sort_students.surname', $direction)
@@ -91,7 +112,8 @@ class ScoreController extends Controller
             },
             'section' => 'sort_sections.section_name',
             'term' => 'sort_terms.term_name',
-            'score' => 'score',
+            'score' => 'best_percentage',
+            'attempts' => 'attempts_count',
             'result' => 'is_passed',
             'submitted' => 'submitted_at',
         ], 'submitted', 'desc');
@@ -124,9 +146,9 @@ class ScoreController extends Controller
             ->values();
 
         $filterAssessments = Assessment::visibleTo(Auth::user())->orderBy('assessment_code')->pluck('assessment_code');
-        $filterSubjects    = Subject::visibleTo(Auth::user())->orderBy('subject_code')->get(['id', 'subject_code', 'subject_name']);
-        $filterSections    = Section::visibleTo(Auth::user())->orderBy('section_name')->get(['id', 'section_name']);
-        $filterTerms       = AcademicTerm::orderBy('term_name')->get(['id', 'term_name']);
+        $filterSubjects = Subject::visibleTo(Auth::user())->orderBy('subject_code')->get(['id', 'subject_code', 'subject_name']);
+        $filterSections = Section::visibleTo(Auth::user())->orderBy('section_name')->get(['id', 'section_name']);
+        $filterTerms = AcademicTerm::orderBy('term_name')->get(['id', 'term_name']);
 
         return view('educator.scores.index', compact('scores', 'exportOptions', 'filterAssessments', 'filterSubjects', 'filterSections', 'filterTerms'));
     }

@@ -133,6 +133,42 @@ class AdminFeaturesTest extends TestCase
             ->assertSee('data-active="1"', false);
     }
 
+    public function test_clear_history_removes_only_the_owners_import_records_and_files(): void
+    {
+        Storage::fake('local');
+
+        $own = UserImport::create([
+            'initiated_by_user_id' => $this->admin->id,
+            'original_filename' => 'mine.xlsx',
+            'upload_path' => 'imports/uploads/mine.xlsx',
+            'failed_report_path' => 'imports/failed/mine.xlsx',
+            'status' => 'failed',
+        ]);
+        $otherAdmin = $this->makeUser('admin', 'admin');
+        $other = UserImport::create([
+            'initiated_by_user_id' => $otherAdmin->id,
+            'original_filename' => 'other.xlsx',
+            'upload_path' => 'imports/uploads/other.xlsx',
+            'failed_report_path' => 'imports/failed/other.xlsx',
+            'status' => 'failed',
+        ]);
+        Storage::disk('local')->put($own->upload_path, 'upload');
+        Storage::disk('local')->put($own->failed_report_path, 'report');
+        Storage::disk('local')->put($other->upload_path, 'upload');
+        Storage::disk('local')->put($other->failed_report_path, 'report');
+
+        $this->actingAs($this->admin)
+            ->delete(route('admin.users.imports.clear'))
+            ->assertRedirect(route('admin.users.index'));
+
+        $this->assertDatabaseMissing('tbl_user_imports', ['id' => $own->id]);
+        $this->assertDatabaseHas('tbl_user_imports', ['id' => $other->id]);
+        Storage::disk('local')->assertMissing($own->upload_path);
+        Storage::disk('local')->assertMissing($own->failed_report_path);
+        Storage::disk('local')->assertExists($other->upload_path);
+        Storage::disk('local')->assertExists($other->failed_report_path);
+    }
+
     public function test_import_detail_modal_shows_failure_reasons_to_owner_only(): void
     {
         $import = UserImport::create([

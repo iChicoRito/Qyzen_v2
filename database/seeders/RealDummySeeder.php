@@ -17,7 +17,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
-class EducatorIsolationSeeder extends Seeder
+class RealDummySeeder extends Seeder
 {
     private const PASSWORD = 'password';
 
@@ -32,6 +32,12 @@ class EducatorIsolationSeeder extends Seeder
     private const STUDENTS_PER_SECTION = 40;
 
     private const QUIZZES_PER_ASSESSMENT = 4;
+
+    // Every 4th student in a section (by seed order) retakes the assessment once more,
+    // producing an older + a newer Score row so multi-attempt history/best-score logic has data.
+    private const RETAKE_EVERY_NTH_STUDENT = 4;
+
+    private int $extraAttemptsSeeded = 0;
 
     private const SECTION_BLUEPRINTS = [
         ['year' => 1, 'semester' => 1, 'time' => 'M', 'number' => 1],
@@ -134,7 +140,7 @@ class EducatorIsolationSeeder extends Seeder
 
                     $quizzes = $this->quizzes($assessment, $subject, $educator);
 
-                    foreach ($students as $student) {
+                    foreach ($students as $studentPosition => $student) {
                         Enrolled::firstOrCreate(
                             [
                                 'educator_id' => $educator->id,
@@ -144,12 +150,19 @@ class EducatorIsolationSeeder extends Seeder
                             ['is_active' => true],
                         );
 
+                        $latestAttempt = $this->scoreAttempt($assessment, $subject, $section, $student, $quizzes);
+
+                        if (($studentPosition + 1) % self::RETAKE_EVERY_NTH_STUDENT === 0) {
+                            $this->seedRetake($assessment, $subject, $section, $student, $quizzes, $latestAttempt);
+                        }
+
                         Score::updateOrCreate(
                             [
                                 'student_id' => $student->id,
                                 'assessment_id' => $assessment->id,
+                                'submitted_at' => $latestAttempt['submitted_at'],
                             ],
-                            $this->scoreAttempt($assessment, $subject, $section, $student, $quizzes),
+                            $latestAttempt,
                         );
                     }
                 }
@@ -157,7 +170,8 @@ class EducatorIsolationSeeder extends Seeder
         }
 
         $this->assertCounts();
-        $this->command?->info('EducatorIsolationSeeder: 5 educators, 25 sections, 125 subjects, 1000 students, 5000 enrollments.');
+        $totalScores = self::EDUCATORS * self::SECTIONS_PER_EDUCATOR * self::SUBJECTS_PER_SECTION * (self::STUDENTS_PER_SECTION + $this->retakesPerAssessment());
+        $this->command?->info("RealDummySeeder: 5 educators, 25 sections, 125 subjects, 1000 students, {$totalScores} scores ({$this->extraAttemptsSeeded} retake attempts).");
     }
 
     /** @return array{0: Role, 1: Role, 2: Role} */
@@ -353,6 +367,43 @@ class EducatorIsolationSeeder extends Seeder
         ];
     }
 
+    /** @param Quiz[] $quizzes */
+    private function seedRetake(Assessment $assessment, Subject $subject, Section $section, User $student, array $quizzes, array $latestAttempt): void
+    {
+        $total = count($quizzes);
+        $retakeCorrectCount = max(1, $latestAttempt['score'] - 1);
+        $retakeSubmittedAt = $latestAttempt['submitted_at']->copy()->subDay()->subHours(2);
+        $retakeAnswers = [];
+        foreach ($quizzes as $index => $quiz) {
+            $retakeAnswers[$quiz->id] = $index < $retakeCorrectCount ? $quiz->correct_answer : 'wrong';
+        }
+        $isPassed = ($retakeCorrectCount / $total) >= 0.75;
+
+        Score::updateOrCreate(
+            [
+                'student_id' => $student->id,
+                'assessment_id' => $assessment->id,
+                'submitted_at' => $retakeSubmittedAt,
+            ],
+            [
+                'educator_id' => $assessment->educator_id,
+                'subject_id' => $subject->id,
+                'section_id' => $section->id,
+                'score' => $retakeCorrectCount,
+                'total_questions' => $total,
+                'student_answer' => $retakeAnswers,
+                'drawn_quiz_ids' => collect($quizzes)->pluck('id')->all(),
+                'warning_attempts' => 0,
+                'status' => $isPassed ? 'passed' : 'failed',
+                'is_passed' => $isPassed,
+                'taken_at' => $retakeSubmittedAt->copy()->subMinutes(15),
+                'submitted_at' => $retakeSubmittedAt,
+            ],
+        );
+
+        $this->extraAttemptsSeeded++;
+    }
+
     private function assertCounts(): void
     {
         $educatorIds = User::where('user_type', 'educator')
@@ -360,7 +411,7 @@ class EducatorIsolationSeeder extends Seeder
             ->pluck('id');
 
         if ($educatorIds->count() !== self::EDUCATORS) {
-            throw new \RuntimeException('EducatorIsolationSeeder expected exactly 5 seeded educators.');
+            throw new \RuntimeException('RealDummySeeder expected exactly 5 seeded educators.');
         }
 
         $studentCount = User::where('user_type', 'student')
@@ -368,7 +419,7 @@ class EducatorIsolationSeeder extends Seeder
             ->count();
 
         if ($studentCount !== self::EDUCATORS * self::SECTIONS_PER_EDUCATOR * self::STUDENTS_PER_SECTION) {
-            throw new \RuntimeException('EducatorIsolationSeeder expected exactly 1000 seeded students.');
+            throw new \RuntimeException('RealDummySeeder expected exactly 1000 seeded students.');
         }
 
         foreach ($educatorIds as $educatorId) {
@@ -431,8 +482,10 @@ class EducatorIsolationSeeder extends Seeder
                         ->where('assessment_id', $assessmentId)
                         ->count();
 
-                    if ($scoreCount !== self::STUDENTS_PER_SECTION) {
-                        throw new \RuntimeException("Assessment {$assessmentId} does not have 40 scores.");
+                    $expectedScoreCount = self::STUDENTS_PER_SECTION + $this->retakesPerAssessment();
+
+                    if ($scoreCount !== $expectedScoreCount) {
+                        throw new \RuntimeException("Assessment {$assessmentId} does not have {$expectedScoreCount} score rows (attempts + retakes).");
                     }
                 }
             }
@@ -453,15 +506,22 @@ class EducatorIsolationSeeder extends Seeder
         $scoreCount = Score::whereIn('educator_id', $educatorIds)->count();
 
         if ($assessmentCount !== self::EDUCATORS * self::SECTIONS_PER_EDUCATOR * self::SUBJECTS_PER_SECTION) {
-            throw new \RuntimeException('EducatorIsolationSeeder expected exactly 125 assessments.');
+            throw new \RuntimeException('RealDummySeeder expected exactly 125 assessments.');
         }
 
         if ($quizCount !== $assessmentCount * self::QUIZZES_PER_ASSESSMENT) {
-            throw new \RuntimeException('EducatorIsolationSeeder expected exactly 500 quizzes.');
+            throw new \RuntimeException('RealDummySeeder expected exactly 500 quizzes.');
         }
 
-        if ($scoreCount !== self::EDUCATORS * self::SECTIONS_PER_EDUCATOR * self::SUBJECTS_PER_SECTION * self::STUDENTS_PER_SECTION) {
-            throw new \RuntimeException('EducatorIsolationSeeder expected exactly 5000 scores.');
+        $expectedTotalScores = $assessmentCount * (self::STUDENTS_PER_SECTION + $this->retakesPerAssessment());
+
+        if ($scoreCount !== $expectedTotalScores) {
+            throw new \RuntimeException("RealDummySeeder expected exactly {$expectedTotalScores} scores.");
         }
+    }
+
+    private function retakesPerAssessment(): int
+    {
+        return intdiv(self::STUDENTS_PER_SECTION, self::RETAKE_EVERY_NTH_STUDENT);
     }
 }

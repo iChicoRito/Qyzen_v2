@@ -198,6 +198,18 @@ class UserController extends Controller
         return view('admin.users._import-timeline', compact('imports'));
     }
 
+    public function clearImportHistory(Request $request): RedirectResponse
+    {
+        $this->authorize('create', User::class);
+
+        UserImport::ownedBy($request->user())->get()->each(function (UserImport $import): void {
+            Storage::disk('local')->delete(array_filter([$import->upload_path, $import->failed_report_path]));
+            $import->delete();
+        });
+
+        return redirect()->route('admin.users.index')->with('status', 'Student import history cleared.');
+    }
+
     // Detail fragment for the timeline: full status + per-row failure reasons (opened in the shared modal).
     public function showImport(UserImport $userImport): View
     {

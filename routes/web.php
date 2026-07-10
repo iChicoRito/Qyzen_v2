@@ -30,6 +30,7 @@ use App\Http\Controllers\Student\DashboardController as StudentDashboardControll
 use App\Http\Controllers\Student\MaterialController as StudentMaterialController;
 use App\Http\Controllers\Student\QuizController as StudentQuizController;
 use App\Http\Controllers\Student\ScoreController as StudentScoreController;
+use App\Http\Controllers\Student\SubjectController as StudentSubjectController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -57,6 +58,7 @@ Route::middleware(['auth', 'verified', 'role:student'])
     ->prefix('student')->name('student.')->group(function () {
         Route::get('/dashboard', [StudentDashboardController::class, 'index'])->name('dashboard');
         Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar');
+        Route::get('subjects', [StudentSubjectController::class, 'index'])->name('subjects.index');
 
         // H2 assessment list.
         Route::get('assessments', [StudentQuizController::class, 'index'])->name('assessments.index');
@@ -125,6 +127,7 @@ Route::middleware(['auth', 'verified', 'role:admin'])
         Route::get('users/import/template', [UserController::class, 'importTemplate'])->name('users.import.template');
         Route::post('users/import', [UserController::class, 'import'])->name('users.import');
         Route::get('users/imports/timeline', [UserController::class, 'importTimeline'])->name('users.imports.timeline');
+        Route::delete('users/imports', [UserController::class, 'clearImportHistory'])->name('users.imports.clear');
         Route::get('users/imports/{userImport}/report', [UserController::class, 'downloadImportReport'])->name('users.import.report');
         Route::get('users/imports/{userImport}/credentials', [UserController::class, 'downloadImportCredentials'])->name('users.import.credentials');
         Route::get('users/imports/{userImport}', [UserController::class, 'showImport'])->name('users.imports.show');
@@ -164,6 +167,7 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         // G4 enrollment: bulk import routes precede the resource binding.
         Route::get('enrollment/import/template', [EnrollmentController::class, 'importTemplate'])->name('enrollment.import.template');
         Route::post('enrollment/import', [EnrollmentController::class, 'import'])->name('enrollment.import');
+        Route::delete('enrollment/imports', [EnrollmentController::class, 'clearImportHistory'])->name('enrollment.imports.clear');
         Route::get('enrollment/imports/timeline', [EnrollmentController::class, 'importTimeline'])->name('enrollment.imports.timeline');
         Route::get('enrollment/imports/{enrollmentImport}/report', [EnrollmentController::class, 'downloadImportReport'])->name('enrollment.import.report');
         Route::get('enrollment/imports/{enrollmentImport}', [EnrollmentController::class, 'showImport'])->name('enrollment.imports.show');

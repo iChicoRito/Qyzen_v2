@@ -67,6 +67,15 @@ class DashboardTest extends TestCase
         $this->assertSame(1, $res->viewData('sectionCount'));
         $this->assertSame(1, $res->viewData('subjectCount'));
         $this->assertSame(1, $res->viewData('studentCount'));
+        $this->assertCount(7, $res->viewData('assessmentHeatmap'));
+        $this->assertGreaterThan(1, count($res->viewData('heatmapLabels')));
+        $this->assertCount(count($res->viewData('heatmapLabels')), $res->viewData('assessmentHeatmap')[0]['data']);
+        $this->assertSame(1, array_sum(array_merge(...array_map(fn ($row) => $row['data'], $res->viewData('assessmentHeatmap')))));
+        $res->assertSee('Assessments created');
+        $res->assertSee("name: 'No activity'", false);
+        $res->assertSee('No assessments created yet');
+        $res->assertDontSee('This week');
+        $res->assertDontSee('>Notifications<', false);
     }
 
     public function test_student_dashboard_shows_only_own_scores(): void
@@ -77,6 +86,16 @@ class DashboardTest extends TestCase
         // studentA sees only their own 80% — never studentB's 40%.
         $this->assertEqualsWithDelta(80.0, (float) $res->viewData('overallAvg'), 0.01);
         $this->assertSame(1, $res->viewData('subjectCount'));
+    }
+
+    public function test_educator_heatmap_uses_no_series_when_the_owner_has_no_created_assessments(): void
+    {
+        Assessment::where('educator_id', $this->eduA->id)->delete();
+
+        $response = $this->actingAs($this->eduA)->get(route('educator.dashboard'));
+
+        $response->assertOk();
+        $this->assertSame([], $response->viewData('assessmentHeatmap'));
     }
 
     public function test_admin_dashboard_sees_institution_wide_totals(): void

@@ -177,6 +177,25 @@ class PrivateMessagingTest extends TestCase
         $this->assertSame(0, $after->json('unread_count'));
     }
 
+    public function test_educator_thread_header_shows_only_active_shared_subject_sections(): void
+    {
+        $term = AcademicTerm::firstOrFail();
+        $section = Section::create(['educator_id' => $this->educator->id, 'academic_term_id' => $term->id, 'section_name' => 'B2']);
+        $active = Subject::create(['educator_id' => $this->educator->id, 'sections_id' => $section->id, 'subject_code' => 'ENG1', 'subject_name' => 'English']);
+        $inactive = Subject::create(['educator_id' => $this->educator->id, 'sections_id' => $section->id, 'subject_code' => 'HIS1', 'subject_name' => 'History']);
+        Enrolled::create(['student_id' => $this->enrolledStudent->id, 'educator_id' => $this->educator->id, 'subject_id' => $active->id, 'is_active' => true]);
+        Enrolled::create(['student_id' => $this->enrolledStudent->id, 'educator_id' => $this->educator->id, 'subject_id' => $inactive->id, 'is_active' => false]);
+        $conversation = Conversation::create(['student_id' => $this->enrolledStudent->id, 'educator_id' => $this->educator->id]);
+
+        $res = $this->actingAs($this->educator)
+            ->getJson(route('messaging.conversations.show', $conversation).'?peek=1')
+            ->assertOk();
+
+        $this->assertStringContainsString('ENG1', $res->json('context_html'));
+        $this->assertStringContainsString('B2', $res->json('context_html'));
+        $this->assertStringNotContainsString('HIS1', $res->json('context_html'));
+    }
+
     public function test_peek_poll_reads_the_thread_without_marking_it_read(): void
     {
         $conversation = Conversation::create(['student_id' => $this->enrolledStudent->id, 'educator_id' => $this->educator->id]);

@@ -27,13 +27,17 @@
         </div>
         <div class="kt-tabs kt-tabs-line justify-between px-5" data-kt-tabs="true" id="notifications_tabs">
          <div class="flex items-center gap-5">
-          <button class="kt-tab-toggle py-3 active" data-kt-tab-toggle="#notifications_tab_all">
+          <button class="kt-tab-toggle py-3 relative active" data-kt-tab-toggle="#notifications_tab_all">
            All
+           @if (($unreadCount ?? 0) > 0)
+           <span class="rounded-full bg-destructive size-[5px] absolute top-2 rtl:start-0 end-0 transform translate-y-1/2 translate-x-full" id="notifications_tab_all_dot" data-notification-tab-dot="all"></span>
+           @endif
           </button>
           <button class="kt-tab-toggle py-3 relative" data-kt-tab-toggle="#notifications_tab_inbox">
            Inbox
-           <span class="rounded-full bg-green-500 size-[5px] absolute top-2 rtl:start-0 end-0 transform translate-y-1/2 translate-x-full">
-           </span>
+           @if (($messageUnreadCount ?? 0) > 0)
+           <span class="rounded-full bg-destructive size-[5px] absolute top-2 rtl:start-0 end-0 transform translate-y-1/2 translate-x-full" id="notifications_tab_inbox_dot" data-notification-tab-dot="inbox"></span>
+           @endif
           </button>
           {{-- Team and Following tabs are reserved for a future notification feature. --}}
          </div>
@@ -155,12 +159,34 @@
            var btn = document.getElementById('notifications_bell_btn');
            var form = document.getElementById('notifications_mark_all_form');
            var list = document.getElementById('notifications_list');
+           var tabs = document.getElementById('notifications_tabs');
            var badgeCls = 'absolute top-1 -end-1 flex items-center justify-center size-[18px] rounded-full bg-destructive text-white text-[10px] font-semibold leading-none';
 
            // Shared unread state so the bell shows notifications + messages combined; the chat
            // script (below) updates .msg. qyzenRenderBell is the single writer of the bell badge.
            window.qyzenUnread = window.qyzenUnread || { notif: {{ (int) ($unreadCount ?? 0) }}, msg: {{ (int) ($messageUnreadCount ?? 0) }} };
            window.qyzenRenderBell = function () { setBadge((window.qyzenUnread.notif || 0) + (window.qyzenUnread.msg || 0)); };
+           var dismissedTabs = { all: false, inbox: false };
+
+           function renderTabDot(tab, count) {
+            var id = 'notifications_tab_' + tab + '_dot';
+            var dot = document.getElementById(id);
+            if (dismissedTabs[tab] || !count) { if (dot) { dot.remove(); } return; }
+            if (!dot) {
+             dot = document.createElement('span'); dot.id = id; dot.dataset.notificationTabDot = tab;
+             dot.className = 'rounded-full bg-destructive size-[5px] absolute top-2 rtl:start-0 end-0 transform translate-y-1/2 translate-x-full';
+             var trigger = tabs && tabs.querySelector('[data-kt-tab-toggle="#notifications_tab_' + tab + '"]');
+             if (trigger) { trigger.appendChild(dot); }
+            }
+           }
+
+           function renderTabDots() { renderTabDot('all', window.qyzenUnread.notif || 0); renderTabDot('inbox', window.qyzenUnread.msg || 0); }
+           window.qyzenRenderTabDots = renderTabDots;
+           if (tabs) tabs.addEventListener('click', function (e) {
+            var trigger = e.target.closest('[data-kt-tab-toggle]');
+            var tab = trigger && trigger.getAttribute('data-kt-tab-toggle') === '#notifications_tab_all' ? 'all' : 'inbox';
+            if (trigger) { dismissedTabs[tab] = true; renderTabDots(); }
+           });
 
            function setBadge(count) {
             var dot = document.getElementById('notifications_bell_dot');
@@ -188,7 +214,7 @@
                 var d = el.querySelector('.kt-avatar-status');
                 if (d) { d.classList.remove('kt-avatar-status-online'); d.classList.add('kt-avatar-status-offline'); }
                });
-               window.qyzenUnread.notif = 0; window.qyzenRenderBell(); setFormVisible(false);
+               window.qyzenUnread.notif = 0; window.qyzenRenderBell(); renderTabDots(); setFormVisible(false);
               })
               .catch(function () { form.submit(); });
             });
@@ -200,7 +226,7 @@
              .then(function (r) { if (!r.ok) throw r; return r.json(); })
              .then(function (data) {
               if (list && typeof data.html === 'string') { list.innerHTML = data.html; }
-              window.qyzenUnread.notif = data.unread_count; window.qyzenRenderBell();
+              window.qyzenUnread.notif = data.unread_count; window.qyzenRenderBell(); renderTabDots();
               setFormVisible(data.unread_count > 0);
              })
              .catch(function () {});
@@ -888,6 +914,7 @@
           </button>
           <span class="text-sm font-semibold text-mono" id="chat_drawer_thread_title">
           </span>
+          <span class="flex flex-wrap gap-1" id="chat_drawer_thread_context"></span>
          </div>
          <div class="grow chat-scroll">
           <div id="chat_drawer_thread">
@@ -920,6 +947,7 @@
           var contactsEl = document.getElementById('chat_drawer_contacts');
           var contactsSearch = document.getElementById('chat_drawer_contacts_search');
           var threadTitle = document.getElementById('chat_drawer_thread_title');
+          var threadContext = document.getElementById('chat_drawer_thread_context');
           var input = document.getElementById('chat_drawer_input');
           var currentId = null;
 
@@ -963,6 +991,7 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
              if (window.qyzenUnread) { window.qyzenUnread.msg = data.unread_count; if (window.qyzenRenderBell) { window.qyzenRenderBell(); } }
+             if (window.qyzenRenderTabDots) { window.qyzenRenderTabDots(); }
              setMsgBadge(data.unread_count);
              if (typeof data.html === 'string' && (force || data.signature !== lastListSig)) {
               lastListSig = data.signature;
@@ -983,7 +1012,7 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
              var changed = data.signature !== lastThreadSig;
-             if (typeof data.html === 'string' && (changed || (opts && opts.force))) { threadEl.innerHTML = data.html; }
+             if (typeof data.html === 'string' && (changed || (opts && opts.force))) { threadEl.innerHTML = data.html; if (threadContext && typeof data.context_html === 'string') { threadContext.innerHTML = data.context_html; } }
              if (changed) {
               if (lastThreadSig !== null && !markRead && threadActive() && pageVisible()) {
                fetch(baseUrl + '/' + currentId + '/read', { method: 'POST', headers: headers() })

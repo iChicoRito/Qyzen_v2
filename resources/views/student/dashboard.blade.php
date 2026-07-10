@@ -132,25 +132,6 @@
                 </div>
             </div>
 
-            {{-- Recent grades --}}
-            <div class="kt-card">
-                <div class="kt-card-header"><h3 class="kt-card-title">Recent grades</h3></div>
-                <div class="kt-card-content flex flex-col gap-2.5">
-                    @forelse ($recentGrades as $g)
-                        <div class="flex items-center justify-between gap-2 rounded-lg border border-border p-3">
-                            <div class="min-w-0">
-                                <div class="font-medium text-mono truncate">{{ $g->subject?->subject_name ?? 'Quiz' }}</div>
-                                <div class="text-xs text-secondary-foreground">{{ $g->score }}/{{ $g->total_questions }}</div>
-                            </div>
-                            <span class="kt-badge kt-badge-sm kt-badge-{{ $g->is_passed ? 'success' : 'destructive' }}">
-                                {{ $g->is_passed ? 'Passed' : 'Failed' }}
-                            </span>
-                        </div>
-                    @empty
-                        <div class="text-sm text-secondary-foreground">No grades yet.</div>
-                    @endforelse
-                </div>
-            </div>
         </div>
     </div>
 

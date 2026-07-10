@@ -266,6 +266,18 @@ class EnrollmentController extends Controller
         return view('educator.enrollment._import-timeline', compact('imports'));
     }
 
+    public function clearImportHistory(Request $request): RedirectResponse
+    {
+        $this->authorize('create', Enrolled::class);
+
+        EnrollmentImport::ownedBy($request->user())->get()->each(function (EnrollmentImport $import): void {
+            Storage::disk('local')->delete(array_filter([$import->upload_path, $import->failed_report_path]));
+            $import->delete();
+        });
+
+        return redirect()->route('educator.enrollment.index')->with('status', 'Enrollment import history cleared.');
+    }
+
     public function showImport(EnrollmentImport $enrollmentImport): View
     {
         $this->authorize('view', $enrollmentImport);

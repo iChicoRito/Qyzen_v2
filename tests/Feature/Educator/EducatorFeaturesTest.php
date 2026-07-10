@@ -896,6 +896,54 @@ class EducatorFeaturesTest extends TestCase
         $res->assertDontSee('ZZTOP');                                // eduB's assessment never shown
     }
 
+    public function test_scores_index_groups_attempts_by_student_and_assessment(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $section = Section::find($subject->sections_id);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        $latest = Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'assessment_id' => $assessment->id,
+            'subject_id' => $subject->id, 'section_id' => $section->id, 'score' => 8, 'total_questions' => 10,
+            'student_answer' => [], 'status' => 'passed', 'is_passed' => true, 'submitted_at' => now(),
+        ]);
+        // An offline backfill can be inserted later while representing an earlier attempt.
+        $older = Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'assessment_id' => $assessment->id,
+            'subject_id' => $subject->id, 'section_id' => $section->id, 'score' => 6, 'total_questions' => 10,
+            'student_answer' => [], 'status' => 'failed', 'is_passed' => false, 'submitted_at' => now()->subDay(),
+        ]);
+
+        $response = $this->actingAs($this->eduA)->get(route('educator.scores.index'));
+
+        $response->assertOk()->assertSee('2 attempts')->assertSee('Best: 8/10')
+            ->assertSee(route('educator.scores.show', $latest))
+            ->assertDontSee(route('educator.scores.show', $older));
+    }
+
+    public function test_scores_index_sorts_best_scores_by_percentage(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $section = Section::find($subject->sections_id);
+        $first = Assessment::create($this->assessmentModelData($subject));
+        $second = Assessment::create(array_merge($this->assessmentModelData($subject), ['assessment_code' => 'PERCENTAGE']));
+        Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'assessment_id' => $first->id,
+            'subject_id' => $subject->id, 'section_id' => $section->id, 'score' => 8, 'total_questions' => 10,
+            'student_answer' => [], 'status' => 'passed', 'is_passed' => true, 'submitted_at' => now(),
+        ]);
+        Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'assessment_id' => $second->id,
+            'subject_id' => $subject->id, 'section_id' => $section->id, 'score' => 7, 'total_questions' => 7,
+            'student_answer' => [], 'status' => 'passed', 'is_passed' => true, 'submitted_at' => now(),
+        ]);
+
+        $scores = $this->actingAs($this->eduA)
+            ->get(route('educator.scores.index', ['sort' => 'score', 'direction' => 'desc']))
+            ->viewData('scores');
+
+        $this->assertSame($second->id, $scores->first()->assessment_id);
+    }
+
     public function test_sections_index_does_not_nest_modal_or_row_forms_inside_query_controls(): void
     {
         $this->section($this->eduA, 'Alpha');

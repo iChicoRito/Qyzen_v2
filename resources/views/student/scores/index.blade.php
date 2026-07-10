@@ -1,4 +1,4 @@
-{{-- H8 / Task 23: Scores history — one row per submitted attempt (own only), newest first.
+{{-- H8 / Task 23: Scores history — one latest summary row per assessment (own only).
      Search/paginate + dropdown filters come from server-backed <x-data-table>. Reset Filters
      and column show/hide are the only bespoke controls. "View Score" opens task 22's scores/show
      as a look-back-only modal fragment (?modal=1). --}}
@@ -38,9 +38,9 @@
                     <th class="min-w-[130px]" data-sort="assessment"><span class="kt-table-col"><span class="kt-table-col-label">Assessment</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="min-w-[170px]" data-sort="subject"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="min-w-[120px]" data-sort="term"><span class="kt-table-col"><span class="kt-table-col-label">Academic Term</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[110px]" data-sort="score"><span class="kt-table-col"><span class="kt-table-col-label">Score</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[120px]" data-sort="score"><span class="kt-table-col"><span class="kt-table-col-label">Best Result</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="min-w-[90px]" data-sort="attempts"><span class="kt-table-col"><span class="kt-table-col-label">Attempts</span><span class="kt-table-col-sort"></span></span></th>
-                    <th class="min-w-[100px]" data-sort="percentage"><span class="kt-table-col"><span class="kt-table-col-label">Percentage</span><span class="kt-table-col-sort"></span></span></th>
+                    <th class="min-w-[120px]" data-sort="percentage"><span class="kt-table-col"><span class="kt-table-col-label">Latest Result</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="min-w-[110px]" data-sort="result"><span class="kt-table-col"><span class="kt-table-col-label">Status</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="min-w-[160px]" data-sort="submitted"><span class="kt-table-col"><span class="kt-table-col-label">Submitted At</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="w-[60px]"></th>
@@ -54,6 +54,7 @@
                 $bestRow = $bestByAssessment[$s->assessment_id] ?? $s;
                 $best = $bestRow->score;
                 $bestTotal = $bestRow->total_questions;
+                $bestPct = $bestTotal ? round($best / $bestTotal * 100) : 0;
             @endphp
             <tr>
                 <td class="text-mono font-medium text-sm">
@@ -73,12 +74,12 @@
                 <td class="text-secondary-foreground">{{ optional(optional($a)->academicTerm)->term_name ?? '—' }}</td>
                 <td>
                     <div class="flex flex-col">
-                        <span class="text-mono">{{ $s->score }}/{{ $s->total_questions }}</span>
-                        <span class="text-xs text-secondary-foreground">Best {{ $best }}/{{ $bestTotal }}</span>
+                        <span class="text-mono">{{ $best }}/{{ $bestTotal }}</span>
+                        <span class="text-xs text-secondary-foreground">{{ $bestPct }}%</span>
                     </div>
                 </td>
                 <td class="text-mono">{{ $s->attempts_count }}</td>
-                <td class="text-mono">{{ $s->percentage }}%</td>
+                <td><div class="flex flex-col"><span class="text-mono">{{ $s->score }}/{{ $s->total_questions }}</span><span class="text-xs text-secondary-foreground">{{ $s->percentage }}%</span></div></td>
                 <td>
                     <span class="kt-badge rounded-full kt-badge-outline kt-badge-{{ $s->is_passed ? 'success' : 'destructive' }} gap-1 items-center">
                         <span class="kt-badge-dot size-1.5"></span>{{ $s->is_passed ? 'PASSED' : 'FAILED' }}

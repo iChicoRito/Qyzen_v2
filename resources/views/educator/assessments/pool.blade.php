@@ -29,7 +29,7 @@
                             </div>
                         @endif
                     </div>
-                    @if ($bankQuestions->count() > 8)
+                    @if ($bankQuestions->total() > 8)
                         <div class="flex flex-wrap items-center gap-2">
                             <label class="kt-input grow min-w-52">
                                 <i class="ki-filled ki-magnifier"></i>
@@ -47,8 +47,12 @@
                         </div>
                     @endif
                     <span class="text-xs text-secondary-foreground" data-pool-summary>
-                        {{ count($selectedIds) }} of {{ $bankQuestions->count() }} selected
+                        {{ count($selectedIds) }} of {{ $bankQuestions->total() }} selected
                     </span>
+                    @php $pageIds = $bankQuestions->getCollection()->pluck('id')->all(); @endphp
+                    @foreach (array_diff($selectedIds, $pageIds) as $selectedId)
+                        <input type="hidden" name="eligible_quiz_ids[]" value="{{ $selectedId }}">
+                    @endforeach
                     <div class="grid grid-cols-1 gap-2.5 max-h-96 overflow-y-auto kt-scrollable-y">
                         @foreach ($bankQuestions as $q)
                             @php
@@ -73,6 +77,9 @@
                                 data-pool-question-batch="{{ $q->batch_label }}" />
                         @endforeach
                         <span class="text-xs text-secondary-foreground px-1 hidden" data-pool-no-match>No questions match your filters.</span>
+                    </div>
+                    <div class="flex justify-center pt-2" data-pool-pagination>
+                        {{ $bankQuestions->links() }}
                     </div>
                     @error('eligible_quiz_ids')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
                 </div>
@@ -155,6 +162,21 @@
             if (search) search.addEventListener('input', applyFilters);
             if (typeFilter) typeFilter.addEventListener('change', applyFilters);
             if (batchFilter) batchFilter.addEventListener('change', applyFilters);
+
+            // Carry unsaved selections through pagination so changing pages does not discard them.
+            var pagination = document.querySelector('[data-pool-pagination]');
+            if (pagination) {
+                pagination.addEventListener('click', function (event) {
+                    var link = event.target.closest('a[href]');
+                    if (!link) return;
+                    var url = new URL(link.href, window.location.origin);
+                    url.searchParams.delete('selected[]');
+                    document.querySelectorAll('input[name="eligible_quiz_ids[]"]:checked').forEach(function (box) {
+                        url.searchParams.append('selected[]', box.value);
+                    });
+                    link.href = url.toString();
+                });
+            }
         })();
     </script>
     @endpush

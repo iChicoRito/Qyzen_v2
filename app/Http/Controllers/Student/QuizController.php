@@ -197,6 +197,10 @@ class QuizController extends Controller
     {
         $this->authorize('view', $assessment);
 
+        if (! $this->availability->summarize($assessment, Auth::id())['can_take']) {
+            return response()->json(['message' => 'This attempt is no longer eligible.'], 422);
+        }
+
         $data = $request->validate([
             'answers' => ['array'],
             'warnings' => ['nullable', 'integer', 'min:0'],

@@ -1,12 +1,12 @@
 {{-- Verbatim demo1 header topbar icons: search, notifications, chat, apps (index.html:3256-4989). Opens the .flex items-center gap-2.5 topbar wrapper; the User dropdown + wrapper close follow in app.blade.php. Demo content kept as-is per spec. --}}
       <!-- Topbar -->
       <div class="flex items-center gap-2.5">
-       <!-- Search -->
+       {{-- Search icon disabled: the demo search modal is non-functional in this app. --}}
+       {{--
        <button class="group kt-btn kt-btn-ghost kt-btn-icon size-9 rounded-full hover:bg-primary/10 hover:[&_i]:text-primary" data-kt-modal-toggle="#search_modal">
-        <i class="ki-filled ki-magnifier text-lg group-hover:text-primary">
-        </i>
+        <i class="ki-filled ki-magnifier text-lg group-hover:text-primary"></i>
        </button>
-       <!-- End of Search -->
+       --}}
        <!-- Notifications -->
        @php $bellTotal = ((int) ($unreadCount ?? 0)) + ((int) ($messageUnreadCount ?? 0)); @endphp
        <button class="relative kt-btn kt-btn-ghost kt-btn-icon size-9 rounded-full hover:bg-primary/10 hover:[&_i]:text-primary" data-kt-drawer-toggle="#notifications_drawer" id="notifications_bell_btn">

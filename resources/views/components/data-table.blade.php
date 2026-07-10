@@ -171,7 +171,25 @@
             if (!sel.name) sel.name = sel.dataset.filter;
             sel.setAttribute('data-table-control', '');
             if (params.has(sel.name)) sel.value = params.get(sel.name);
-            sel.addEventListener('change', function () { setHidden('page', null); go(); });
+            sel.addEventListener('change', function () {
+                var changed = [sel.dataset.filter];
+                var cleared = {};
+                while (changed.length) {
+                    var parent = changed.shift();
+                    root.querySelectorAll('select[data-depends-on]').forEach(function (dependent) {
+                        var parents = (dependent.dataset.dependsOn || '').split(',');
+                        var key = dependent.dataset.filter;
+                        if (!cleared[key] && parents.indexOf(parent) !== -1) {
+                            dependent.value = '';
+                            setHidden(dependent.name, null);
+                            cleared[key] = true;
+                            changed.push(key);
+                        }
+                    });
+                }
+                setHidden('page', null);
+                go();
+            });
         });
 
         // Reset button — show when any filter/sort/search is active

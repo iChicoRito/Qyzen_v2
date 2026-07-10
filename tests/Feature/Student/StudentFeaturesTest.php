@@ -16,6 +16,7 @@ use App\Models\StudentAssessmentExemption;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 // Stage H: student feature tests. The headline assertion is the H6 INVARIANT — correct_answer
@@ -87,6 +88,27 @@ class StudentFeaturesTest extends TestCase
     public function test_student_sees_only_enrolled_assessments(): void
     {
         $this->actingAs($this->student)->get(route('student.assessments.index'))->assertOk()->assertSee('Q1');
+    }
+
+    public function test_expired_assessment_rejects_take_draft_hint_and_submit(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 12:00:00', config('app.school_timezone')));
+        $this->assessment->update(['start_date' => '2026-07-10', 'end_date' => '2026-07-10', 'start_time' => '08:00', 'end_time' => '12:00']);
+
+        $this->actingAs($this->student)
+            ->get(route('student.take-quiz', $this->assessment))
+            ->assertRedirect(route('student.assessments.index'));
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.draft', $this->assessment), ['answers' => []])
+            ->assertStatus(422);
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.hint', $this->assessment), ['quiz_id' => 1, 'outcome' => 'won'])
+            ->assertStatus(422);
+        $this->actingAs($this->student)
+            ->post(route('student.take-quiz.submit', $this->assessment), ['answers' => []])
+            ->assertRedirect(route('student.assessments.index'));
+
+        Carbon::setTestNow();
     }
 
     public function test_enrolled_subjects_lists_only_the_students_active_enrollments(): void

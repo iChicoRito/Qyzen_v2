@@ -8,6 +8,7 @@ use App\Models\Assessment;
 use App\Models\Enrolled;
 use App\Models\Quiz;
 use App\Services\NotificationService;
+use App\Support\TableQuery;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -24,8 +25,12 @@ class AssessmentQuestionPoolController extends Controller
 
         $bankQuestions = Quiz::visibleTo(Auth::user())
             ->with(['subject:id,subject_code,subject_name,sections_id', 'subject.section:id,section_name', 'eligibleAssessments:id,assessment_code'])
-            ->orderBy('id')->get();
+            ->orderBy('id')->paginate(TableQuery::perPage(request()))->withQueryString();
         $eligibleIds = $assessment->eligibleQuizzes()->pluck('tbl_quizzes.id')->all();
+        $pendingIds = Quiz::visibleTo(Auth::user())
+            ->whereKey((array) request()->query('selected', []))
+            ->pluck('id')->all();
+        $eligibleIds = array_values(array_unique(array_merge($eligibleIds, $pendingIds)));
         $batches = $bankQuestions->pluck('batch_label')->filter()->unique()->values();
 
         return view('educator.assessments.pool', compact('assessment', 'bankQuestions', 'eligibleIds', 'batches'));

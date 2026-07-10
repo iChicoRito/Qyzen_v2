@@ -11,6 +11,7 @@ use App\Models\Assessment;
 use App\Models\Quiz;
 use App\Models\Section;
 use App\Models\Subject;
+use App\Support\TableQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,7 +20,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
-use App\Support\TableQuery;
 use Maatwebsite\Excel\Facades\Excel;
 
 // Task 51: educator question bank. Questions are scoped to educator+subject, reusable across
@@ -45,9 +45,16 @@ class QuizController extends Controller
         ]);
         TableQuery::filters($query, $request, [
             'section' => fn (Builder $q, string $value) => $q->whereHas('subject', fn ($s) => $s->where('sections_id', $value)),
-            'subject' => 'subject_id',
-            'assessment' => fn (Builder $q, string $value) => $q->whereHas('eligibleAssessments', fn ($a) => $a->where('assessment_code', $value)),
-            'batch' => 'batch_label',
+            'subject' => fn (Builder $q, string $value) => $q->where('subject_id', $value)
+                ->when($selectedSection, fn (Builder $q) => $q->whereHas('subject', fn ($s) => $s->where('sections_id', $selectedSection))),
+            'assessment' => fn (Builder $q, string $value) => $q->whereHas('eligibleAssessments', fn ($a) => $a
+                ->where('assessment_code', $value)
+                ->when($selectedSection, fn ($a) => $a->whereHas('subject', fn ($s) => $s->where('sections_id', $selectedSection)))
+                ->when($selectedSubject, fn ($a) => $a->where('subject_id', $selectedSubject))),
+            'batch' => fn (Builder $q, string $value) => $q->where('batch_label', $value)
+                ->when($selectedSection, fn (Builder $q) => $q->whereHas('subject', fn ($s) => $s->where('sections_id', $selectedSection)))
+                ->when($selectedSubject, fn (Builder $q) => $q->where('subject_id', $selectedSubject))
+                ->when($selectedAssessment, fn (Builder $q) => $q->whereHas('eligibleAssessments', fn ($a) => $a->where('assessment_code', $selectedAssessment))),
         ]);
         TableQuery::sort($query, $request, ['question' => 'question', 'id' => 'id'], 'id', 'desc');
 
@@ -55,10 +62,9 @@ class QuizController extends Controller
         $filterSections = $this->sectionOptions();
         $filterSubjects = $this->subjectOptions($selectedSection);
         $filterAssessments = $this->assessmentFilterOptions($selectedSection, $selectedSubject);
-        $assessmentOptions = $this->assessmentOptions();
         $batches = $this->batchOptions($selectedSection, $selectedSubject, $selectedAssessment);
 
-        return view('educator.quizzes.index', compact('quizzes', 'filterSections', 'filterSubjects', 'filterAssessments', 'assessmentOptions', 'batches'));
+        return view('educator.quizzes.index', compact('quizzes', 'filterSections', 'filterSubjects', 'filterAssessments', 'batches'));
     }
 
     public function create(Request $request): View
@@ -68,7 +74,6 @@ class QuizController extends Controller
         return view('educator.quizzes.form', [
             'subjects' => $this->subjectOptions(),
             'selectedSubject' => $request->query('subject_id'),
-            'assessments' => $this->assessmentOptions(),
         ]);
     }
 
@@ -91,8 +96,6 @@ class QuizController extends Controller
         return view('educator.quizzes.edit', [
             'quiz' => $quiz,
             'subjects' => $this->subjectOptions(),
-            'assessments' => $this->assessmentOptions(),
-            'selectedAssessmentIds' => $quiz->eligibleAssessments()->pluck('tbl_assessments.id')->all(),
         ]);
     }
 
@@ -109,7 +112,9 @@ class QuizController extends Controller
             'choices' => $data['quiz_type'] === 'multiple_choice' ? $data['choices'] : null,
             'correct_answer' => $this->correctAnswerFrom($data),
         ]);
-        $this->syncAssessments($quiz, $data['assessment_ids'] ?? []);
+        if (array_key_exists('assessment_ids', $data)) {
+            $this->syncAssessments($quiz, $data['assessment_ids'] ?? []);
+        }
 
         return redirect()->route('educator.quizzes.index')->with('status', 'Question updated.');
     }
@@ -121,6 +126,25 @@ class QuizController extends Controller
         $quiz->delete();
 
         return redirect()->route('educator.quizzes.index')->with('status', 'Question deleted.');
+    }
+
+    public function bulkDelete(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'quiz_ids' => ['required', 'array', 'min:1'],
+            'quiz_ids.*' => ['integer', Rule::exists('tbl_quizzes', 'id')],
+        ]);
+
+        $quizzes = Quiz::visibleTo(Auth::user())->whereKey($data['quiz_ids'])->get();
+
+        DB::transaction(function () use ($quizzes): void {
+            foreach ($quizzes as $quiz) {
+                $this->authorize('delete', $quiz);
+                $quiz->delete();
+            }
+        });
+
+        return redirect()->route('educator.quizzes.index')->with('status', 'Selected questions deleted.');
     }
 
     // G6 bulk upload.
@@ -198,14 +222,6 @@ class QuizController extends Controller
             ->orderBy('subject_name')->get(['id', 'subject_code', 'subject_name', 'sections_id']);
     }
 
-    private function assessmentOptions()
-    {
-        return Assessment::visibleTo(Auth::user())
-            ->with('subject:id,subject_code,subject_name')
-            ->orderBy('assessment_code')
-            ->get(['id', 'assessment_code', 'subject_id']);
-    }
-
     private function assessmentFilterOptions(?string $sectionId = null, ?string $subjectId = null)
     {
         return Assessment::visibleTo(Auth::user())
@@ -215,11 +231,6 @@ class QuizController extends Controller
             ->distinct()
             ->orderBy('assessment_code')
             ->pluck('assessment_code');
-    }
-
-    private function syncAssessments(Quiz $quiz, array $assessmentIds): void
-    {
-        $quiz->eligibleAssessments()->sync(array_filter($assessmentIds));
     }
 
     // Distinct batch labels for this educator's questions, newest first, for the bank's filter dropdown.
@@ -234,6 +245,11 @@ class QuizController extends Controller
             ->groupBy('batch_label')
             ->orderByDesc('max_id')
             ->pluck('batch_label');
+    }
+
+    private function syncAssessments(Quiz $quiz, array $assessmentIds): void
+    {
+        $quiz->eligibleAssessments()->sync(array_filter($assessmentIds));
     }
 
     private function makeQuiz(int $subjectId, array $data): Quiz

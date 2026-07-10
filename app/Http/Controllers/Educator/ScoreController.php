@@ -145,12 +145,36 @@ class ScoreController extends Controller
             ])
             ->values();
 
-        $filterAssessments = Assessment::visibleTo(Auth::user())->orderBy('assessment_code')->pluck('assessment_code');
-        $filterSubjects = Subject::visibleTo(Auth::user())->orderBy('subject_code')->get(['id', 'subject_code', 'subject_name']);
+        $selectedSection = $request->query('section');
+        $selectedSubject = $request->query('subject');
+        $filterAssessments = Assessment::visibleTo(Auth::user())
+            ->when($selectedSection, fn ($q) => $q->where('section_id', $selectedSection))
+            ->when($selectedSubject, fn ($q) => $q->where('subject_id', $selectedSubject))
+            ->orderBy('assessment_code')->pluck('assessment_code');
+        $filterSubjects = Subject::visibleTo(Auth::user())
+            ->when($selectedSection, fn ($q) => $q->where('sections_id', $selectedSection))
+            ->orderBy('subject_code')->get(['id', 'subject_code', 'subject_name']);
         $filterSections = Section::visibleTo(Auth::user())->orderBy('section_name')->get(['id', 'section_name']);
         $filterTerms = AcademicTerm::orderBy('term_name')->get(['id', 'term_name']);
 
         return view('educator.scores.index', compact('scores', 'exportOptions', 'filterAssessments', 'filterSubjects', 'filterSections', 'filterTerms'));
+    }
+
+    public function confirmDelete(Score $score): View
+    {
+        $this->authorize('delete', $score);
+
+        return view('educator.scores.delete', compact('score'));
+    }
+
+    public function destroy(Request $request, Score $score): RedirectResponse
+    {
+        $this->authorize('delete', $score);
+
+        $request->validate(['password' => ['required', 'current_password:web']]);
+        $score->delete();
+
+        return redirect()->route('educator.scores.index')->with('status', 'Score deleted.');
     }
 
     public function show(Score $score): View

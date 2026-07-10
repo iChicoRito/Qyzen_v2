@@ -17,6 +17,7 @@ use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Testing\File;
+use Illuminate\Support\Facades\Hash;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx as SpreadsheetWriter;
 use Tests\TestCase;
@@ -61,6 +62,47 @@ class EducatorFeaturesTest extends TestCase
         foreach (['educator.dashboard', 'educator.sections.index', 'educator.assessments.index', 'educator.scores.index'] as $route) {
             $this->actingAs($this->student)->get(route($route))->assertStatus(302);
         }
+    }
+
+    public function test_educator_can_delete_own_score_after_password_confirmation(): void
+    {
+        $this->eduA->forceFill(['password' => Hash::make('password')])->save();
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        $score = Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id,
+            'assessment_id' => $assessment->id, 'subject_id' => $subject->id,
+            'section_id' => $subject->sections_id, 'score' => 4, 'total_questions' => 5,
+            'status' => 'failed', 'is_passed' => false, 'student_answer' => [],
+        ]);
+
+        $this->actingAs($this->eduA)
+            ->delete(route('educator.scores.destroy', $score), ['password' => 'password'])
+            ->assertRedirect(route('educator.scores.index'));
+
+        $this->assertDatabaseMissing('tbl_scores', ['id' => $score->id]);
+    }
+
+    public function test_score_delete_rejects_invalid_password_and_cross_owner(): void
+    {
+        $this->eduA->forceFill(['password' => Hash::make('password')])->save();
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        $score = Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id,
+            'assessment_id' => $assessment->id, 'subject_id' => $subject->id,
+            'section_id' => $subject->sections_id, 'score' => 4, 'total_questions' => 5,
+            'status' => 'failed', 'is_passed' => false, 'student_answer' => [],
+        ]);
+
+        $this->actingAs($this->eduA)
+            ->delete(route('educator.scores.destroy', $score), ['password' => 'wrong'])
+            ->assertSessionHasErrors('password');
+        $this->assertDatabaseHas('tbl_scores', ['id' => $score->id]);
+
+        $this->actingAs($this->eduB)
+            ->delete(route('educator.scores.destroy', $score), ['password' => 'password'])
+            ->assertForbidden();
     }
 
     public function test_educator_can_view_own_lists(): void
@@ -659,6 +701,76 @@ class EducatorFeaturesTest extends TestCase
         $this->assertStringNotContainsString('Batch B', $batchSelect->textContent);
     }
 
+    public function test_quiz_bank_filter_chain_rejects_mismatched_parent_filters(): void
+    {
+        $sectionA = $this->section($this->eduA, 'Chain A');
+        $sectionB = $this->section($this->eduA, 'Chain B');
+        $subjectA = Subject::create([
+            'educator_id' => $this->eduA->id, 'sections_id' => $sectionA->id,
+            'subject_code' => 'CHAIN-A', 'subject_name' => 'Chain Alpha', 'is_active' => true,
+        ]);
+        $assessment = Assessment::create(array_merge($this->assessmentModelData($subjectA), ['assessment_code' => 'CHAIN-Q']));
+        $quiz = Quiz::create([
+            'subject_id' => $subjectA->id, 'educator_id' => $this->eduA->id,
+            'question' => 'Chain question', 'quiz_type' => 'identification', 'correct_answer' => 'yes',
+            'batch_label' => 'Chain batch',
+        ]);
+        $quiz->eligibleAssessments()->sync([$assessment->id]);
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.quizzes.index', ['section' => $sectionB->id, 'subject' => $subjectA->id]))
+            ->assertOk()
+            ->assertDontSee('Chain question');
+    }
+
+    public function test_quiz_bank_bulk_delete_deletes_only_selected_owned_questions(): void
+    {
+        $subjectA = $this->subject($this->eduA);
+        $subjectB = $this->subject($this->eduB);
+        $owned = Quiz::create([
+            'subject_id' => $subjectA->id, 'educator_id' => $this->eduA->id,
+            'question' => 'Delete me', 'quiz_type' => 'identification', 'correct_answer' => 'yes',
+        ]);
+        $kept = Quiz::create([
+            'subject_id' => $subjectA->id, 'educator_id' => $this->eduA->id,
+            'question' => 'Keep me', 'quiz_type' => 'identification', 'correct_answer' => 'yes',
+        ]);
+        $foreign = Quiz::create([
+            'subject_id' => $subjectB->id, 'educator_id' => $this->eduB->id,
+            'question' => 'Foreign question', 'quiz_type' => 'identification', 'correct_answer' => 'yes',
+        ]);
+
+        $this->actingAs($this->eduA)
+            ->delete(route('educator.quizzes.bulk'), ['quiz_ids' => [$owned->id, $foreign->id]])
+            ->assertRedirect(route('educator.quizzes.index'));
+
+        $this->assertDatabaseMissing('tbl_quizzes', ['id' => $owned->id]);
+        $this->assertDatabaseHas('tbl_quizzes', ['id' => $kept->id]);
+        $this->assertDatabaseHas('tbl_quizzes', ['id' => $foreign->id]);
+    }
+
+    public function test_quiz_bank_bulk_delete_validates_ids_and_renders_current_page_controls(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $quiz = Quiz::create([
+            'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+            'question' => 'Selectable question', 'quiz_type' => 'identification', 'correct_answer' => 'yes',
+        ]);
+
+        $this->actingAs($this->eduA)
+            ->delete(route('educator.quizzes.bulk'), ['quiz_ids' => ['not-an-id']])
+            ->assertSessionHasErrors('quiz_ids.0');
+        $this->assertDatabaseHas('tbl_quizzes', ['id' => $quiz->id]);
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.quizzes.index'))
+            ->assertOk()
+            ->assertSee('data-quiz-select-all', false)
+            ->assertSee('data-quiz-select', false)
+            ->assertSee(route('educator.quizzes.bulk'), false)
+            ->assertSee('Bulk delete', false);
+    }
+
     public function test_pool_page_shows_questions_from_other_subjects(): void
     {
         $subjectA = $this->subject($this->eduA);
@@ -681,6 +793,43 @@ class EducatorFeaturesTest extends TestCase
         $this->assertStringContainsString('Question Pool', $html);
         $this->assertStringContainsString('Not used elsewhere', $html);
         $this->assertTrue($crossSubjectQuiz->exists);
+    }
+
+    public function test_pool_page_paginates_bank_questions_without_dropping_selected_ids(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        Quiz::create([
+            'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+            'question' => 'First pool question', 'quiz_type' => 'identification', 'correct_answer' => 'yes',
+        ]);
+        for ($i = 2; $i <= 11; $i++) {
+            $second = Quiz::create([
+                'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+                'question' => "Pool question {$i}", 'quiz_type' => 'identification', 'correct_answer' => 'yes',
+            ]);
+        }
+        $response = $this->actingAs($this->eduA)->get(route('educator.assessments.pool.edit', $assessment, false).'?per_page=10&selected%5B%5D='.$second->id);
+
+        $response->assertOk()
+            ->assertSee('name="eligible_quiz_ids[]" value="'.$second->id.'"', false)
+            ->assertSee('data-pool-pagination', false)
+            ->assertSee('selected[]', false);
+        $this->assertCount(10, $response->viewData('bankQuestions'));
+    }
+
+    public function test_question_creation_and_navbar_do_not_render_disabled_controls(): void
+    {
+        $this->actingAs($this->eduA)->get(route('educator.quizzes.create'))
+            ->assertOk()
+            ->assertDontSee('Also Add To These Assessments')
+            ->assertDontSee('name="assessment_ids[]"', false);
+
+        $html = $this->actingAs($this->eduA)->get(route('educator.dashboard'))->assertOk()->getContent();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($html);
+        $xpath = new \DOMXPath($dom);
+        $this->assertSame(0, $xpath->query('//button[@data-kt-modal-toggle="#search_modal"]')->length);
     }
 
     public function test_editing_assessment_can_add_extra_subjects(): void
@@ -1007,7 +1156,9 @@ class EducatorFeaturesTest extends TestCase
         $res->assertSee($subject->subject_code)->assertSee($section->section_name); // subject/section columns
         $res->assertSee('data-filter="subject"', false)              // new filter selects present
             ->assertSee('data-filter="section"', false)
-            ->assertSee('data-filter="term"', false);
+            ->assertSee('data-filter="term"', false)
+            ->assertSee('Search students, assessments, subjects')
+            ->assertSee('Delete Score');
         $res->assertDontSee('Alpha');                                // server-side search, not client hiding
         $res->assertDontSee('ZZTOP');                                // eduB's assessment never shown
     }

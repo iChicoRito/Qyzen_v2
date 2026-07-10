@@ -9,7 +9,7 @@
     @include('admin._status')
     <x-data-table id="assessments_table" search-placeholder="Search assessments" :paginator="$assessments">
         <x-slot:filters>
-            <select data-filter="subject" class="kt-select w-36">
+            <select data-filter="subject" data-depends-on="section" class="kt-select w-36">
                 <option value="">All subjects</option>
                 @foreach ($filterSubjects as $s)<option value="{{ $s->id }}">{{ $s->subject_code }} — {{ $s->subject_name }}</option>@endforeach
             </select>
@@ -17,7 +17,7 @@
                 <option value="">All sections</option>
                 @foreach ($filterSections as $s)<option value="{{ $s->id }}">{{ $s->section_name }}</option>@endforeach
             </select>
-            <select data-filter="assessment" class="kt-select w-40">
+            <select data-filter="assessment" data-depends-on="subject" class="kt-select w-40">
                 <option value="">All assessment codes</option>
                 @foreach ($filterAssessments as $assessmentCode)<option value="{{ $assessmentCode }}">{{ $assessmentCode }}</option>@endforeach
             </select>

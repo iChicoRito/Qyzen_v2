@@ -73,6 +73,17 @@ class AssessmentAvailabilityServiceTest extends TestCase
         $this->assertTrue($summary['can_take']);
     }
 
+    public function test_assessment_is_expired_at_the_exact_end_time(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 17:00:00', 'Asia/Manila'));
+
+        $summary = $this->service->summarize($this->assessment, $this->student->id);
+
+        $this->assertSame('Expired', $summary['badge']);
+        $this->assertFalse($summary['can_take']);
+        $this->assertFalse($summary['window_open']);
+    }
+
     public function test_inactive_assessment_cannot_be_taken_even_inside_its_window(): void
     {
         $this->assessment->update(['is_active' => false]);

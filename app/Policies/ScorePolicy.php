@@ -43,4 +43,9 @@ class ScorePolicy
         return $user->hasRole('admin')
             || ($user->hasRole('student') && $score->student_id === $user->id);
     }
+
+    public function delete(User $user, Score $score): bool
+    {
+        return $user->hasRole('admin') || ($user->hasRole('educator') && $score->educator_id === $user->id);
+    }
 }

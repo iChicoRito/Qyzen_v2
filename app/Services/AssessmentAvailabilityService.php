@@ -46,7 +46,7 @@ class AssessmentAvailabilityService
         $end = $this->combine($assessment->end_date, $assessment->end_time);
 
         $scheduleValid = $start !== null && $end !== null && $start->lte($end);
-        $windowOpen = $scheduleValid && $now->betweenIncluded($start, $end);
+        $windowOpen = $scheduleValid && $now->gte($start) && $now->lt($end);
 
         // submitted (terminal) attempts for this student.
         $submitted = Score::where('assessment_id', $assessment->id)
@@ -85,7 +85,7 @@ class AssessmentAvailabilityService
         if ($now->lt($start)) {
             return 'Upcoming';
         }
-        if ($now->gt($end)) {
+        if ($now->gte($end)) {
             return 'Expired';
         }
 

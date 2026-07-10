@@ -2,6 +2,14 @@
 @section('title', 'Question Bank')
 @section('heading', 'Question Bank')
 @section('toolbar')
+    <form id="quiz_bulk_form" method="POST" action="{{ route('educator.quizzes.bulk') }}"
+          data-confirm="Delete the selected questions? This cannot be undone."
+          data-confirm-title="Delete selected questions?">
+        @csrf @method('DELETE')
+        <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-destructive" data-quiz-bulk-delete disabled>
+            Bulk delete <span data-quiz-bulk-count>0</span>
+        </button>
+    </form>
     <button type="button" class="kt-btn kt-btn-sm kt-btn-secondary" data-kt-modal-toggle="#kt_quiz_upload">
         <i class="ki-filled ki-cloud-upload"></i> Upload File
     </button>
@@ -32,6 +40,7 @@
         <x-slot:head>
             <thead>
                 <tr>
+                    <th class="w-[40px]"><input type="checkbox" class="kt-checkbox kt-checkbox-sm" data-quiz-select-all aria-label="Select all questions on this page"></th>
                     <th class="min-w-[240px]" data-sort="question"><span class="kt-table-col"><span class="kt-table-col-label">Question</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="min-w-[140px]">Type</th>
                     <th class="min-w-[160px]">Subject</th>
@@ -44,6 +53,7 @@
         </x-slot:head>
         @forelse ($quizzes as $q)
             <tr>
+                <td><input type="checkbox" class="kt-checkbox kt-checkbox-sm" name="quiz_ids[]" value="{{ $q->id }}" form="quiz_bulk_form" data-quiz-select aria-label="Select question"></td>
                 <td class="text-mono text-sm">{{ \Illuminate\Support\Str::limit($q->question, 70) }}</td>
                 <td>
                     <span class="kt-badge kt-badge-outline">{{ $q->quiz_type === 'multiple_choice' ? 'Multiple Choice' : 'Identification' }}</span>
@@ -77,7 +87,7 @@
                 </td>
             </tr>
         @empty
-            <tr><td colspan="7" class="text-center text-secondary-foreground py-5">No questions yet. Use "Add question" or Bulk upload.</td></tr>
+            <tr><td colspan="8" class="text-center text-secondary-foreground py-5">No questions yet. Use "Add question" or Bulk upload.</td></tr>
         @endforelse
     </x-data-table>
 
@@ -106,18 +116,6 @@
                 </select>
             </div>
 
-            {{-- Also add to assessments (optional) --}}
-            <div class="flex flex-col gap-1">
-                <label class="kt-form-label">Also Add To These Assessments <span class="text-secondary-foreground font-normal">(optional)</span></label>
-                <select name="assessment_ids[]" class="kt-select w-full" multiple
-                        data-kt-select="true" data-kt-select-multiple="true" data-kt-select-enable-search="true"
-                        data-kt-select-placeholder="Not attached to any assessment yet"
-                        data-kt-select-search-placeholder="Search assessments…">
-                    @foreach ($assessmentOptions as $assessment)<option value="{{ $assessment->id }}">{{ trim($assessment->assessment_code . ($assessment->subject ? ' — ' . $assessment->subject->subject_name : '')) }}</option>@endforeach
-                </select>
-                <span class="text-xs text-secondary-foreground">Questions can be attached to any of your assessments, even across subjects.</span>
-            </div>
-
             {{-- Files --}}
             <div class="flex flex-col gap-1">
                 <label class="kt-form-label">Quiz Files</label>
@@ -137,3 +135,33 @@
         </form>
     </x-modal>
 @endsection
+
+@push('scripts')
+<script nonce="{{ $cspNonce ?? '' }}">
+(function () {
+    document.addEventListener('change', function (event) {
+        var select = event.target.closest('select[data-filter]');
+        if (select) {
+            var next = {section: ['subject', 'assessment', 'batch'], subject: ['assessment', 'batch'], assessment: ['batch']}[select.dataset.filter] || [];
+            next.forEach(function (name) {
+                var child = document.querySelector('select[data-filter="' + name + '"]');
+                if (child) child.value = '';
+            });
+        }
+
+        if (event.target.matches('[data-quiz-select], [data-quiz-select-all]')) {
+            var root = document.getElementById('quizzes_table_form');
+            var boxes = root ? root.querySelectorAll('[data-quiz-select]') : [];
+            if (event.target.matches('[data-quiz-select-all]')) boxes.forEach(function (box) { box.checked = event.target.checked; });
+            var selected = Array.from(boxes).filter(function (box) { return box.checked; }).length;
+            var bulkButton = document.querySelector('[data-quiz-bulk-delete]');
+            bulkButton.disabled = selected === 0;
+            bulkButton.querySelector('[data-quiz-bulk-count]').textContent = selected;
+        }
+    }, true);
+    document.getElementById('quiz_bulk_form').addEventListener('submit', function (event) {
+        if (!document.querySelector('[name="quiz_ids[]"]:checked')) event.preventDefault();
+    });
+})();
+</script>
+@endpush

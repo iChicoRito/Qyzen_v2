@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Assessment;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -20,8 +19,6 @@ class StoreQuizRequest extends FormRequest
     {
         return [
             'subject_id' => ['required', Rule::exists('tbl_subjects', 'id')->where('educator_id', Auth::id())],
-            // Optional convenience: immediately add this question to one or more assessments'
-            // pools, instead of a separate trip to each assessment's Question Pool screen.
             'assessment_ids' => ['nullable', 'array'],
             'assessment_ids.*' => [Rule::exists('tbl_assessments', 'id')->where('educator_id', Auth::id())],
         ] + $this->questionRules();

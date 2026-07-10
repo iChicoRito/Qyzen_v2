@@ -8,15 +8,15 @@
 @endsection
 @section('content')
     @include('admin._status')
-    <x-data-table id="scores_table" :search="false" :paginator="$scores">
+    <x-data-table id="scores_table" search-placeholder="Search students, assessments, subjects" :paginator="$scores">
         <x-slot:filters>
-            <select data-filter="assessment" class="kt-select w-36">
+            <select data-filter="assessment" data-depends-on="subject" class="kt-select w-36">
                 <option value="">All assessments</option>
                 @foreach ($filterAssessments as $code)
                     <option value="{{ $code }}">{{ $code }}</option>
                 @endforeach
             </select>
-            <select data-filter="subject" class="kt-select w-40">
+            <select data-filter="subject" data-depends-on="section" class="kt-select w-40">
                 <option value="">All subjects</option>
                 @foreach ($filterSubjects as $sub)
                     <option value="{{ $sub->id }}">{{ $sub->subject_code }} — {{ $sub->subject_name }}</option>
@@ -88,7 +88,14 @@
                 <td>{{ $s->attempts_count }} {{ $s->attempts_count === 1 ? 'attempt' : 'attempts' }}</td>
                 <td class="text-secondary-foreground">{{ optional($s->submitted_at)->format('Y-m-d H:i') ?? '—' }}</td>
                 <td class="text-center">
-                    <x-table-actions :view-modal="route('educator.scores.show', $s)" view-modal-title="Attempt detail" />
+                    <x-table-actions :view-modal="route('educator.scores.show', $s)" view-modal-title="Attempt detail">
+                        <div class="kt-menu-item">
+                            <a class="kt-menu-link" href="#" data-modal-url="{{ route('educator.scores.delete', $s) }}" data-modal-target="#form_modal" data-modal-title="Delete score">
+                                <span class="kt-menu-icon"><i class="ki-filled ki-trash"></i></span>
+                                <span class="kt-menu-title">Delete Score</span>
+                            </a>
+                        </div>
+                    </x-table-actions>
                 </td>
             </tr>
         @empty

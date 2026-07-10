@@ -191,6 +191,7 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         Route::get('quizzes/upload/template', [QuizController::class, 'uploadTemplate'])->name('quizzes.upload.template');
         Route::post('quizzes/upload', [QuizController::class, 'upload'])->name('quizzes.upload');
         Route::get('quizzes/form', [QuizController::class, 'create'])->name('quizzes.create');
+        Route::delete('quizzes/bulk', [QuizController::class, 'bulkDelete'])->name('quizzes.bulk');
         Route::resource('quizzes', QuizController::class)->except(['show', 'create'])->whereNumber('quiz');
 
         // G7 scores (read-only) + grant retake.
@@ -202,6 +203,8 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         Route::get('scores/export-bulk/run', [ScoreController::class, 'exportBulk'])->name('scores.export-bulk');
         Route::get('scores/upload/template', [ScoreController::class, 'uploadTemplate'])->name('scores.upload.template');
         Route::post('scores/upload', [ScoreController::class, 'upload'])->name('scores.upload');
+        Route::get('scores/{score}/delete', [ScoreController::class, 'confirmDelete'])->name('scores.delete');
+        Route::delete('scores/{score}', [ScoreController::class, 'destroy'])->name('scores.destroy');
         Route::get('scores/{score}', [ScoreController::class, 'show'])->name('scores.show');
         Route::post('scores/retake', [ScoreController::class, 'grantRetake'])->name('scores.grant-retake');
 

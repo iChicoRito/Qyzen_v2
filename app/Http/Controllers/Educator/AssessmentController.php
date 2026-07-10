@@ -77,7 +77,9 @@ class AssessmentController extends Controller
 
         $assessments = $query->paginate(TableQuery::perPage($request))->withQueryString();
 
-        $filterSubjects = Subject::visibleTo(Auth::user())->orderBy('subject_code')->get(['id', 'subject_code', 'subject_name']);
+        $filterSubjects = Subject::visibleTo(Auth::user())
+            ->when($selectedSection, fn ($q) => $q->where('sections_id', $selectedSection))
+            ->orderBy('subject_code')->get(['id', 'subject_code', 'subject_name', 'sections_id']);
         $filterSections = Section::visibleTo(Auth::user())->orderBy('section_name')->get(['id', 'section_name']);
         $filterAssessments = Assessment::visibleTo(Auth::user())
             ->when($selectedSection, fn ($q) => $q->whereHas('subject', fn ($s) => $s->where('sections_id', $selectedSection)))

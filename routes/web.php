@@ -152,6 +152,7 @@ Route::middleware(['auth', 'verified', 'role:admin'])
 
         Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
         Route::put('settings', [SettingController::class, 'update'])->name('settings.update');
+        Route::get('settings/database/download', [SettingController::class, 'downloadDatabase'])->name('settings.database.download');
     });
 
 // Stage G — Educator features. Ownership-gated: every list query carries visibleTo, every

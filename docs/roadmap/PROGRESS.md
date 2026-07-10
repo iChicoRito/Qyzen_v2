@@ -139,6 +139,11 @@ Booted the **real app against the seeded MySQL DB** and drove actual HTTP reques
 - **Core interactive flows work end-to-end:** student quiz **submit → server-side grading** (all-correct = 4/4, `passed`), `quiz_submitted` educator notification fired, draft **autosave → 200**.
 Conclusion: the dev build is verified working, not just green in isolation.
 
+### Post-migration — Admin database backups (2026-07-10)
+- **On-demand:** Admin Settings → Download Database streams a full schema+data SQL export (`DatabaseBackupService`, driver-branched for mysql/sqlite, never materialized in memory).
+- **Scheduled:** `php artisan backup:database` (registered in `routes/console.php` via `Schedule::command(...)->daily()->withoutOverlapping()`, relying on the default cache lock driver) writes the same export to `storage/app/private/backups/` (not web-served) and prunes to the 7 most recent files, sorted by full filename (wall-clock date first) so retention survives a server reboot resetting the embedded monotonic tiebreaker.
+- **Manual step required on Hostinger** (outside this codebase — hPanel → Advanced → Cron Jobs, run every minute; Laravel's scheduler decides daily-vs-not internally): `php /home/<user>/domains/<domain>/artisan schedule:run >> /dev/null 2>&1`
+
 ---
 
 ## What's next

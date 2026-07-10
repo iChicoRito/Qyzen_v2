@@ -155,6 +155,34 @@ class AdminOfflineRegistrationTest extends TestCase
             ->assertHeader('content-disposition');
     }
 
+    public function test_guest_cannot_download_database_backup(): void
+    {
+        $this->get(route('admin.settings.database.download'))->assertRedirect(route('login'));
+    }
+
+    public function test_non_admin_cannot_download_database_backup(): void
+    {
+        $student = $this->makeUser('student');
+
+        $this->actingAs($student)
+            ->get(route('admin.settings.database.download'))
+            ->assertStatus(302); // RequireRole bounces to own dashboard before the policy check
+    }
+
+    public function test_admin_can_download_database_backup(): void
+    {
+        $response = $this->actingAs($this->admin)
+            ->get(route('admin.settings.database.download'))
+            ->assertOk()
+            ->assertHeader('content-disposition');
+
+        $content = $response->streamedContent();
+
+        $this->assertStringContainsString('CREATE TABLE', $content);
+        $this->assertStringContainsString('tbl_users', $content);
+        $this->assertStringContainsString($this->admin->email, $content);
+    }
+
     private function makeUser(string $type, array $attrs = []): User
     {
         $user = User::factory()->create(['user_type' => $type, 'email_verified_at' => now(), ...$attrs]);

@@ -98,9 +98,36 @@ class SubjectController extends Controller
 
         $data = $request->validated();
         DB::transaction(function () use ($data) {
-            // Replace the group: delete its rows (ownership-checked), recreate with new sections.
-            Subject::where('educator_id', Auth::id())->whereIn('id', $data['row_ids'])->delete();
-            foreach ($data['section_ids'] as $sectionId) {
+            // Diff the group's current rows (ownership-checked) against the target section list.
+            // tbl_assessments/tbl_quizzes/tbl_scores/tbl_enrolled all cascadeOnDelete() off
+            // tbl_subjects.id, so a section that stays in the group must keep its existing row
+            // (and id) rather than being deleted and recreated — see
+            // docs/audits/SUBJECT_RENAME_CASCADE_AUDIT.md.
+            $rows = Subject::where('educator_id', Auth::id())->whereIn('id', $data['row_ids'])->get();
+
+            // row_ids must all belong to one group (unique sections_id each) — the UI only ever
+            // submits one group's rows, so two rows sharing a sections_id means a forged request
+            // spanning multiple groups. keyBy() below would silently drop one on collision, so
+            // reject it outright rather than risk stranding a row untouched.
+            abort_unless($rows->pluck('sections_id')->unique()->count() === $rows->count(), 422);
+
+            $current = $rows->keyBy('sections_id');
+            $targetSectionIds = array_map('intval', $data['section_ids']);
+
+            // Sections dropped from the group: delete those rows. This is an intentional removal
+            // and correctly cascades their scores/assessments/enrollments.
+            $current->except($targetSectionIds)->each->delete();
+
+            // Sections kept in the group: update fields in place, preserving the row's id (and
+            // therefore every FK pointing at it).
+            $current->only($targetSectionIds)->each->update([
+                'subject_code' => $data['subject_code'],
+                'subject_name' => $data['subject_name'],
+                'is_active' => $data['is_active'],
+            ]);
+
+            // Sections newly added to the group: create fresh rows.
+            foreach (array_diff($targetSectionIds, $current->keys()->all()) as $sectionId) {
                 Subject::create([
                     'educator_id' => Auth::id(),
                     'sections_id' => $sectionId,

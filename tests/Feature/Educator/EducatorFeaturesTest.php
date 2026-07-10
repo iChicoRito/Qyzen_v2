@@ -134,6 +134,122 @@ class EducatorFeaturesTest extends TestCase
         $this->assertSame(2, Subject::where('subject_code', 'MATH101')->count());
     }
 
+    // Task 3: SubjectController::update() used to delete-then-recreate every row in the group,
+    // even for a pure rename that didn't change the section list. Every subject-linked table
+    // (tbl_assessments, tbl_quizzes, tbl_scores, tbl_enrolled) cascadeOnDelete()s off
+    // tbl_subjects.id, so that destroyed every assessment/quiz/score/enrollment tied to the old
+    // row. A rename with an unchanged section list must keep the same Subject id and leave every
+    // dependent row intact.
+    public function test_subject_rename_with_unchanged_sections_preserves_ids_and_dependents(): void
+    {
+        $section = $this->section($this->eduA, 'Sec1');
+        $subject = Subject::create([
+            'educator_id' => $this->eduA->id, 'sections_id' => $section->id,
+            'subject_code' => 'MATH101', 'subject_name' => 'Math', 'is_active' => true,
+        ]);
+        $originalId = $subject->id;
+
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        $enrollment = Enrolled::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id,
+            'subject_id' => $subject->id, 'is_active' => true,
+        ]);
+        $score = Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id,
+            'assessment_id' => $assessment->id, 'subject_id' => $subject->id,
+            'section_id' => $section->id, 'student_answer' => [],
+        ]);
+        $quiz = Quiz::create([
+            'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+            'question' => '2+2', 'quiz_type' => 'identification', 'correct_answer' => '4',
+        ]);
+
+        // Rename only — same section list, new code/name.
+        $this->actingAs($this->eduA)->put(route('educator.subjects.update', $subject), [
+            'subject_code' => 'MATH101-A', 'subject_name' => 'Mathematics',
+            'section_ids' => [$section->id], 'row_ids' => [$subject->id], 'is_active' => '1',
+        ])->assertRedirect(route('educator.subjects.index'));
+
+        $subject->refresh();
+        $this->assertSame($originalId, $subject->id);
+        $this->assertSame('MATH101-A', $subject->subject_code);
+        $this->assertSame('Mathematics', $subject->subject_name);
+        $this->assertSame(1, Subject::where('educator_id', $this->eduA->id)->count());
+
+        // Dependent rows must still exist, still pointing at the SAME subject id — not recreated.
+        $this->assertDatabaseHas('tbl_assessments', ['id' => $assessment->id, 'subject_id' => $originalId]);
+        $this->assertDatabaseHas('tbl_enrolled', ['id' => $enrollment->id, 'subject_id' => $originalId]);
+        $this->assertDatabaseHas('tbl_scores', ['id' => $score->id, 'subject_id' => $originalId]);
+        $this->assertDatabaseHas('tbl_quizzes', ['id' => $quiz->id, 'subject_id' => $originalId]);
+    }
+
+    // Guard against Eloquent's keyBy() silently dropping a row on a sections_id collision: if a
+    // forged request supplies row_ids spanning two different subject groups that happen to share
+    // a section, keyBy('sections_id') would keep only the last one, stranding the other untouched.
+    // The controller must reject that outright rather than risk it.
+    public function test_subject_update_rejects_row_ids_spanning_multiple_groups(): void
+    {
+        $sharedSection = $this->section($this->eduA, 'Shared');
+        $mathSubject = Subject::create([
+            'educator_id' => $this->eduA->id, 'sections_id' => $sharedSection->id,
+            'subject_code' => 'MATH101', 'subject_name' => 'Math', 'is_active' => true,
+        ]);
+        $scienceSubject = Subject::create([
+            'educator_id' => $this->eduA->id, 'sections_id' => $sharedSection->id,
+            'subject_code' => 'SCI101', 'subject_name' => 'Science', 'is_active' => true,
+        ]);
+
+        $this->actingAs($this->eduA)->put(route('educator.subjects.update', $mathSubject), [
+            'subject_code' => 'MATH101-A', 'subject_name' => 'Mathematics',
+            'section_ids' => [$sharedSection->id],
+            'row_ids' => [$mathSubject->id, $scienceSubject->id], 'is_active' => '1',
+        ])->assertStatus(422);
+
+        // Neither group was touched.
+        $this->assertSame('MATH101', $mathSubject->fresh()->subject_code);
+        $this->assertSame('SCI101', $scienceSubject->fresh()->subject_code);
+    }
+
+    // Companion to the rename test above: removing a section from the group must still delete
+    // that section's row and cascade its dependent data — proving the diff-based fix didn't
+    // remove the legitimate cascade path for actual removals.
+    public function test_subject_update_removing_a_section_still_cascades_that_sections_data(): void
+    {
+        $keptSection = $this->section($this->eduA, 'Kept');
+        $droppedSection = $this->section($this->eduA, 'Dropped');
+        $keptSubject = Subject::create([
+            'educator_id' => $this->eduA->id, 'sections_id' => $keptSection->id,
+            'subject_code' => 'MATH101', 'subject_name' => 'Math', 'is_active' => true,
+        ]);
+        $droppedSubject = Subject::create([
+            'educator_id' => $this->eduA->id, 'sections_id' => $droppedSection->id,
+            'subject_code' => 'MATH101', 'subject_name' => 'Math', 'is_active' => true,
+        ]);
+        $keptId = $keptSubject->id;
+
+        $droppedAssessment = Assessment::create($this->assessmentModelData($droppedSubject));
+        $droppedEnrollment = Enrolled::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id,
+            'subject_id' => $droppedSubject->id, 'is_active' => true,
+        ]);
+
+        // Edit the group down to just the kept section.
+        $this->actingAs($this->eduA)->put(route('educator.subjects.update', $keptSubject), [
+            'subject_code' => 'MATH101', 'subject_name' => 'Math',
+            'section_ids' => [$keptSection->id],
+            'row_ids' => [$keptSubject->id, $droppedSubject->id], 'is_active' => '1',
+        ])->assertRedirect(route('educator.subjects.index'));
+
+        // Kept row survives with its original id.
+        $this->assertSame($keptId, $keptSubject->fresh()->id);
+        $this->assertDatabaseHas('tbl_subjects', ['id' => $keptId]);
+
+        // Dropped row and its dependents are gone (intentional cascade, not a bug).
+        $this->assertDatabaseMissing('tbl_subjects', ['id' => $droppedSubject->id]);
+        $this->assertDatabaseMissing('tbl_assessments', ['id' => $droppedAssessment->id]);
+        $this->assertDatabaseMissing('tbl_enrolled', ['id' => $droppedEnrollment->id]);
+    }
+
     // ---- G4 enrollment + scope ----
 
     public function test_enrollment_pairs_and_scope(): void

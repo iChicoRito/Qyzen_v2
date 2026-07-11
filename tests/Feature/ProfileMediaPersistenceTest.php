@@ -14,9 +14,9 @@ class ProfileMediaPersistenceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_profile_media_uses_persistent_disk_and_configured_url(): void
+    public function test_profile_media_uses_public_profile_media_directory_and_app_url(): void
     {
-        Config::set('filesystems.disks.profile_media.url', 'https://media.example.test/profile');
+        Config::set('filesystems.disks.profile_media.url', 'https://qyzen.test/profile-media');
         Storage::fake('profile_media');
         $user = User::factory()->educator()->create(['email_verified_at' => now()]);
 
@@ -30,6 +30,8 @@ class ProfileMediaPersistenceTest extends TestCase
         $user->refresh();
         Storage::disk('profile_media')->assertExists($user->profile_picture);
         Storage::disk('profile_media')->assertExists($user->cover_photo);
+        $this->assertSame(public_path('profile-media'), config('filesystems.disks.profile_media.root'));
+        $this->assertSame('https://qyzen.test/profile-media', config('filesystems.disks.profile_media.url'));
 
         $this->actingAs($user)->get(route('profile.edit'))
             ->assertOk()

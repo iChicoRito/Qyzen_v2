@@ -239,6 +239,71 @@ class AdminFeaturesTest extends TestCase
         $this->assertNotNull($user->fresh()->email_verified_at);
     }
 
+    public function test_admin_resend_sends_new_credentials_with_activation_link(): void
+    {
+        Notification::fake();
+
+        $student = $this->makeUser('student', 'student');
+        $student->forceFill([
+            'email_verified_at' => null,
+            'password' => 'OldPass1!',
+            'must_change_password' => false,
+        ])->save();
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.users.resend-verification', $student))
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Account credentials and verification link resent.');
+
+        $student->refresh();
+        $this->assertTrue($student->must_change_password);
+        $this->assertFalse(Hash::check('OldPass1!', $student->password));
+
+        Notification::assertSentTo($student, AccountCreatedNotification::class, function (AccountCreatedNotification $notification) use ($student) {
+            $this->assertTrue(Hash::check($notification->temporaryPassword, $student->fresh()->password));
+            $mail = $notification->toMail($student);
+
+            $this->assertSame('Your Qyzen account is ready', $mail->subject);
+            $this->assertSame('emails.account-created', $mail->view);
+            $this->assertSame($notification->temporaryPassword, $mail->viewData['temporaryPassword']);
+            $this->assertStringContainsString('/account/activate/'.$student->id, $mail->viewData['confirmUrl']);
+
+            return true;
+        });
+    }
+
+    public function test_admin_can_correct_email_then_resend_credentials(): void
+    {
+        Notification::fake();
+
+        $student = $this->makeUser('student', 'student');
+        $student->forceFill(['email_verified_at' => null])->save();
+
+        $this->actingAs($this->admin)->put(route('admin.users.update', $student), [
+            'user_type' => 'student',
+            'user_id' => $student->user_id,
+            'given_name' => $student->given_name,
+            'surname' => $student->surname,
+            'email' => 'corrected.student@example.com',
+            'is_active' => '1',
+            'role_names' => ['student'],
+        ])->assertRedirect(route('admin.users.index'));
+
+        $student->refresh();
+        $this->assertSame('corrected.student@example.com', $student->email);
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.users.resend-verification', $student))
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Account credentials and verification link resent.');
+
+        Notification::assertSentTo($student, AccountCreatedNotification::class, function (AccountCreatedNotification $notification) use ($student) {
+            $this->assertTrue(Hash::check($notification->temporaryPassword, $student->fresh()->password));
+
+            return true;
+        });
+    }
+
     public function test_account_created_email_template_renders_credentials_and_creator(): void
     {
         $user = User::factory()->create([

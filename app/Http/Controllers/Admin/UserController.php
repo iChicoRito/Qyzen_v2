@@ -17,6 +17,7 @@ use App\Services\UserService;
 use App\Support\TableQuery;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
@@ -134,9 +135,15 @@ class UserController extends Controller
         $this->authorize('update', $user);
 
         if ($user->email_verified_at === null) {
-            $user->sendEmailVerificationNotification();
+            $this->onboarding->send($user);
 
-            return back()->with('status', 'Verification email resent.');
+            Log::info('Admin resent account credentials', [
+                'admin_id' => request()->user()?->id,
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+            ]);
+
+            return back()->with('status', 'Account credentials and verification link resent.');
         }
 
         return back()->with('status', 'User is already verified.');

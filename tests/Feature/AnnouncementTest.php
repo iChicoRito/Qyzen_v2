@@ -133,6 +133,21 @@ class AnnouncementTest extends TestCase
             ->assertOk()->assertDontSee($subjectAnnouncement->title)->assertDontSee($globalAnnouncement->title);
     }
 
+    public function test_student_announcements_use_timeline_sidebar_and_full_width_feed(): void
+    {
+        $announcement = $this->createAnnouncement(['title' => 'Timeline announcement']);
+
+        $response = $this->actingAs($this->student)->get(route('student.announcements.index'))->assertOk();
+        $response->assertSee('Announcements timeline')
+            ->assertSee('lg:grid-cols-[280px_minmax(0,1fr)]', false)
+            ->assertSee($announcement->title)
+            ->assertDontSee('View All');
+
+        preg_match('/id="announcement_timeline".*?<\/div>\s*<\/div>/s', $response->getContent(), $timeline);
+        $this->assertNotEmpty($timeline);
+        $this->assertStringNotContainsString('ki-heart', $timeline[0]);
+    }
+
     public function test_educator_ownership_and_upload_validation_are_enforced(): void
     {
         $announcement = Announcement::create([

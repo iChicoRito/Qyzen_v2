@@ -174,6 +174,22 @@ class NotificationWorkflowTest extends TestCase
         $res->assertSee($this->section->section_name); // A1 badge
     }
 
+    public function test_bell_announcement_notification_shows_educator_badge_and_right_aligned_time(): void
+    {
+        $this->makeNotif($this->student->id, [
+            'event_type' => 'announcement_created', 'title' => 'New announcement: Midterm reminders',
+            'subject_id' => $this->subject->id, 'section_id' => $this->section->id,
+        ]);
+
+        $res = $this->actingAs($this->student)->get(route('student.assessments.index'))->assertOk();
+
+        $res->assertSee('New announcement: Midterm reminders')
+            ->assertSee('>Educator<', false)
+            ->assertSee('data-notification-meta-row', false)
+            ->assertSee('data-notification-timestamp', false)
+            ->assertSee($this->subject->subject_code);
+    }
+
     // Regression: link_path stored as an absolute URL (route() default) must render as a host-less
     // path so a notification created under one host (e.g. 127.0.0.1:8000) still works on another.
     public function test_bell_link_renders_host_relative_path(): void

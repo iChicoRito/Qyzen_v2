@@ -6,10 +6,9 @@
         <div class="flex flex-col gap-1.5">
             <label class="kt-form-label">Announcement Body</label>
             <div class="border border-border rounded-lg overflow-hidden">
-                <div class="flex gap-1 p-2 border-b border-border"><button type="button" class="kt-btn kt-btn-sm kt-btn-ghost" data-editor-command="bold">B</button><button type="button" class="kt-btn kt-btn-sm kt-btn-ghost italic" data-editor-command="italic">I</button><button type="button" class="kt-btn kt-btn-sm kt-btn-ghost" data-editor-command="insertUnorderedList">• List</button><button type="button" class="kt-btn kt-btn-sm kt-btn-ghost" data-editor-command="insertOrderedList">1. List</button></div>
-                <div class="p-3 min-h-32" contenteditable="true" data-editor>{{ old('body', $announcement?->body) }}</div>
+                <div class="min-h-32" data-quill-editor>{!! \App\Support\AnnouncementHtml::sanitize(old('body', $announcement?->body)) !!}</div>
             </div>
-            <input type="hidden" name="body" data-editor-value value="{{ old('body', $announcement?->body) }}">
+            <input type="hidden" name="body" data-quill-value value="{{ \App\Support\AnnouncementHtml::sanitize(old('body', $announcement?->body)) }}">
             @error('body')<span class="text-xs text-destructive">{{ $message }}</span>@enderror
         </div>
         <div class="flex flex-col gap-1.5"><label class="kt-form-label">Target</label><select class="kt-select" name="subject_id" data-subject-select><option value="">Select subject</option>@foreach ($subjects as $subject)<option value="{{ $subject->id }}" @selected((string) old('subject_id', $announcement?->subject_id) === (string) $subject->id)>{{ $subject->subject_code }} — {{ $subject->subject_name }} ({{ $subject->section?->section_name ?? '—' }})</option>@endforeach</select>@error('subject_id')<span class="text-xs text-destructive">{{ $message }}</span>@enderror</div>

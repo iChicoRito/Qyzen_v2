@@ -13,6 +13,9 @@
             if (window.KTTabs) KTTabs.init();
             {{-- Collapse "N selected" on multi-selects opted in via data-count-summary (after KTSelect built its wrapper). --}}
             setTimeout(bindAllCountSummaries, 0);
+            if (window.initAnnouncementEditors && document.querySelector('[data-quill-editor], [data-quill-value]')) {
+                window.initAnnouncementEditors(document);
+            }
         }
         document.addEventListener('click', function (e) {
             var trigger = e.target.closest('[data-modal-url]');
@@ -77,26 +80,6 @@
             if (id) id.hidden = sel.value === 'multiple_choice';
         });
 
-        {{-- Announcement editor: delegated because the form is injected with innerHTML. --}}
-        document.addEventListener('input', function (e) {
-            var editor = e.target.closest('[data-editor]');
-            if (!editor) return;
-            var form = editor.closest('[data-announcement-form]');
-            var value = form && form.querySelector('[data-editor-value]');
-            if (value) value.value = editor.innerHTML;
-        });
-        document.addEventListener('click', function (e) {
-            var button = e.target.closest('[data-editor-command]');
-            if (!button) return;
-            var form = button.closest('[data-announcement-form]');
-            var editor = form && form.querySelector('[data-editor]');
-            var value = form && form.querySelector('[data-editor-value]');
-            if (!editor) return;
-            e.preventDefault();
-            editor.focus();
-            document.execCommand(button.dataset.editorCommand, false);
-            if (value) value.value = editor.innerHTML;
-        });
         document.addEventListener('change', function (e) {
             var global = e.target.closest('[data-global-switch]');
             if (!global) return;

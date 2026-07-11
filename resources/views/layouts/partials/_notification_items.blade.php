@@ -29,6 +29,7 @@
 @forelse (($notifications ?? []) as $n)
 @php
     $isMaterial = \Illuminate\Support\Str::startsWith($n->event_type, 'learning_material');
+    $isAnnouncement = $n->event_type === 'announcement_created';
     $files = $n->metadata['files'] ?? null;
 @endphp
 <a class="flex grow gap-2.5 px-5 py-3 {{ $n->is_read ? '' : 'bg-primary/5' }}" href="{{ route('notifications.open', $n, false) }}" data-kt-notif-item>
@@ -46,17 +47,21 @@
  </div>
  <div class="flex flex-col gap-3.5 grow">
   <div class="flex flex-col gap-1">
-   <div class="text-sm font-medium mb-px">
-    <span class="text-mono font-semibold">{{ $n->actor?->name ?? 'System' }}</span>
-    <span class="text-secondary-foreground">{{ $n->title }}</span>
+   <div class="flex items-start justify-between gap-3 text-sm font-medium mb-px" @if ($isAnnouncement) data-notification-meta-row @endif>
+    <div class="flex flex-wrap items-center gap-1.5">
+     <span class="text-mono font-semibold">{{ $n->actor?->name ?? 'System' }}</span>
+     @if ($isAnnouncement)
+     <span class="kt-badge kt-badge-sm kt-badge-primary kt-badge-outline">Educator</span>
+     @endif
+     <span class="text-secondary-foreground">{{ $n->title }}</span>
+    </div>
+    <time class="text-xs font-medium text-muted-foreground shrink-0" @if ($isAnnouncement) data-notification-timestamp @endif>{{ $n->created_at?->diffForHumans() }}</time>
    </div>
+   @if ($n->subject)
    <span class="flex items-center text-xs font-medium text-muted-foreground">
-    {{ $n->created_at?->diffForHumans() }}
-    @if ($n->subject)
-    <span class="rounded-full size-1 bg-mono/30 mx-1.5"></span>
     {{ $n->subject->subject_name ?? $n->subject->subject_code }}
-    @endif
    </span>
+   @endif
   </div>
   @if ($isMaterial && $files)
   @foreach ($files as $f)

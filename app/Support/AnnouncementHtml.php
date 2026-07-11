@@ -4,7 +4,7 @@ namespace App\Support;
 
 class AnnouncementHtml
 {
-    private const ALLOWED_TAGS = '<p><br><strong><em><u><ol><ul><li><h1><h2><h3><a>';
+    private const ALLOWED_TAGS = '<p><br><strong><em><u><s><ol><ul><li><h1><h2><h3><blockquote><pre><a>';
 
     public static function sanitize(?string $html): string
     {

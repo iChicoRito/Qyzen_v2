@@ -103,9 +103,39 @@ class AnnouncementTest extends TestCase
     {
         $response = $this->actingAs($this->educator)->get(route('educator.announcements.index'))->assertOk();
 
-        $response->assertSee("document.addEventListener('input'", false)
-            ->assertSee("closest('[data-editor]')", false)
-            ->assertSee("closest('[data-editor-command]')", false);
+        $response->assertSee('initAnnouncementEditors', false)
+            ->assertSee('data-quill-editor', false)
+            ->assertSee('data-quill-value', false)
+            ->assertDontSee('document.execCommand', false)
+            ->assertDontSee('data-editor-command', false);
+    }
+
+    public function test_announcement_rich_text_formatting_is_preserved_for_students(): void
+    {
+        $body = '<h2>Plan</h2><p><strong>Bold</strong> <em>Italic</em> <u>Underline</u> <s>Strike</s></p><ol><li>First</li></ol><blockquote>Quote</blockquote><pre>Code</pre>';
+
+        $this->actingAs($this->educator)->post(route('educator.announcements.store'), [
+            'title' => 'Formatted notice',
+            'body' => $body,
+            'subject_id' => $this->subject->id,
+            'is_global' => '0',
+        ])->assertRedirect(route('educator.announcements.index'));
+
+        $announcement = Announcement::latest('id')->firstOrFail();
+        $this->assertStringContainsString('<s>Strike</s>', $announcement->body);
+        $this->assertStringContainsString('<blockquote>Quote</blockquote>', $announcement->body);
+        $this->assertStringContainsString('<pre>Code</pre>', $announcement->body);
+
+        $this->actingAs($this->student)->get(route('student.announcements.index'))
+            ->assertOk()
+            ->assertSee('announcement-body ql-editor', false)
+            ->assertSee('<h2>Plan</h2>', false)
+            ->assertSee('<strong>Bold</strong>', false)
+            ->assertSee('<em>Italic</em>', false)
+            ->assertSee('<u>Underline</u>', false)
+            ->assertSee('<s>Strike</s>', false)
+            ->assertSee('<blockquote>Quote</blockquote>', false)
+            ->assertSee('<pre>Code</pre>', false);
     }
 
     public function test_announcement_targeting_notifications_and_student_cards_are_scoped(): void
@@ -123,6 +153,9 @@ class AnnouncementTest extends TestCase
         $response = $this->actingAs($this->student)->get(route('student.announcements.index'));
         $response->assertOk()->assertSee($subjectAnnouncement->title)->assertSee($globalAnnouncement->title);
         $response->assertSee('New announcement: '.$subjectAnnouncement->title);
+        $response->assertSee('>Educator<', false)
+            ->assertSee('data-announcement-author-row', false)
+            ->assertSee('data-announcement-timestamp', false);
         preg_match_all('/<article\b.*?<\/article>/s', $response->getContent(), $cards);
         $cardHtml = implode('', $cards[0]);
         $this->assertStringNotContainsString('ki-dots-vertical', $cardHtml);

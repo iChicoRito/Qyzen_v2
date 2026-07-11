@@ -42,6 +42,7 @@ Route::get('/', function () {
 Route::get('/oauth/{provider}/redirect', [OAuthController::class, 'redirect'])->name('oauth.redirect');
 Route::get('/oauth/{provider}/callback', [OAuthController::class, 'callback'])->name('oauth.callback');
 Route::get('/account/activate/{user}', AccountActivationController::class)->name('account.activate');
+Route::get('/profile-media/{path}', [ProfileController::class, 'media'])->where('path', '.*');
 
 Route::middleware('auth')->group(function () {
     Route::get('/password/force-change', [ForcePasswordChangeController::class, 'edit'])->name('password.force.edit');

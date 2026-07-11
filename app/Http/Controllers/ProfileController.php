@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\UpdateProfileRequest;
+use Illuminate\Contracts\Routing\ResponseFactory;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 // H11: shared profile (all roles). Self-service column lock enforced via UpdateProfileRequest.
 // email/picture/cover editable by all; name editable by educators/admins only (students RO).
@@ -19,6 +22,14 @@ class ProfileController extends Controller
     public function edit(): View
     {
         return view('profile.edit', ['user' => Auth::user()]);
+    }
+
+    public function media(string $path): Response|StreamedResponse|ResponseFactory
+    {
+        abort_if(str_contains($path, '..'), 404);
+        abort_unless(Storage::disk(self::DISK)->exists($path), 404);
+
+        return Storage::disk(self::DISK)->response($path);
     }
 
     public function update(UpdateProfileRequest $request): RedirectResponse

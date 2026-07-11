@@ -14,8 +14,9 @@ class ProfileMediaPersistenceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_profile_media_uses_public_profile_media_directory_and_app_url(): void
+    public function test_profile_media_uses_persistent_directory_and_app_url(): void
     {
+        Config::set('filesystems.disks.profile_media.root', '/srv/profile-media');
         Config::set('filesystems.disks.profile_media.url', 'https://qyzen.test/profile-media');
         Storage::fake('profile_media');
         $user = User::factory()->educator()->create(['email_verified_at' => now()]);
@@ -30,7 +31,7 @@ class ProfileMediaPersistenceTest extends TestCase
         $user->refresh();
         Storage::disk('profile_media')->assertExists($user->profile_picture);
         Storage::disk('profile_media')->assertExists($user->cover_photo);
-        $this->assertSame(public_path('profile-media'), config('filesystems.disks.profile_media.root'));
+        $this->assertSame('/srv/profile-media', config('filesystems.disks.profile_media.root'));
         $this->assertSame('https://qyzen.test/profile-media', config('filesystems.disks.profile_media.url'));
         $this->assertStringStartsWith($user->id.'/', $user->profile_picture);
         $this->assertStringStartsWith($user->id.'/', $user->cover_photo);
@@ -54,6 +55,17 @@ class ProfileMediaPersistenceTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString(Storage::disk('profile_media')->url($user->profile_picture), $html);
+    }
+
+    public function test_profile_media_route_serves_files_from_the_persistent_disk(): void
+    {
+        Storage::fake('profile_media');
+        Storage::disk('profile_media')->put('1537/avatar.png', 'avatar-bytes');
+
+        $response = $this->get('/profile-media/1537/avatar.png');
+
+        $response->assertOk();
+        $this->assertSame('avatar-bytes', $response->streamedContent());
     }
 
     public function test_replacing_and_removing_profile_media_delete_persistent_files(): void

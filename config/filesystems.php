@@ -57,7 +57,7 @@ return [
 
         'profile_media' => [
             'driver' => 'local',
-            'root' => public_path('profile-media'),
+            'root' => env('PROFILE_MEDIA_ROOT', dirname(base_path()).DIRECTORY_SEPARATOR.'qyzen-profile-media'),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/profile-media',
             'visibility' => 'public',
             'throw' => false,

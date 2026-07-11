@@ -32,6 +32,8 @@ class ProfileMediaPersistenceTest extends TestCase
         Storage::disk('profile_media')->assertExists($user->cover_photo);
         $this->assertSame(public_path('profile-media'), config('filesystems.disks.profile_media.root'));
         $this->assertSame('https://qyzen.test/profile-media', config('filesystems.disks.profile_media.url'));
+        $this->assertStringStartsWith($user->id.'/', $user->profile_picture);
+        $this->assertStringStartsWith($user->id.'/', $user->cover_photo);
 
         $this->actingAs($user)->get(route('profile.edit'))
             ->assertOk()

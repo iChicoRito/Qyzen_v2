@@ -69,7 +69,7 @@ class ProfileController extends Controller
         if ($user->$column && Storage::disk(self::DISK)->exists($user->$column)) {
             Storage::disk(self::DISK)->delete($user->$column);
         }
-        $user->$column = $file->store('profile-media/'.$user->id, self::DISK);
+        $user->$column = $file->store((string) $user->id, self::DISK);
     }
 
     private function deleteMedia($user, string $column): void

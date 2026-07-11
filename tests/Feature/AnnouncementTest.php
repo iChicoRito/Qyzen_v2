@@ -163,8 +163,8 @@ class AnnouncementTest extends TestCase
         ])->assertRedirect();
         $announcement = Announcement::latest('id')->firstOrFail();
 
-        $this->actingAs($this->student)->get(route('announcements.image', [$announcement, 0]))->assertOk();
-        $this->actingAs($this->otherStudent)->get(route('announcements.image', [$announcement, 0]))->assertForbidden();
+        $this->actingAs($this->student)->get(route('student.announcements.image', [$announcement, 0]))->assertOk();
+        $this->actingAs($this->otherStudent)->get(route('student.announcements.image', [$announcement, 0]))->assertForbidden();
     }
 
     private function createAnnouncement(array $overrides = []): Announcement

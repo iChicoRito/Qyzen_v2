@@ -108,7 +108,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('/announcements/{announcement}/images/{image}', [StudentAnnouncementController::class, 'image'])
-        ->whereNumber(['announcement', 'image'])->name('announcements.image');
+        ->whereNumber(['announcement', 'image'])->name('student.announcements.image');
 
     // Task 30 — private 1:1 student/educator messaging. Shared group: enrollment (subject-
     // agnostic) is the access boundary, re-checked by ConversationPolicy on every action.

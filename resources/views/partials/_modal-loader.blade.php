@@ -221,6 +221,75 @@
             var input = btn.closest('form') && btn.closest('form').querySelector('[data-exempt-action-input]');
             if (input) input.value = btn.dataset.exemptAction;
         });
+        document.addEventListener('submit', function (e) {
+            var form = e.target.closest('[data-assessment-modal-form]');
+            if (!form) return;
+            e.preventDefault();
+
+            var token = form.querySelector('input[name="_token"]');
+            var btn = e.submitter || form.querySelector('button[type="submit"]');
+            var actionInput = form.querySelector('[data-exempt-action-input]');
+            if (actionInput && btn && btn.dataset.exemptAction) actionInput.value = btn.dataset.exemptAction;
+            if (btn) btn.disabled = true;
+
+            var actionUrl = new URL(form.getAttribute('action'), window.location.href);
+            fetch(actionUrl.pathname + actionUrl.search + actionUrl.hash, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': token ? token.value : '',
+                    'Accept': 'application/json',
+                },
+                body: new FormData(form),
+                credentials: 'same-origin',
+            }).then(function (r) {
+                return r.text().then(function (text) {
+                    var data = {};
+                    try {
+                        data = text ? JSON.parse(text) : {};
+                    } catch (_) {
+                        data = { message: r.ok ? 'Saved.' : 'The server returned an HTML error page. Please reload and try again.' };
+                    }
+                    if (!r.ok) throw data;
+                    return data;
+                });
+            }).then(function (data) {
+                var action = data.action || '';
+                var active = action === 'exempt' || action === 'grant';
+                var isAccess = action === 'grant' || action === 'revoke';
+                var ids = (data.affected_student_ids || []).map(String);
+
+                form.querySelectorAll('[data-exempt-checkbox]').forEach(function (box) {
+                    if (ids.indexOf(String(box.value)) === -1) return;
+                    box.checked = active;
+                    var status = box.closest('[data-exempt-row]') && box.closest('[data-exempt-row]').querySelector('[data-exempt-status]');
+                    if (!status) return;
+                    status.innerHTML = active
+                        ? '<span class="kt-badge kt-badge-sm kt-badge-outline ' + (isAccess ? 'kt-badge-info' : 'kt-badge-warning') + '">' + (isAccess ? 'Special Access' : 'Exempted') + '</span>'
+                        : '<span class="text-xs text-secondary-foreground">' + (isAccess ? 'Default' : 'Active') + '</span>';
+                });
+
+                var note = form.querySelector('[data-assessment-modal-message]');
+                if (!note) {
+                    note = document.createElement('div');
+                    note.setAttribute('data-assessment-modal-message', 'true');
+                    note.className = 'kt-alert kt-alert-success';
+                    form.prepend(note);
+                }
+                note.textContent = data.message || 'Saved.';
+            }).catch(function (data) {
+                var note = form.querySelector('[data-assessment-modal-message]');
+                if (!note) {
+                    note = document.createElement('div');
+                    note.setAttribute('data-assessment-modal-message', 'true');
+                    form.prepend(note);
+                }
+                note.className = 'kt-alert kt-alert-destructive';
+                note.textContent = (data && data.message) || 'Could not save changes.';
+            }).finally(function () {
+                if (btn) btn.disabled = false;
+            });
+        });
 
         {{-- KTUI multi-select with data-count-summary: collapse the display to "N <noun>s selected"
              when 2+ are picked; keep the real label for a single selection. KTUI writes the joined

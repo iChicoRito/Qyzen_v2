@@ -63,4 +63,20 @@ class NotificationController extends Controller
             ? response()->json(['unread_count' => 0])
             : back();
     }
+
+    public function destroyAll(Request $request): JsonResponse|RedirectResponse
+    {
+        $userId = (int) Auth::id();
+
+        Notification::forRecipient($userId)->delete();
+
+        return $request->expectsJson()
+            ? response()->json([
+                'unread_count' => 0,
+                'html' => view('layouts.partials._notification_items', [
+                    'notifications' => collect(),
+                ])->render(),
+            ])
+            : back();
+    }
 }

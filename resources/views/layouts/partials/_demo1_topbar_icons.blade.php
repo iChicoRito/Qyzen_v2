@@ -144,11 +144,18 @@
          </div>
          <div class="border-b border-b-border">
          </div>
-         <div class="grid grid-cols-1 p-5 gap-2.5" id="notifications_all_footer">
+         <div class="grid grid-cols-2 p-5 gap-2.5" id="notifications_all_footer">
           <form action="{{ route('notifications.read-all') }}" method="POST" id="notifications_mark_all_form" @class(['hidden' => (($unreadCount ?? 0) === 0)])>
            @csrf
            <button class="kt-btn kt-btn-outline justify-center w-full" type="submit">
             Mark all as read
+           </button>
+          </form>
+          <form action="{{ route('notifications.destroy-all') }}" method="POST" id="notifications_delete_all_form">
+           @csrf
+           @method('DELETE')
+           <button class="kt-btn kt-btn-outline kt-btn-destructive justify-center w-full" type="submit">
+            Delete all
            </button>
           </form>
          </div>
@@ -156,8 +163,10 @@
           (function () {
            var indexUrl = '{{ route('notifications.index') }}';
            var readAllUrl = '{{ route('notifications.read-all') }}';
+           var deleteAllUrl = '{{ route('notifications.destroy-all') }}';
            var btn = document.getElementById('notifications_bell_btn');
            var form = document.getElementById('notifications_mark_all_form');
+           var deleteForm = document.getElementById('notifications_delete_all_form');
            var list = document.getElementById('notifications_list');
            var tabs = document.getElementById('notifications_tabs');
            var badgeCls = 'absolute top-1 -end-1 flex items-center justify-center size-[18px] rounded-full bg-destructive text-white text-[10px] font-semibold leading-none';
@@ -217,6 +226,20 @@
                window.qyzenUnread.notif = 0; window.qyzenRenderBell(); renderTabDots(); setFormVisible(false);
               })
               .catch(function () { form.submit(); });
+            });
+           }
+
+           if (deleteForm) {
+            deleteForm.addEventListener('submit', function (e) {
+             e.preventDefault();
+             var token = deleteForm.querySelector('input[name=_token]').value;
+             fetch(deleteAllUrl, { method: 'DELETE', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': token, 'Accept': 'application/json' } })
+              .then(function (r) { if (!r.ok) throw r; return r.json(); })
+              .then(function (data) {
+               if (list && typeof data.html === 'string') { list.innerHTML = data.html; }
+               window.qyzenUnread.notif = 0; window.qyzenRenderBell(); renderTabDots(); setFormVisible(false);
+              })
+              .catch(function () { deleteForm.submit(); });
             });
            }
 

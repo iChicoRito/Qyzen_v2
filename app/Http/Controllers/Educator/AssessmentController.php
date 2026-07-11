@@ -18,9 +18,11 @@ use App\Services\ConversationService;
 use App\Services\NotificationService;
 use App\Support\TableQuery;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -205,16 +207,28 @@ class AssessmentController extends Controller
         return view('educator.assessments.exemptions', compact('assessment', 'students', 'exemptStudentIds'));
     }
 
-    public function toggleExemption(Request $request, Assessment $assessment): RedirectResponse
+    public function toggleExemption(Request $request, Assessment $assessment): JsonResponse|RedirectResponse
     {
         $this->authorize('update', $assessment);
 
-        $data = $request->validate([
+        $validator = Validator::make($request->all(), [
             'student_ids' => ['required', 'array', 'min:1'],
             'student_ids.*' => ['integer'],
             'action' => ['required', 'in:exempt,unexempt'],
             'reason' => ['nullable', 'string', 'max:255', Rule::requiredIf($request->input('action') === 'exempt')],
         ]);
+        if ($validator->fails()) {
+            if ($request->ajax() || $request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Please correct the highlighted fields.',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $validator->validate();
+        }
+        $data = $validator->validated();
 
         // Only students actually enrolled in this assessment's subject can be exempted — a
         // stray/forged id in the bulk payload is silently dropped, not a hard error.
@@ -259,12 +273,22 @@ class AssessmentController extends Controller
         }
 
         $verb = $data['action'] === 'exempt' ? 'exempted' : 'un-exempted';
+        $message = $studentIds->count().' student(s) '.$verb.'.';
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => $message,
+                'action' => $data['action'],
+                'affected_student_ids' => $studentIds->values()->all(),
+            ]);
+        }
 
         // The exemptions view is a modal-only fragment (no page layout) — redirect to the real
         // index page like every other modal-form submission in this app, not back into the
         // fragment route, which would render bare/unstyled on a full browser navigation.
         return redirect()->route('educator.assessments.index')
-            ->with('status', $studentIds->count().' student(s) '.$verb.'.');
+            ->with('status', $message);
     }
 
     public function access(Assessment $assessment): View
@@ -284,15 +308,27 @@ class AssessmentController extends Controller
         return view('educator.assessments.access', compact('assessment', 'students', 'accessStudentIds'));
     }
 
-    public function toggleAccess(Request $request, Assessment $assessment): RedirectResponse
+    public function toggleAccess(Request $request, Assessment $assessment): JsonResponse|RedirectResponse
     {
         $this->authorize('update', $assessment);
 
-        $data = $request->validate([
+        $validator = Validator::make($request->all(), [
             'student_ids' => ['required', 'array', 'min:1'],
             'student_ids.*' => ['integer'],
             'action' => ['required', 'in:grant,revoke'],
         ]);
+        if ($validator->fails()) {
+            if ($request->ajax() || $request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Please correct the highlighted fields.',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $validator->validate();
+        }
+        $data = $validator->validated();
 
         $studentIds = Enrolled::where('educator_id', Auth::id())
             ->where('subject_id', $assessment->subject_id)
@@ -309,10 +345,42 @@ class AssessmentController extends Controller
             ]);
         }
 
+        if ($data['action'] === 'grant') {
+            $accessMessage = 'You have been granted special access to assessment '.$assessment->assessment_code.'.';
+
+            $this->notifications->emitToMany(Auth::user(), 'assessment_access_granted', $studentIds->all(), [
+                'subject_id' => $assessment->subject_id,
+                'assessment_id' => $assessment->id,
+                'section_id' => $assessment->section_id,
+                'title' => 'Assessment special access',
+                'message' => $accessMessage,
+                'link_path' => route('student.assessments.index'),
+            ]);
+
+            foreach ($studentIds as $studentId) {
+                $conversation = $this->conversations->findOrCreateConversation(
+                    Auth::user(),
+                    User::findOrFail($studentId),
+                );
+                $this->conversations->sendMessage($conversation, Auth::user(), $accessMessage);
+                broadcast(new ConversationActivity((int) $studentId, $conversation->id));
+            }
+        }
+
         $verb = $data['action'] === 'grant' ? 'granted special access for' : 'revoked special access for';
+        $message = $studentIds->count().' student(s) '.$verb.'.';
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => $message,
+                'action' => $data['action'],
+                'affected_student_ids' => $studentIds->values()->all(),
+            ]);
+        }
 
         return redirect()->route('educator.assessments.index')
-            ->with('status', $studentIds->count().' student(s) '.$verb.'.');
+            ->with('status', $message);
     }
 
     private function notifyEnrolled(Assessment $assessment, string $event, string $title): void

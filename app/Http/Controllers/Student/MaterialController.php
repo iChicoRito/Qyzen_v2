@@ -64,9 +64,9 @@ class MaterialController extends Controller
     {
         $this->authorize('view', $material); // enrollment re-checked
 
-        $disk = Storage::disk($material->storageDisk());
-        abort_unless($disk->exists($material->storage_path), 404);
+        $diskName = $material->readableStorageDisk();
+        abort_unless($diskName, 404);
 
-        return $disk->download($material->storage_path, $material->file_name);
+        return Storage::disk($diskName)->download($material->storage_path, $material->file_name);
     }
 }

@@ -64,6 +64,14 @@ return [
             'report' => false,
         ],
 
+        'learning-materials' => [
+            'driver' => 'local',
+            'root' => env('LEARNING_MATERIAL_ROOT', dirname(base_path()).DIRECTORY_SEPARATOR.'qyzen-learning-materials'),
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

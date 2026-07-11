@@ -79,7 +79,7 @@ return new class extends Migration
             $table->foreignId('actor_user_id')->constrained('tbl_users')->cascadeOnDelete();
             $table->enum('event_type', [
                 'assessment_created', 'assessment_updated', 'assessment_deleted',
-                'assessment_exempted',
+                'assessment_exempted', 'assessment_access_granted',
                 'learning_material_uploaded', 'learning_material_deleted',
                 'quiz_created', 'quiz_uploaded', 'quiz_updated', 'quiz_deleted',
                 'enrollment_created', 'enrollment_updated', 'enrollment_deleted',

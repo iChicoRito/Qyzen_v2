@@ -53,7 +53,7 @@ class MaterialUploadTest extends TestCase
         $rows = LearningMaterial::where('educator_id', $this->edu->id)->get();
         $this->assertCount(2, $rows);
         $this->assertSame($rows[0]->storage_path, $rows[1]->storage_path);
-        Storage::disk('local')->assertExists($rows[0]->storage_path);
+        Storage::disk('learning-materials')->assertExists($rows[0]->storage_path);
     }
 
     public function test_deleting_one_of_two_referencing_rows_keeps_the_file_until_the_last_is_gone(): void
@@ -68,10 +68,10 @@ class MaterialUploadTest extends TestCase
         $path = $first->storage_path;
 
         $this->actingAs($this->edu)->delete(route('educator.materials.destroy', $first));
-        Storage::disk('local')->assertExists($path);
+        Storage::disk('learning-materials')->assertExists($path);
 
         $this->actingAs($this->edu)->delete(route('educator.materials.destroy', $second));
-        Storage::disk('local')->assertMissing($path);
+        Storage::disk('learning-materials')->assertMissing($path);
     }
 
     public function test_unsupported_extension_is_rejected(): void

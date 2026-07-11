@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class LearningMaterial extends Model
 {
-    public const PRIVATE_DISK = 'local';
+    public const PRIVATE_DISK = 'learning-materials';
 
     protected $table = 'tbl_learning_materials';
 
@@ -42,7 +43,18 @@ class LearningMaterial extends Model
 
     public function storageDisk(): string
     {
-        return self::PRIVATE_DISK;
+        return $this->storage_bucket ?: self::PRIVATE_DISK;
+    }
+
+    public function readableStorageDisk(): ?string
+    {
+        foreach (array_unique([$this->storageDisk(), self::PRIVATE_DISK, 'local']) as $disk) {
+            if (Storage::disk($disk)->exists($this->storage_path)) {
+                return $disk;
+            }
+        }
+
+        return null;
     }
 
     public function educator(): BelongsTo

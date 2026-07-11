@@ -105,6 +105,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // read-all precedes {notification}/read so the literal segment isn't captured as an id.
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::delete('/notifications', [NotificationController::class, 'destroyAll'])->name('notifications.destroy-all');
     Route::get('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('/announcements/{announcement}/images/{image}', [StudentAnnouncementController::class, 'image'])

@@ -12,6 +12,7 @@ use App\Models\Quiz;
 use App\Models\Role;
 use App\Models\Score;
 use App\Models\Section;
+use App\Models\StudentAssessmentAccess;
 use App\Models\StudentAssessmentExemption;
 use App\Models\Subject;
 use App\Models\User;
@@ -428,6 +429,51 @@ class EducatorFeaturesTest extends TestCase
         ]);
     }
 
+    public function test_exemption_toggle_returns_json_for_modal_ajax_submission(): void
+    {
+        $subject = $this->subject($this->eduA);
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)
+            ->withHeaders(['X-Requested-With' => 'XMLHttpRequest', 'Accept' => 'application/json'])
+            ->post(route('educator.assessments.exemptions.toggle', $assessment), [
+                'student_ids' => [$this->student->id],
+                'action' => 'exempt',
+                'reason' => 'Absent during the assessment window',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('action', 'exempt')
+            ->assertJsonPath('affected_student_ids', [$this->student->id]);
+
+        $this->assertDatabaseHas('tbl_student_assessment_exemptions', [
+            'assessment_id' => $assessment->id,
+            'student_id' => $this->student->id,
+            'is_active' => 1,
+            'reason' => 'Absent during the assessment window',
+        ]);
+    }
+
+    public function test_exemption_toggle_validation_errors_stay_json_for_fetch_submission(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $response = $this->actingAs($this->eduA)
+            ->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
+            ->post(route('educator.assessments.exemptions.toggle', $assessment), [
+                'action' => 'exempt',
+                'reason' => '',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Please correct the highlighted fields.');
+
+        $errors = $response->json('errors');
+        $this->assertArrayHasKey('student_ids', $errors);
+        $this->assertArrayHasKey('reason', $errors);
+    }
+
     public function test_exempting_a_student_sends_the_assessment_and_reason(): void
     {
         $subject = $this->subject($this->eduA);
@@ -490,6 +536,10 @@ class EducatorFeaturesTest extends TestCase
             ->get(route('educator.assessments.exemptions', ['assessment' => $assessment, 'modal' => 1]))
             ->assertOk()
             ->assertSee('name="reason"', false)
+            ->assertSee('action="'.route('educator.assessments.exemptions.toggle', $assessment, false).'"', false)
+            ->assertSee('data-assessment-modal-form', false)
+            ->assertSee('data-no-spinner', false)
+            ->assertSee('data-exempt-status', false)
             ->assertSee('Why is this student being exempted?', false);
     }
 
@@ -537,6 +587,10 @@ class EducatorFeaturesTest extends TestCase
             ->get(route('educator.assessments.access', ['assessment' => $assessment, 'modal' => 1]))
             ->assertOk()
             ->assertSee('Manage special access')
+            ->assertSee('action="'.route('educator.assessments.access.toggle', $assessment, false).'"', false)
+            ->assertSee('data-assessment-modal-form', false)
+            ->assertSee('data-no-spinner', false)
+            ->assertSee('data-exempt-status', false)
             ->assertSee((string) $this->student->user_id)
             ->assertSee((string) $otherStudent->user_id);
 
@@ -575,6 +629,89 @@ class EducatorFeaturesTest extends TestCase
             'student_id' => $otherStudent->id,
             'is_active' => 1,
         ]);
+    }
+
+    public function test_assessment_index_uses_host_relative_access_and_exemption_modal_urls(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.assessments.index'))
+            ->assertOk()
+            ->assertSee('data-modal-url="'.route('educator.assessments.exemptions', $assessment, false).'"', false)
+            ->assertSee('data-modal-url="'.route('educator.assessments.access', $assessment, false).'"', false);
+    }
+
+    public function test_special_access_toggle_returns_json_for_modal_ajax_submission(): void
+    {
+        $subject = $this->subject($this->eduA);
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)
+            ->withHeaders(['X-Requested-With' => 'XMLHttpRequest', 'Accept' => 'application/json'])
+            ->post(route('educator.assessments.access.toggle', $assessment), [
+                'student_ids' => [$this->student->id],
+                'action' => 'grant',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('action', 'grant')
+            ->assertJsonPath('affected_student_ids', [$this->student->id]);
+
+        $this->assertTrue(StudentAssessmentAccess::where([
+            'assessment_id' => $assessment->id,
+            'student_id' => $this->student->id,
+            'is_active' => 1,
+        ])->exists());
+    }
+
+    public function test_granting_special_access_notifies_and_messages_the_student(): void
+    {
+        $subject = $this->subject($this->eduA);
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create(array_merge($this->assessmentModelData($subject), ['assessment_code' => 'MIDTERM']));
+
+        $this->actingAs($this->eduA)
+            ->post(route('educator.assessments.access.toggle', $assessment), [
+                'student_ids' => [$this->student->id],
+                'action' => 'grant',
+            ])
+            ->assertRedirect();
+
+        $message = 'You have been granted special access to assessment MIDTERM.';
+        $this->assertDatabaseHas('tbl_notifications', [
+            'recipient_user_id' => $this->student->id,
+            'event_type' => 'assessment_access_granted',
+            'title' => 'Assessment special access',
+            'message' => $message,
+            'assessment_id' => $assessment->id,
+        ]);
+
+        $conversation = Conversation::where('educator_id', $this->eduA->id)
+            ->where('student_id', $this->student->id)->firstOrFail();
+        $this->assertDatabaseHas('tbl_conversation_messages', [
+            'conversation_id' => $conversation->id,
+            'sender_user_id' => $this->eduA->id,
+            'content' => $message,
+        ]);
+    }
+
+    public function test_special_access_toggle_validation_errors_stay_json_for_fetch_submission(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $response = $this->actingAs($this->eduA)
+            ->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
+            ->post(route('educator.assessments.access.toggle', $assessment), [
+                'action' => 'grant',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Please correct the highlighted fields.');
+
+        $this->assertArrayHasKey('student_ids', $response->json('errors'));
     }
 
     public function test_special_access_toggle_ignores_non_enrolled_students_and_other_educators(): void

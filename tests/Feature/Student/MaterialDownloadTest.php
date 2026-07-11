@@ -76,6 +76,18 @@ class MaterialDownloadTest extends TestCase
             ->assertHeader('content-disposition', 'attachment; filename=lesson.pdf');
     }
 
+    public function test_enrolled_student_downloads_material_from_durable_storage(): void
+    {
+        Storage::fake('learning-materials')->put('learning-materials/1/lesson.pdf', 'lesson');
+        $material = $this->material('learning-materials/1/lesson.pdf');
+        $material->update(['storage_bucket' => 'learning-materials']);
+
+        $this->actingAs($this->student)
+            ->get(route('student.materials.download', $material))
+            ->assertOk()
+            ->assertHeader('content-disposition', 'attachment; filename=lesson.pdf');
+    }
+
     public function test_missing_material_file_returns_not_found(): void
     {
         $material = $this->material('missing/lesson.pdf');

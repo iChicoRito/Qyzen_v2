@@ -121,6 +121,33 @@ class NotificationWorkflowTest extends TestCase
         $this->assertSame(1, Notification::forRecipient($this->otherStudent->id)->where('is_read', false)->count());
     }
 
+    public function test_delete_all_removes_only_callers_notifications(): void
+    {
+        $this->makeNotif($this->student->id);
+        $this->makeNotif($this->student->id, ['is_read' => true, 'read_at' => now()]);
+        $this->makeNotif($this->otherStudent->id);
+
+        $this->actingAs($this->student)
+            ->deleteJson(route('notifications.destroy-all'))
+            ->assertOk()
+            ->assertJsonPath('unread_count', 0)
+            ->assertJsonPath('html', view('layouts.partials._notification_items', ['notifications' => collect()])->render());
+
+        $this->assertSame(0, Notification::forRecipient($this->student->id)->count());
+        $this->assertSame(1, Notification::forRecipient($this->otherStudent->id)->count());
+    }
+
+    public function test_educator_can_delete_only_their_notifications(): void
+    {
+        $this->makeNotif($this->educator->id);
+        $this->makeNotif($this->student->id);
+
+        $this->actingAs($this->educator)->delete(route('notifications.destroy-all'))->assertRedirect();
+
+        $this->assertSame(0, Notification::forRecipient($this->educator->id)->count());
+        $this->assertSame(1, Notification::forRecipient($this->student->id)->count());
+    }
+
     // ---- Bell UI: All tab renders real data via the view composer ----
 
     public function test_bell_renders_real_notifications_on_authenticated_page(): void
@@ -132,6 +159,7 @@ class NotificationWorkflowTest extends TestCase
         $res->assertSee('New assessment published');             // real notification title in the drawer
         $res->assertSee($this->educator->name);                  // actor name rendered
         $res->assertSee(route('notifications.read-all'), false); // mark-all form target present (unread > 0)
+        $res->assertSee(route('notifications.destroy-all'), false); // delete-all form target present
     }
 
     public function test_bell_shows_unread_count_indicator(): void

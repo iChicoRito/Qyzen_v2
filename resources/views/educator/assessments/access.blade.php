@@ -18,7 +18,7 @@
                     </label>
                 </div>
 
-                <form method="POST" action="{{ route('educator.assessments.access.toggle', $assessment) }}" class="flex flex-col gap-4">
+                <form method="POST" action="{{ route('educator.assessments.access.toggle', $assessment, false) }}" class="flex flex-col gap-4" data-assessment-modal-form data-no-spinner>
                     @csrf
                     <input type="hidden" name="action" data-exempt-action-input>
 
@@ -48,7 +48,7 @@
                                             <span class="text-sm font-medium text-mono truncate">{{ optional($e->student)->name }}</span>
                                         </td>
                                         <td class="align-middle text-secondary-foreground">{{ optional($e->student)->user_id }}</td>
-                                        <td class="align-middle">
+                                        <td class="align-middle" data-exempt-status>
                                             @if ($granted)
                                                 <span class="kt-badge kt-badge-sm kt-badge-outline kt-badge-info">Special Access</span>
                                             @else

@@ -19,12 +19,3 @@
     </div>
     <div class="flex gap-2 mt-5"><button class="kt-btn kt-btn-primary">{{ $method === 'POST' ? 'Create' : 'Save changes' }}</button><a href="{{ route('educator.announcements.index') }}" class="kt-btn kt-btn-outline" data-modal-cancel>Cancel</a></div>
 </form>
-<script nonce="{{ $cspNonce ?? '' }}">
-document.querySelectorAll('[data-announcement-form]').forEach(function (form) {
-    var editor = form.querySelector('[data-editor]'), value = form.querySelector('[data-editor-value]');
-    form.querySelectorAll('[data-editor-command]').forEach(function (button) { button.addEventListener('click', function () { editor.focus(); document.execCommand(button.dataset.editorCommand, false); value.value = editor.innerHTML; }); });
-    form.addEventListener('submit', function () { value.value = editor.innerHTML; });
-    var global = form.querySelector('[data-global-switch]'), subject = form.querySelector('[data-subject-select]');
-    if (global && subject) { var sync = function () { subject.disabled = global.checked; }; global.addEventListener('change', sync); sync(); }
-});
-</script>

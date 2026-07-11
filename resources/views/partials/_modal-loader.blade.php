@@ -77,6 +77,34 @@
             if (id) id.hidden = sel.value === 'multiple_choice';
         });
 
+        {{-- Announcement editor: delegated because the form is injected with innerHTML. --}}
+        document.addEventListener('input', function (e) {
+            var editor = e.target.closest('[data-editor]');
+            if (!editor) return;
+            var form = editor.closest('[data-announcement-form]');
+            var value = form && form.querySelector('[data-editor-value]');
+            if (value) value.value = editor.innerHTML;
+        });
+        document.addEventListener('click', function (e) {
+            var button = e.target.closest('[data-editor-command]');
+            if (!button) return;
+            var form = button.closest('[data-announcement-form]');
+            var editor = form && form.querySelector('[data-editor]');
+            var value = form && form.querySelector('[data-editor-value]');
+            if (!editor) return;
+            e.preventDefault();
+            editor.focus();
+            document.execCommand(button.dataset.editorCommand, false);
+            if (value) value.value = editor.innerHTML;
+        });
+        document.addEventListener('change', function (e) {
+            var global = e.target.closest('[data-global-switch]');
+            if (!global) return;
+            var form = global.closest('[data-announcement-form]');
+            var subject = form && form.querySelector('[data-subject-select]');
+            if (subject) subject.disabled = global.checked;
+        });
+
         {{-- Switch with data-reveal="#id" → show/hide the target field when toggled on/off. --}}
         document.addEventListener('change', function (e) {
             var sw = e.target.closest('[data-reveal]');

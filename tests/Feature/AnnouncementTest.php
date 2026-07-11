@@ -99,6 +99,15 @@ class AnnouncementTest extends TestCase
         Storage::disk('local')->assertMissing($path);
     }
 
+    public function test_announcement_editor_binding_is_delegated_for_modal_fragments(): void
+    {
+        $response = $this->actingAs($this->educator)->get(route('educator.announcements.index'))->assertOk();
+
+        $response->assertSee("document.addEventListener('input'", false)
+            ->assertSee("closest('[data-editor]')", false)
+            ->assertSee("closest('[data-editor-command]')", false);
+    }
+
     public function test_announcement_targeting_notifications_and_student_cards_are_scoped(): void
     {
         $subjectAnnouncement = $this->createAnnouncement(['subject_id' => $this->subject->id]);

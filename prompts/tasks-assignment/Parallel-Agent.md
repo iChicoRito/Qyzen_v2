@@ -1,0 +1,2 @@
+Command:
+    Work independently and in parallel with other agents—there is no fixed order. Handle your assigned task without waiting for others. Communicate only in your designated channel using: [Your ID] : [Message]. Add "→ [Target]" only if directing to a specific agent. Flag dependencies as they arise and report when done. Adapt to incoming information as it becomes available.

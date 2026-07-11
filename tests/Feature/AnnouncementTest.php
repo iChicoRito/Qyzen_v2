@@ -161,6 +161,18 @@ class AnnouncementTest extends TestCase
         $this->assertCount(2, $cards[0]);
     }
 
+    public function test_educator_announcements_can_sort_by_subject_with_pagination(): void
+    {
+        $this->createAnnouncement(['title' => 'Sortable announcement']);
+
+        $this->actingAs($this->educator)
+            ->get(route('educator.announcements.index', [
+                'direction' => 'asc', 'sort' => 'subject', 'per_page' => 10,
+            ]))
+            ->assertOk()
+            ->assertSee('Sortable announcement');
+    }
+
     public function test_educator_ownership_and_upload_validation_are_enforced(): void
     {
         $announcement = Announcement::create([

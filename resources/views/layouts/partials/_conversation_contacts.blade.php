@@ -19,7 +19,7 @@
  <div class="kt-avatar size-8">
   @if ($u->profile_picture)
   <div class="kt-avatar-image">
-   <img alt="avatar" src="{{ asset($u->profile_picture) }}"/>
+   <img alt="avatar" src="{{ \Illuminate\Support\Facades\Storage::disk('profile_media')->url($u->profile_picture) }}"/>
   </div>
   @else
   <span class="inline-flex items-center justify-center size-8 rounded-full bg-primary/10 text-primary text-xs font-semibold">{{ strtoupper(substr($u->given_name ?? '?', 0, 1)) }}</span>

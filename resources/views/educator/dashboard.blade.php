@@ -12,7 +12,7 @@
         #educator_assessment_heatmap .apexcharts-legend { flex-direction: row !important; flex-wrap: wrap !important; }
     </style>
     {{-- Full-width KPI row (above the two-panel split so the cards get room to breathe). --}}
-    <div class="grid grid-cols-2 xl:grid-cols-4 gap-5 mb-5 lg:mb-7.5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-5 lg:mb-7.5">
         <x-stat-card label="Sections handled" :value="$sectionCount" icon="abstract-26" />
         <x-stat-card label="Subjects taught" :value="$subjectCount" icon="book" />
         <x-stat-card label="Enrolled students" :value="$studentCount" icon="people" />
@@ -195,7 +195,6 @@
     </script>
     @endpush
 @endsection
-
 
 
 

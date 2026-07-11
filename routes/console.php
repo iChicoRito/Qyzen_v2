@@ -16,3 +16,4 @@ Artisan::command('inspire', function () {
 // run every minute (Laravel itself decides daily-vs-not from ->daily() below):
 //   php /home/<user>/domains/<domain>/artisan schedule:run >> /dev/null 2>&1
 Schedule::command('backup:database')->daily()->withoutOverlapping();
+Schedule::command('notifications:prune')->cron('0 0 */3 * *')->withoutOverlapping();

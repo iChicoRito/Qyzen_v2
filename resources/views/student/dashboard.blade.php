@@ -16,7 +16,7 @@
         @media (min-width: 1280px) { #dash_layout { grid-template-columns: minmax(0, 1fr) 360px; } }
     </style>
     {{-- Full-width KPI row (above the two-panel split so the cards get room to breathe). --}}
-    <div class="grid grid-cols-2 xl:grid-cols-4 gap-5 mb-5 lg:mb-7.5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-5 lg:mb-7.5">
         <x-stat-card label="Overall average" :value="round($overallAvg).'%'" icon="chart-line-up" />
         <x-stat-card label="Enrolled subjects" :value="$subjectCount" icon="book" />
         <x-stat-card label="Pass rate" :value="$passRate.'%'" icon="verify" />

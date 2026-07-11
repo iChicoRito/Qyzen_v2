@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LearningMaterial extends Model
 {
+    public const PRIVATE_DISK = 'local';
+
     protected $table = 'tbl_learning_materials';
 
     // D2: educator ownership / student enrollment (active material only). No admin
@@ -37,6 +39,11 @@ class LearningMaterial extends Model
     ];
 
     protected $casts = ['file_size' => 'integer', 'is_active' => 'boolean'];
+
+    public function storageDisk(): string
+    {
+        return self::PRIVATE_DISK;
+    }
 
     public function educator(): BelongsTo
     {

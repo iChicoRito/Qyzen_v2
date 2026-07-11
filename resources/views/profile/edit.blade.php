@@ -10,8 +10,9 @@
     $isStudent = $user->hasRole('student');
     $words    = array_filter(preg_split('/\s+/', trim(($user->given_name ?? '').' '.($user->surname ?? ''))));
     $initials = strtoupper(implode('', array_map(fn ($w) => mb_substr($w, 0, 1), array_slice($words, 0, 2))));
-    $avatarUrl = $user->profile_picture ? asset($user->profile_picture) : null;
-    $coverUrl = $user->cover_photo ? asset($user->cover_photo) : null;
+    $profileMediaUrl = fn (?string $path) => $path ? \Illuminate\Support\Facades\Storage::disk('profile_media')->url($path) : null;
+    $avatarUrl = $profileMediaUrl($user->profile_picture);
+    $coverUrl = $profileMediaUrl($user->cover_photo);
 @endphp
 @extends('layouts.app', ['role' => $role, 'navItems' => $navItems])
 

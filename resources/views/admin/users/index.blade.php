@@ -91,7 +91,7 @@
                 <td>
                     <div class="flex items-center gap-2.5">
                         @if ($u->profile_picture)
-                            <img alt="{{ $u->name }}" class="rounded-full size-9 shrink-0" src="{{ asset($u->profile_picture) }}" />
+                            <img alt="{{ $u->name }}" class="rounded-full size-9 shrink-0" src="{{ \Illuminate\Support\Facades\Storage::disk('profile_media')->url($u->profile_picture) }}" />
                         @else
                             <span class="inline-flex items-center justify-center rounded-full size-9 shrink-0 bg-primary/10 text-primary text-sm font-semibold">{{ $initial }}</span>
                         @endif

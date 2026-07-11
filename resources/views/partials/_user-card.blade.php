@@ -8,7 +8,7 @@
     <div class="grid place-items-center gap-4">
         <div class="size-20 shrink-0">
             @if ($user->profile_picture)
-                <img class="rounded-full size-20 object-cover ring-1 ring-input" src="{{ asset($user->profile_picture) }}" alt="{{ $user->name }}" />
+                <img class="rounded-full size-20 object-cover ring-1 ring-input" src="{{ \Illuminate\Support\Facades\Storage::disk('profile_media')->url($user->profile_picture) }}" alt="{{ $user->name }}" />
             @else
                 <span class="flex items-center justify-center size-20 rounded-full bg-primary/10 text-primary text-2xl font-semibold">{{ $initial }}</span>
             @endif

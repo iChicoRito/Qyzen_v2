@@ -23,7 +23,7 @@ use Illuminate\View\View;
 // URL after an access check (ports the source's Supabase 60s signed URLs).
 class MaterialController extends Controller
 {
-    private const DISK = 'local';
+    private const DISK = LearningMaterial::PRIVATE_DISK;
 
     public function __construct(private NotificationService $notifications) {}
 
@@ -151,12 +151,11 @@ class MaterialController extends Controller
         // Orphan cleanup: the same storage object may be shared by other subjects' rows —
         // only delete it from storage once no row references it anymore.
         $stillReferenced = LearningMaterial::where('id', '!=', $material->id)
-            ->where('storage_bucket', $material->storage_bucket)
             ->where('storage_path', $material->storage_path)
             ->exists();
         $material->delete();
         if (! $stillReferenced) {
-            Storage::disk($material->storage_bucket ?? self::DISK)->delete($material->storage_path);
+            Storage::disk($material->storageDisk())->delete($material->storage_path);
         }
 
         $this->notifications->emitToMany(Auth::user(), 'learning_material_deleted', $studentIds, [
@@ -173,7 +172,7 @@ class MaterialController extends Controller
     {
         $this->authorize('view', $material);
 
-        $disk = Storage::disk($material->storage_bucket ?? self::DISK);
+        $disk = Storage::disk($material->storageDisk());
         abort_unless($disk->exists($material->storage_path), 404);
 
         return $disk->download($material->storage_path, $material->file_name);

@@ -16,7 +16,7 @@
             <tr>
                 <td><div class="flex items-center gap-3">
                     @if ($enrollment->educator?->profile_picture)
-                        <img class="size-9 rounded-full shrink-0" src="{{ asset($enrollment->educator->profile_picture) }}" alt="{{ $enrollment->educator->name }}" />
+                        <img class="size-9 rounded-full shrink-0" src="{{ \Illuminate\Support\Facades\Storage::disk('profile_media')->url($enrollment->educator->profile_picture) }}" alt="{{ $enrollment->educator->name }}" />
                     @else
                         <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">{{ str($enrollment->educator?->given_name ?? '?')->substr(0, 1) }}{{ str($enrollment->educator?->surname ?? '')->substr(0, 1) }}</span>
                     @endif

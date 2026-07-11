@@ -8,7 +8,7 @@
     {{-- The prebuilt Metronic CSS doesn't ship sm:grid-cols-3 / xl:grid-cols-5, so the 5-card KPI row
          is sized here (same nonce'd-override approach as #dash_layout). --}}
     <style nonce="{{ $cspNonce ?? '' }}">
-        #kpi_row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        #kpi_row { grid-template-columns: repeat(1, minmax(0, 1fr)); }
         @media (min-width: 768px) { #kpi_row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         @media (min-width: 1280px) { #kpi_row { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
         @media (min-width: 1280px) { #dash_layout { grid-template-columns: minmax(0, 1fr) 360px; } }

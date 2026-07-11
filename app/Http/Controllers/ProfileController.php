@@ -14,7 +14,7 @@ use Illuminate\View\View;
 class ProfileController extends Controller
 {
     // ponytail: profile photos on the public disk — guessable but low-sensitivity; signed route if that ever matters.
-    private const DISK = 'public_direct';
+    private const DISK = 'profile_media';
 
     public function edit(): View
     {

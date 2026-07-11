@@ -55,6 +55,15 @@ return [
             'report' => false,
         ],
 
+        'profile_media' => [
+            'driver' => 'local',
+            'root' => env('PROFILE_MEDIA_ROOT', dirname(base_path()).DIRECTORY_SEPARATOR.'qyzen-profile-media'),
+            'url' => rtrim(env('PROFILE_MEDIA_URL', rtrim(env('APP_URL', 'http://localhost'), '/').'/profile-media'), '/'),
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

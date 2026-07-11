@@ -15,7 +15,7 @@
   <div class="kt-avatar size-9">
    @if ($message->sender?->profile_picture)
    <div class="kt-avatar-image">
-    <img alt="avatar" src="{{ asset($message->sender->profile_picture) }}"/>
+    <img alt="avatar" src="{{ \Illuminate\Support\Facades\Storage::disk('profile_media')->url($message->sender->profile_picture) }}"/>
    </div>
    @else
    <span class="inline-flex items-center justify-center size-9 rounded-full bg-primary/10 text-primary text-xs font-semibold">{{ strtoupper(substr($message->sender?->given_name ?? '?', 0, 1)) }}</span>

@@ -3,6 +3,7 @@
 {{-- Attachment card markup ported verbatim from the "Skylar Frost uploaded 2 attachments" block
      in _demo1_topbar_icons.static-backup.blade.php. --}}
 @php
+    $profileMediaUrl = fn (?string $path) => $path ? \Illuminate\Support\Facades\Storage::disk('profile_media')->url($path) : null;
     $fileIcon = fn (string $ext) => match (strtolower($ext)) {
         'pdf' => 'pdf.svg',
         'ppt', 'pptx', 'ppsx' => 'powerpoint.svg',
@@ -34,7 +35,7 @@
  <div class="kt-avatar size-8">
   @if ($n->actor && $n->actor->profile_picture)
   <div class="kt-avatar-image">
-   <img alt="avatar" src="{{ asset($n->actor->profile_picture) }}"/>
+   <img alt="avatar" src="{{ $profileMediaUrl($n->actor->profile_picture) }}"/>
   </div>
   @else
   <span class="inline-flex items-center justify-center size-8 rounded-full bg-primary/10 text-primary text-xs font-semibold">{{ strtoupper(substr($n->actor->given_name ?? 'S', 0, 1)) }}</span>

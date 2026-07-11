@@ -32,6 +32,7 @@
 </script>
 
 @php $u = auth()->user(); $initial = strtoupper(mb_substr($u->given_name ?? ($u->name ?? '?'), 0, 1)); @endphp
+@php $profileMediaUrl = fn (?string $path) => $path ? \Illuminate\Support\Facades\Storage::disk('profile_media')->url($path) : null; @endphp
 
 <!-- Main -->
 <div class="flex grow">
@@ -116,7 +117,7 @@
                          data-kt-dropdown-placement-rtl="bottom-start" data-kt-dropdown-trigger="click">
                         <div class="cursor-pointer shrink-0" data-kt-dropdown-toggle="true">
                             @if ($u && $u->profile_picture)
-                                <img alt="user" class="size-9 rounded-full border-2 border-primary shrink-0" src="{{ asset($u->profile_picture) }}" />
+                                <img alt="user" class="size-9 rounded-full border-2 border-primary shrink-0" src="{{ $profileMediaUrl($u->profile_picture) }}" />
                             @else
                                 <span class="inline-flex items-center justify-center size-9 rounded-full bg-primary/10 text-primary font-semibold shrink-0">{{ $initial }}</span>
                             @endif
@@ -125,7 +126,7 @@
                             <div class="flex items-center justify-between px-2.5 py-1.5 gap-1.5">
                                 <div class="flex items-center gap-2 min-w-0">
                                     @if ($u && $u->profile_picture)
-                                        <img alt="user" class="size-9 shrink-0 rounded-full border-2 border-primary" src="{{ asset($u->profile_picture) }}" />
+                                        <img alt="user" class="size-9 shrink-0 rounded-full border-2 border-primary" src="{{ $profileMediaUrl($u->profile_picture) }}" />
                                     @else
                                         <span class="inline-flex items-center justify-center size-9 rounded-full bg-primary/10 text-primary font-semibold shrink-0">{{ $initial }}</span>
                                     @endif

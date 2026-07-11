@@ -64,7 +64,7 @@ class MaterialController extends Controller
     {
         $this->authorize('view', $material); // enrollment re-checked
 
-        $disk = Storage::disk($material->storage_bucket ?? 'local');
+        $disk = Storage::disk($material->storageDisk());
         abort_unless($disk->exists($material->storage_path), 404);
 
         return $disk->download($material->storage_path, $material->file_name);

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Assessment;
 use App\Models\Score;
+use App\Models\StudentAssessmentAccess;
 use App\Models\StudentAssessmentExemption;
 use App\Models\StudentAssessmentRetake;
 use Carbon\Carbon;
@@ -65,25 +66,46 @@ class AssessmentAvailabilityService
         $remaining = max(0, $allowedAttempts - $submitted);
 
         $firstAttempt = $submitted === 0;
-        $canTake = $windowOpen && ($firstAttempt || ($effective > 0 && $remaining > 0));
+        $accessGrant = StudentAssessmentAccess::where('assessment_id', $assessment->id)
+            ->where('student_id', $studentId)
+            ->where('is_active', true)
+            ->first();
+
+        // A grant permits exactly one attempt made after it was (re)granted. Re-toggling
+        // "Grant" on an already-active row still bumps updated_at, re-arming it for another retake.
+        $usedSinceGrant = $accessGrant && Score::where('assessment_id', $assessment->id)
+            ->where('student_id', $studentId)
+            ->whereIn('status', ['submitted', 'passed', 'failed'])
+            ->where('submitted_at', '>=', $accessGrant->updated_at)
+            ->exists();
+
+        $hasSpecialAccess = ! $windowOpen
+            && $scheduleValid
+            && $now->gte($end)
+            && $accessGrant !== null
+            && ! $usedSinceGrant;
+        $canTake = ($windowOpen && ($firstAttempt || ($effective > 0 && $remaining > 0))) || $hasSpecialAccess;
 
         return [
-            'badge' => $this->badge($scheduleValid, $now, $start, $end, $submitted, $remaining),
+            'badge' => $this->badge($scheduleValid, $now, $start, $end, $submitted, $remaining, $hasSpecialAccess),
             'can_take' => $canTake,
-            'remaining' => $remaining,
+            'remaining' => $hasSpecialAccess ? max($remaining, 1) : $remaining,
             'submitted_attempts' => $submitted,
             'effective_retakes' => $effective,
             'window_open' => $windowOpen,
         ];
     }
 
-    private function badge(bool $valid, Carbon $now, ?Carbon $start, ?Carbon $end, int $submitted, int $remaining): string
+    private function badge(bool $valid, Carbon $now, ?Carbon $start, ?Carbon $end, int $submitted, int $remaining, bool $hasSpecialAccess): string
     {
         if (! $valid) {
             return 'Schedule issue';
         }
         if ($now->lt($start)) {
             return 'Upcoming';
+        }
+        if ($hasSpecialAccess) {
+            return 'Special Access';
         }
         if ($now->gte($end)) {
             return 'Expired';

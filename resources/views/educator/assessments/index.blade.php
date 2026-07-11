@@ -71,6 +71,12 @@
                                 <span class="kt-menu-title">Manage Exemptions</span>
                             </a>
                         </div>
+                        <div class="kt-menu-item">
+                            <a class="kt-menu-link" href="#" data-modal-url="{{ route('educator.assessments.access', $a) }}" data-modal-target="#form_modal" data-modal-title="Manage special access">
+                                <span class="kt-menu-icon"><i class="ki-filled ki-time"></i></span>
+                                <span class="kt-menu-title">Manage Special Access</span>
+                            </a>
+                        </div>
                     </x-table-actions>
                 </td>
             </tr>

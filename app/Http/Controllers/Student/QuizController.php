@@ -94,6 +94,7 @@ class QuizController extends Controller
             $badge === 'Expired' => ['No Longer Available', 'secondary'],
             $badge === 'Schedule issue' => ['Not Ready Yet', 'secondary'],
             $questionCount === 0 => ['Not Ready Yet', 'secondary'],
+            $badge === 'Special Access' => ['Special Access', 'info'],
             $badge === 'Reopened' => ['Reopened', 'info'],
             default => ['Available', 'success'],
         };

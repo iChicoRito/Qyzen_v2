@@ -10,6 +10,7 @@ use App\Models\AcademicTerm;
 use App\Models\Assessment;
 use App\Models\Enrolled;
 use App\Models\Section;
+use App\Models\StudentAssessmentAccess;
 use App\Models\StudentAssessmentExemption;
 use App\Models\Subject;
 use App\Models\User;
@@ -262,6 +263,54 @@ class AssessmentController extends Controller
         // The exemptions view is a modal-only fragment (no page layout) — redirect to the real
         // index page like every other modal-form submission in this app, not back into the
         // fragment route, which would render bare/unstyled on a full browser navigation.
+        return redirect()->route('educator.assessments.index')
+            ->with('status', $studentIds->count().' student(s) '.$verb.'.');
+    }
+
+    public function access(Assessment $assessment): View
+    {
+        $this->authorize('update', $assessment);
+
+        $students = Enrolled::where('educator_id', Auth::id())
+            ->where('subject_id', $assessment->subject_id)
+            ->where('is_active', true)
+            ->with('student:id,given_name,surname,user_id')
+            ->get();
+
+        $accessStudentIds = StudentAssessmentAccess::where('assessment_id', $assessment->id)
+            ->where('is_active', true)
+            ->pluck('student_id')->all();
+
+        return view('educator.assessments.access', compact('assessment', 'students', 'accessStudentIds'));
+    }
+
+    public function toggleAccess(Request $request, Assessment $assessment): RedirectResponse
+    {
+        $this->authorize('update', $assessment);
+
+        $data = $request->validate([
+            'student_ids' => ['required', 'array', 'min:1'],
+            'student_ids.*' => ['integer'],
+            'action' => ['required', 'in:grant,revoke'],
+        ]);
+
+        $studentIds = Enrolled::where('educator_id', Auth::id())
+            ->where('subject_id', $assessment->subject_id)
+            ->whereIn('student_id', $data['student_ids'])
+            ->pluck('student_id');
+
+        foreach ($studentIds as $studentId) {
+            StudentAssessmentAccess::updateOrCreate([
+                'educator_id' => Auth::id(),
+                'student_id' => $studentId,
+                'assessment_id' => $assessment->id,
+            ], [
+                'is_active' => $data['action'] === 'grant',
+            ]);
+        }
+
+        $verb = $data['action'] === 'grant' ? 'granted special access for' : 'revoked special access for';
+
         return redirect()->route('educator.assessments.index')
             ->with('status', $studentIds->count().' student(s) '.$verb.'.');
     }

@@ -6,7 +6,9 @@ use App\Models\AcademicTerm;
 use App\Models\AcademicYear;
 use App\Models\Assessment;
 use App\Models\Role;
+use App\Models\Score;
 use App\Models\Section;
+use App\Models\StudentAssessmentAccess;
 use App\Models\StudentAssessmentExemption;
 use App\Models\Subject;
 use App\Models\User;
@@ -118,5 +120,120 @@ class AssessmentAvailabilityServiceTest extends TestCase
 
         $this->assertSame('Available', $summary['badge']);
         $this->assertTrue($summary['can_take']);
+    }
+
+    public function test_expired_assessment_with_active_special_access_is_takeable_for_missed_student(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 17:00:00', 'Asia/Manila'));
+        StudentAssessmentAccess::create([
+            'educator_id' => $this->educator->id,
+            'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id,
+            'is_active' => true,
+        ]);
+
+        $summary = $this->service->summarize($this->assessment, $this->student->id);
+
+        $this->assertSame('Special Access', $summary['badge']);
+        $this->assertTrue($summary['can_take']);
+        $this->assertFalse($summary['window_open']);
+    }
+
+    public function test_inactive_special_access_does_not_reopen_expired_assessment(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 17:00:00', 'Asia/Manila'));
+        StudentAssessmentAccess::create([
+            'educator_id' => $this->educator->id,
+            'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id,
+            'is_active' => false,
+        ]);
+
+        $summary = $this->service->summarize($this->assessment, $this->student->id);
+
+        $this->assertSame('Expired', $summary['badge']);
+        $this->assertFalse($summary['can_take']);
+    }
+
+    public function test_special_access_does_not_bypass_exemption(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 17:00:00', 'Asia/Manila'));
+        StudentAssessmentAccess::create([
+            'educator_id' => $this->educator->id,
+            'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id,
+            'is_active' => true,
+        ]);
+        StudentAssessmentExemption::create([
+            'educator_id' => $this->educator->id,
+            'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id,
+            'is_active' => true,
+        ]);
+
+        $summary = $this->service->summarize($this->assessment, $this->student->id);
+
+        $this->assertSame('Exempted', $summary['badge']);
+        $this->assertFalse($summary['can_take']);
+    }
+
+    public function test_special_access_is_consumed_after_first_submitted_attempt(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 17:00:00', 'Asia/Manila'));
+        StudentAssessmentAccess::create([
+            'educator_id' => $this->educator->id,
+            'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id,
+            'is_active' => true,
+        ]);
+        Score::create([
+            'student_id' => $this->student->id,
+            'educator_id' => $this->educator->id,
+            'assessment_id' => $this->assessment->id,
+            'subject_id' => $this->assessment->subject_id,
+            'section_id' => $this->assessment->section_id,
+            'score' => 4,
+            'total_questions' => 4,
+            'student_answer' => [],
+            'status' => 'passed',
+            'is_passed' => true,
+            'submitted_at' => now(),
+        ]);
+
+        $summary = $this->service->summarize($this->assessment, $this->student->id);
+
+        $this->assertSame('Expired', $summary['badge']);
+        $this->assertFalse($summary['can_take']);
+    }
+
+    public function test_special_access_allows_retake_when_granted_after_prior_submission(): void
+    {
+        Score::create([
+            'student_id' => $this->student->id,
+            'educator_id' => $this->educator->id,
+            'assessment_id' => $this->assessment->id,
+            'subject_id' => $this->assessment->subject_id,
+            'section_id' => $this->assessment->section_id,
+            'score' => 2,
+            'total_questions' => 4,
+            'student_answer' => [],
+            'status' => 'failed',
+            'is_passed' => false,
+            'submitted_at' => now(),
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-07-10 17:00:00', 'Asia/Manila'));
+        StudentAssessmentAccess::create([
+            'educator_id' => $this->educator->id,
+            'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id,
+            'is_active' => true,
+        ]);
+
+        $summary = $this->service->summarize($this->assessment, $this->student->id);
+
+        $this->assertSame('Special Access', $summary['badge']);
+        $this->assertTrue($summary['can_take']);
+        $this->assertSame(1, $summary['remaining']);
     }
 }

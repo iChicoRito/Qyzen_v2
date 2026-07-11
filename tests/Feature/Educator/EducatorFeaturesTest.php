@@ -525,6 +525,93 @@ class EducatorFeaturesTest extends TestCase
         $this->assertFalse($notExemptedBox->hasAttribute('checked'));
     }
 
+    public function test_educator_can_grant_and_revoke_special_access_for_enrolled_students(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $otherStudent = $this->makeUser('student', 'student');
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        Enrolled::create(['student_id' => $otherStudent->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.assessments.access', ['assessment' => $assessment, 'modal' => 1]))
+            ->assertOk()
+            ->assertSee('Manage special access')
+            ->assertSee((string) $this->student->user_id)
+            ->assertSee((string) $otherStudent->user_id);
+
+        $this->actingAs($this->eduA)
+            ->post(route('educator.assessments.access.toggle', $assessment), [
+                'student_ids' => [$this->student->id, $otherStudent->id],
+                'action' => 'grant',
+            ])
+            ->assertRedirect(route('educator.assessments.index'));
+
+        $this->assertDatabaseHas('tbl_student_assessment_access', [
+            'assessment_id' => $assessment->id,
+            'student_id' => $this->student->id,
+            'is_active' => 1,
+        ]);
+        $this->assertDatabaseHas('tbl_student_assessment_access', [
+            'assessment_id' => $assessment->id,
+            'student_id' => $otherStudent->id,
+            'is_active' => 1,
+        ]);
+
+        $this->actingAs($this->eduA)
+            ->post(route('educator.assessments.access.toggle', $assessment), [
+                'student_ids' => [$this->student->id],
+                'action' => 'revoke',
+            ])
+            ->assertRedirect(route('educator.assessments.index'));
+
+        $this->assertDatabaseHas('tbl_student_assessment_access', [
+            'assessment_id' => $assessment->id,
+            'student_id' => $this->student->id,
+            'is_active' => 0,
+        ]);
+        $this->assertDatabaseHas('tbl_student_assessment_access', [
+            'assessment_id' => $assessment->id,
+            'student_id' => $otherStudent->id,
+            'is_active' => 1,
+        ]);
+    }
+
+    public function test_special_access_toggle_ignores_non_enrolled_students_and_other_educators(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $notEnrolled = $this->makeUser('student', 'student');
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)
+            ->post(route('educator.assessments.access.toggle', $assessment), [
+                'student_ids' => [$this->student->id, $notEnrolled->id],
+                'action' => 'grant',
+            ])
+            ->assertRedirect(route('educator.assessments.index'));
+
+        $this->assertDatabaseHas('tbl_student_assessment_access', [
+            'assessment_id' => $assessment->id,
+            'student_id' => $this->student->id,
+            'is_active' => 1,
+        ]);
+        $this->assertDatabaseMissing('tbl_student_assessment_access', [
+            'assessment_id' => $assessment->id,
+            'student_id' => $notEnrolled->id,
+        ]);
+
+        $this->actingAs($this->eduB)
+            ->get(route('educator.assessments.access', ['assessment' => $assessment, 'modal' => 1]))
+            ->assertForbidden();
+        $this->actingAs($this->eduB)
+            ->post(route('educator.assessments.access.toggle', $assessment), [
+                'student_ids' => [$this->student->id],
+                'action' => 'grant',
+            ])
+            ->assertForbidden();
+    }
+
     public function test_creating_assessment_with_multiple_subjects_makes_one_each(): void
     {
         $subjectA = $this->subject($this->eduA);

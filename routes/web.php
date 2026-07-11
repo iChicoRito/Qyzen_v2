@@ -192,6 +192,8 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         // Task 01: per-student "cannot take this quiz" exemption (e.g. absent).
         Route::get('assessments/{assessment}/exemptions', [AssessmentController::class, 'exemptions'])->name('assessments.exemptions');
         Route::post('assessments/{assessment}/exemptions/toggle', [AssessmentController::class, 'toggleExemption'])->name('assessments.exemptions.toggle');
+        Route::get('assessments/{assessment}/access', [AssessmentController::class, 'access'])->name('assessments.access');
+        Route::post('assessments/{assessment}/access/toggle', [AssessmentController::class, 'toggleAccess'])->name('assessments.access.toggle');
 
         // G6 quizzes (now the question bank): bulk upload.
         Route::get('quizzes/upload/template', [QuizController::class, 'uploadTemplate'])->name('quizzes.upload.template');

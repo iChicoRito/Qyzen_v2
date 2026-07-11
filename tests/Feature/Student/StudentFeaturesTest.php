@@ -12,6 +12,7 @@ use App\Models\Quiz;
 use App\Models\Role;
 use App\Models\Score;
 use App\Models\Section;
+use App\Models\StudentAssessmentAccess;
 use App\Models\StudentAssessmentExemption;
 use App\Models\Subject;
 use App\Models\User;
@@ -345,6 +346,100 @@ class StudentFeaturesTest extends TestCase
         $this->actingAs($this->student)
             ->get(route('student.take-quiz', $this->assessment))
             ->assertRedirect(route('student.assessments.index'));
+    }
+
+    public function test_student_with_special_access_can_take_expired_assessment_once(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 12:00:00', config('app.school_timezone')));
+        $this->assessment->update(['start_date' => '2026-07-10', 'end_date' => '2026-07-10', 'start_time' => '08:00', 'end_time' => '12:00']);
+        StudentAssessmentAccess::create([
+            'educator_id' => $this->educator->id,
+            'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id,
+            'is_active' => true,
+        ]);
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
+
+        $this->actingAs($this->student)
+            ->get(route('student.take-quiz', $this->assessment))
+            ->assertOk();
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.draft', $this->assessment), ['answers' => []])
+            ->assertOk();
+        $this->actingAs($this->student)
+            ->post(route('student.take-quiz.submit', $this->assessment), [
+                'answers' => [$quizzes[0]->id => 'B'],
+            ])
+            ->assertRedirect();
+
+        $score = Score::where('student_id', $this->student->id)
+            ->where('assessment_id', $this->assessment->id)
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->actingAs($this->student)
+            ->get(route('student.take-quiz', $this->assessment))
+            ->assertRedirect(route('student.scores.show', $score));
+
+        Carbon::setTestNow();
+    }
+
+    public function test_student_with_special_access_can_retake_after_prior_submission(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 09:00:00', config('app.school_timezone')));
+        $this->assessment->update(['start_date' => '2026-07-10', 'end_date' => '2026-07-10', 'start_time' => '08:00', 'end_time' => '12:00']);
+        Score::create([
+            'student_id' => $this->student->id,
+            'educator_id' => $this->educator->id,
+            'assessment_id' => $this->assessment->id,
+            'subject_id' => $this->assessment->subject_id,
+            'section_id' => $this->assessment->section_id,
+            'score' => 1,
+            'total_questions' => 4,
+            'student_answer' => [],
+            'status' => 'failed',
+            'is_passed' => false,
+            'submitted_at' => now(),
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-07-10 12:00:00', config('app.school_timezone')));
+        StudentAssessmentAccess::create([
+            'educator_id' => $this->educator->id,
+            'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id,
+            'is_active' => true,
+        ]);
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
+
+        $this->actingAs($this->student)
+            ->get(route('student.take-quiz', $this->assessment))
+            ->assertOk();
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.draft', $this->assessment), ['answers' => []])
+            ->assertOk();
+        $this->actingAs($this->student)
+            ->post(route('student.take-quiz.submit', $this->assessment), [
+                'answers' => [$quizzes[0]->id => 'B'],
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(2, Score::where('student_id', $this->student->id)
+            ->where('assessment_id', $this->assessment->id)
+            ->count());
+
+        Carbon::setTestNow();
+    }
+
+    public function test_expired_assessment_without_special_access_stays_blocked(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 12:00:00', config('app.school_timezone')));
+        $this->assessment->update(['start_date' => '2026-07-10', 'end_date' => '2026-07-10', 'start_time' => '08:00', 'end_time' => '12:00']);
+
+        $this->actingAs($this->student)
+            ->get(route('student.take-quiz', $this->assessment))
+            ->assertRedirect(route('student.assessments.index'));
+
+        Carbon::setTestNow();
     }
 
     public function test_student_cannot_view_others_score(): void

@@ -2,7 +2,7 @@
 @section('title', 'Announcements')
 @section('heading', 'Announcements')
 @section('content')
-    <div class="grid gap-5 lg:gap-7.5 lg:grid-cols-[280px_minmax(0,1fr)] items-start">
+    <div class="grid gap-5 lg:gap-7.5 lg:grid-cols-[280px_minmax(0,1fr)] items-stretch">
         @include('student.announcements._timeline', ['announcements' => $announcements->getCollection()->take(6)])
         <section class="min-w-0 grid gap-5 lg:gap-7.5">
             @forelse ($announcements as $announcement)

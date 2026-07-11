@@ -140,6 +140,7 @@ class AnnouncementTest extends TestCase
         $response = $this->actingAs($this->student)->get(route('student.announcements.index'))->assertOk();
         $response->assertSee('Announcements timeline')
             ->assertSee('lg:grid-cols-[280px_minmax(0,1fr)]', false)
+            ->assertSee('items-stretch', false)
             ->assertSee($announcement->title)
             ->assertDontSee('View All');
 

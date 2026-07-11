@@ -2,9 +2,9 @@
 @section('title', 'Announcements')
 @section('heading', 'Announcements')
 @section('content')
-    <div class="grid gap-5 lg:gap-7.5 lg:grid-cols-[280px_minmax(0,1fr)] items-stretch">
+    <div class="grid gap-5 lg:gap-7.5 lg:grid-cols-4 items-stretch">
         @include('student.announcements._timeline', ['announcements' => $announcements->getCollection()->take(6)])
-        <section class="min-w-0 grid gap-5 lg:gap-7.5">
+        <section class="min-w-0 grid gap-5 lg:gap-7.5 lg:col-span-3">
             @forelse ($announcements as $announcement)
                 @include('student.announcements._card', compact('announcement'))
             @empty

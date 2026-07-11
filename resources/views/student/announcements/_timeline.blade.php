@@ -1,4 +1,4 @@
-<aside class="kt-card h-full lg:sticky lg:top-24 self-start" id="announcement_timeline">
+<aside class="kt-card h-full lg:col-span-1 lg:sticky lg:top-24 self-start" id="announcement_timeline">
     <div class="kt-card-header">
         <h3 class="kt-card-title">Announcements timeline</h3>
     </div>

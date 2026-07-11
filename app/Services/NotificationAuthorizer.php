@@ -15,7 +15,7 @@ class NotificationAuthorizer
         'assessment_exempted',
         'learning_material_uploaded', 'learning_material_deleted',
         'quiz_created', 'quiz_uploaded', 'quiz_updated', 'quiz_deleted',
-        'enrollment_created', 'enrollment_updated', 'enrollment_deleted', 'retake_updated',
+        'enrollment_created', 'enrollment_updated', 'enrollment_deleted', 'retake_updated', 'announcement_created',
     ];
 
     /**
@@ -55,6 +55,27 @@ class NotificationAuthorizer
             return DB::table('tbl_subjects')
                 ->where('id', $subjectId)
                 ->where('educator_id', $actor->id)
+                ->exists();
+        }
+
+        if ($eventType === 'announcement_created') {
+            if ($subjectId) {
+                return DB::table('tbl_subjects')
+                    ->where('id', $subjectId)
+                    ->where('educator_id', $actor->id)
+                    ->exists()
+                    && DB::table('tbl_enrolled')
+                        ->where('educator_id', $actor->id)
+                        ->where('student_id', $recipientId)
+                        ->where('subject_id', $subjectId)
+                        ->where('is_active', true)
+                        ->exists();
+            }
+
+            return DB::table('tbl_enrolled')
+                ->where('educator_id', $actor->id)
+                ->where('student_id', $recipientId)
+                ->where('is_active', true)
                 ->exists();
         }
 

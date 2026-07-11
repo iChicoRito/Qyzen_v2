@@ -83,7 +83,7 @@ return new class extends Migration
                 'learning_material_uploaded', 'learning_material_deleted',
                 'quiz_created', 'quiz_uploaded', 'quiz_updated', 'quiz_deleted',
                 'enrollment_created', 'enrollment_updated', 'enrollment_deleted',
-                'retake_updated', 'quiz_submitted',
+                'retake_updated', 'quiz_submitted', 'announcement_created',
             ]);
             $table->string('title');
             $table->text('message');

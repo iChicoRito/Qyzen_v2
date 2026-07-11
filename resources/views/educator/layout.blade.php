@@ -14,6 +14,7 @@
         ['label' => 'Scores',      'url' => route('educator.scores.index'),      'active' => request()->routeIs('educator.scores.*'),                                     'icon' => 'chart-simple'],
         ['heading' => 'Resources'],
         ['label' => 'Materials',   'url' => route('educator.materials.index'),   'active' => request()->routeIs('educator.materials.*'),                                  'icon' => 'folder'],
+        ['label' => 'Announcements', 'url' => route('educator.announcements.index'), 'active' => request()->routeIs('educator.announcements.*'), 'icon' => 'notification-status'],
 
     ];
 @endphp

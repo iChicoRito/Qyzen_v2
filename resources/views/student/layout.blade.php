@@ -9,6 +9,7 @@
         ['label' => 'My Scores',   'url' => route('student.scores.index'),      'active' => request()->routeIs('student.scores.*'),                                      'icon' => 'chart-simple'],
         ['heading' => 'Resources'],
         ['label' => 'Materials',   'url' => route('student.materials.index'),   'active' => request()->routeIs('student.materials.*'),                                   'icon' => 'folder'],
+        ['label' => 'Announcements', 'url' => route('student.announcements.index'), 'active' => request()->routeIs('student.announcements.*'), 'icon' => 'notification-status'],
 
     ];
 @endphp

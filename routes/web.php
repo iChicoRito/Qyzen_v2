@@ -12,6 +12,7 @@ use App\Http\Controllers\Auth\ForcePasswordChangeController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\Educator\AssessmentController;
+use App\Http\Controllers\Educator\AnnouncementController as EducatorAnnouncementController;
 use App\Http\Controllers\Educator\AssessmentQuestionPoolController;
 use App\Http\Controllers\Educator\ChatController;
 use App\Http\Controllers\Educator\DashboardController as EducatorDashboardController;
@@ -26,6 +27,7 @@ use App\Http\Controllers\MessagingController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Student\ChatController as StudentChatController;
+use App\Http\Controllers\Student\AnnouncementController as StudentAnnouncementController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
 use App\Http\Controllers\Student\MaterialController as StudentMaterialController;
 use App\Http\Controllers\Student\QuizController as StudentQuizController;
@@ -60,6 +62,7 @@ Route::middleware(['auth', 'verified', 'role:student'])
         Route::get('/dashboard', [StudentDashboardController::class, 'index'])->name('dashboard');
         Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar');
         Route::get('subjects', [StudentSubjectController::class, 'index'])->name('subjects.index');
+        Route::get('announcements', [StudentAnnouncementController::class, 'index'])->name('announcements.index');
 
         // H2 assessment list.
         Route::get('assessments', [StudentQuizController::class, 'index'])->name('assessments.index');
@@ -104,6 +107,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::get('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::get('/announcements/{announcement}/images/{image}', [StudentAnnouncementController::class, 'image'])
+        ->whereNumber(['announcement', 'image'])->name('announcements.image');
 
     // Task 30 — private 1:1 student/educator messaging. Shared group: enrollment (subject-
     // agnostic) is the access boundary, re-checked by ConversationPolicy on every action.
@@ -212,6 +217,7 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         // G9 materials + signed download.
         Route::get('materials/{material}/download', [MaterialController::class, 'download'])->name('materials.download');
         Route::resource('materials', MaterialController::class)->except('show');
+        Route::resource('announcements', EducatorAnnouncementController::class)->except('show');
 
         // G10 group chats (request/response).
         Route::get('chats', [ChatController::class, 'index'])->name('chats.index');

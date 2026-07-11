@@ -133,24 +133,32 @@ class AnnouncementTest extends TestCase
             ->assertOk()->assertDontSee($subjectAnnouncement->title)->assertDontSee($globalAnnouncement->title);
     }
 
-    public function test_student_announcements_use_timeline_sidebar_and_full_width_feed(): void
+    public function test_student_announcements_use_a_static_timeline_and_card_feed(): void
     {
-        $announcement = $this->createAnnouncement(['title' => 'Timeline announcement']);
+        $older = $this->createAnnouncement(['title' => 'Older timeline announcement']);
+        $older->update(['created_at' => now()->subMinute()]);
+        $newer = $this->createAnnouncement(['title' => 'Newest timeline announcement']);
+        Notification::forRecipient($this->student->id)
+            ->where('event_type', 'announcement_created')
+            ->whereJsonContains('metadata->announcement_id', $older->id)
+            ->update(['is_read' => true, 'read_at' => now()]);
 
         $response = $this->actingAs($this->student)->get(route('student.announcements.index'))->assertOk();
-        $response->assertSee('Announcements timeline')
-            ->assertSee('lg:grid-cols-4', false)
-            ->assertSee('lg:col-span-1', false)
-            ->assertSee('lg:col-span-3', false)
-            ->assertSee('items-stretch', false)
-            ->assertSee('id="announcement_feed_header"', false)
-            ->assertSee('id="announcement_feed_list"', false)
-            ->assertSee($announcement->title)
-            ->assertDontSee('View All');
+        $response->assertSee('id="announcement_layout"', false)
+            ->assertSee('@media (min-width: 768px)', false)
+            ->assertSee('grid-template-columns: minmax(0, 1fr) minmax(260px, 32%)', false)
+            ->assertSee('id="announcement_timeline"', false)
+            ->assertDontSee('lg:col-span-', false)
+            ->assertSee($newer->title)
+            ->assertSee($older->title)
+            ->assertSee('data-announcement-timeline-item="'.$newer->id.'" data-announcement-new="true"', false)
+            ->assertSee('data-announcement-timeline-item="'.$older->id.'" data-announcement-new="false"', false)
+            ->assertSee('>New<', false)
+            ->assertDontSee('data-announcement-select', false)
+            ->assertDontSee('data-announcement-detail', false);
 
-        preg_match('/id="announcement_timeline".*?<\/div>\s*<\/div>/s', $response->getContent(), $timeline);
-        $this->assertNotEmpty($timeline);
-        $this->assertStringNotContainsString('ki-heart', $timeline[0]);
+        preg_match_all('/<article\b.*?<\/article>/s', $response->getContent(), $cards);
+        $this->assertCount(2, $cards[0]);
     }
 
     public function test_educator_ownership_and_upload_validation_are_enforced(): void

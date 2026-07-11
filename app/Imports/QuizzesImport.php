@@ -3,8 +3,8 @@
 namespace App\Imports;
 
 use App\Models\Subject;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 

@@ -14,7 +14,6 @@ Homestead.yaml
 /.phpunit.cache/
 /.vscode/
 /.zed/
-/artisan
 
 # ==============
 # Environment
@@ -53,8 +52,3 @@ _ide_helper.php
 # ==============
 /public/metronic-tailwind-html-demos/src/
 /public/metronic-tailwind-html-demos/node_modules/
-
-# ==============
-# Laravel Artisan (root level)
-# ==============
-/artisan

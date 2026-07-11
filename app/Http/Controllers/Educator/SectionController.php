@@ -8,7 +8,6 @@ use App\Http\Requests\UpdateSectionRequest;
 use App\Models\AcademicTerm;
 use App\Models\Section;
 use App\Support\TableQuery;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;

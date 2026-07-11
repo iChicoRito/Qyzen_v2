@@ -43,6 +43,7 @@ _ide_helper.php
 /storage/*.key
 /storage/pail/
 /public/storage/
+/public/profile-media/
 # /public/build/
 /public/hot/
 /public/fonts-manifest.dev.json

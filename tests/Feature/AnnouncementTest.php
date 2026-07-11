@@ -143,6 +143,8 @@ class AnnouncementTest extends TestCase
             ->assertSee('lg:col-span-1', false)
             ->assertSee('lg:col-span-3', false)
             ->assertSee('items-stretch', false)
+            ->assertSee('id="announcement_feed_header"', false)
+            ->assertSee('id="announcement_feed_list"', false)
             ->assertSee($announcement->title)
             ->assertDontSee('View All');
 

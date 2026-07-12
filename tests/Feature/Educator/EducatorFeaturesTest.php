@@ -1083,7 +1083,7 @@ class EducatorFeaturesTest extends TestCase
         $this->assertTrue($crossSubjectQuiz->exists);
     }
 
-    public function test_pool_page_paginates_bank_questions_without_dropping_selected_ids(): void
+    public function test_pool_page_shows_all_bank_questions_without_dropping_selected_ids(): void
     {
         $subject = $this->subject($this->eduA);
         $assessment = Assessment::create($this->assessmentModelData($subject));
@@ -1101,9 +1101,12 @@ class EducatorFeaturesTest extends TestCase
 
         $response->assertOk()
             ->assertSee('name="eligible_quiz_ids[]" value="'.$second->id.'"', false)
-            ->assertSee('data-pool-pagination', false)
-            ->assertSee('selected[]', false);
-        $this->assertCount(10, $response->viewData('bankQuestions'));
+            ->assertSee('style="height: 60vh; max-height: 60vh; overflow-y: auto;"', false)
+            ->assertSee('data-pool-filter-subject', false)
+            ->assertSee('data-pool-filter-section', false)
+            ->assertSee('data-pool-subject-section', false)
+            ->assertDontSee('data-pool-pagination', false);
+        $this->assertCount(11, $response->viewData('bankQuestions'));
     }
 
     public function test_pool_page_batch_filter_includes_batches_beyond_the_first_page(): void

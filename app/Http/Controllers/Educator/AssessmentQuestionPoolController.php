@@ -8,7 +8,6 @@ use App\Models\Assessment;
 use App\Models\Enrolled;
 use App\Models\Quiz;
 use App\Services\NotificationService;
-use App\Support\TableQuery;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -26,10 +25,14 @@ class AssessmentQuestionPoolController extends Controller
         // Task 13: batch is a server-side filter applied to the WHOLE bank before pagination,
         // so a selected batch finds matching questions on any page (not just the current one).
         $batch = request()->query('batch');
-        $bankQuestions = Quiz::visibleTo(Auth::user())
-            ->when($batch, fn ($q) => $q->where('batch_label', $batch))
+        $filtered = Quiz::visibleTo(Auth::user())
+            ->when($batch, fn ($q) => $q->where('batch_label', $batch));
+        // Every id matching the current filter across ALL pages — lets "Select All" pick the whole
+        // matching set, not just the ~10 rendered on this page.
+        $allFilteredIds = (clone $filtered)->orderBy('id')->pluck('id')->all();
+        $bankQuestions = $filtered
             ->with(['subject:id,subject_code,subject_name,sections_id', 'subject.section:id,section_name', 'eligibleAssessments:id,assessment_code'])
-            ->orderBy('id')->paginate(TableQuery::perPage(request()))->withQueryString();
+            ->orderBy('id')->get();
         // Unfiltered total drives the "show the filter controls" gate + the summary denominator,
         // so filtering down to <=8 questions never hides the batch dropdown (which would trap the user).
         $bankTotal = Quiz::visibleTo(Auth::user())->count();
@@ -41,7 +44,7 @@ class AssessmentQuestionPoolController extends Controller
         $batches = Quiz::visibleTo(Auth::user())->whereNotNull('batch_label')
             ->distinct()->orderBy('batch_label')->pluck('batch_label');
 
-        return view('educator.assessments.pool', compact('assessment', 'bankQuestions', 'bankTotal', 'eligibleIds', 'batches'));
+        return view('educator.assessments.pool', compact('assessment', 'bankQuestions', 'bankTotal', 'allFilteredIds', 'eligibleIds', 'batches'));
     }
 
     public function update(UpdateQuestionPoolRequest $request, Assessment $assessment): RedirectResponse

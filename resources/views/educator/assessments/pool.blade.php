@@ -24,12 +24,16 @@
                         <label class="kt-form-label">Eligible Questions</label>
                         @if ($bankQuestions->isNotEmpty())
                             <div class="flex gap-2">
-                                <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" data-pool-select-all>Select All</button>
+                                <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" data-pool-select-all>Select all ({{ count($allFilteredIds) }})</button>
                                 <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" data-pool-select-none>Select None</button>
                             </div>
                         @endif
                     </div>
                     @if ($bankTotal > 8)
+                        @php
+                            $filterSubjects = $bankQuestions->map(fn ($q) => $q->subject)->filter()->unique('id')->sortBy('subject_code');
+                            $filterSections = $bankQuestions->map(fn ($q) => $q->subject?->section)->filter()->unique('id')->sortBy('section_name');
+                        @endphp
                         <div class="flex flex-wrap items-center gap-2">
                             <label class="kt-input grow min-w-52">
                                 <i class="ki-filled ki-magnifier"></i>
@@ -46,16 +50,24 @@
                                 <option value="">All batches</option>
                                 @foreach ($batches as $b)<option value="{{ $b }}" @selected(request('batch') === $b)>{{ $b }}</option>@endforeach
                             </select>
+                            <select class="kt-select w-48" data-pool-filter-subject>
+                                <option value="">All subjects</option>
+                                @foreach ($filterSubjects as $subject)<option value="{{ $subject->id }}" data-pool-subject-section="{{ $subject->sections_id }}">{{ $subject->subject_code }} — {{ $subject->subject_name }}</option>@endforeach
+                            </select>
+                            <select class="kt-select w-40" data-pool-filter-section>
+                                <option value="">All sections</option>
+                                @foreach ($filterSections as $section)<option value="{{ $section->id }}">{{ $section->section_name }}</option>@endforeach
+                            </select>
                         </div>
                     @endif
                     <span class="text-xs text-secondary-foreground" data-pool-summary>
                         {{ count($selectedIds) }} of {{ $bankTotal }} selected
                     </span>
-                    @php $pageIds = $bankQuestions->getCollection()->pluck('id')->all(); @endphp
-                    @foreach (array_diff($selectedIds, $pageIds) as $selectedId)
+                    @php $visibleIds = $bankQuestions->pluck('id')->all(); @endphp
+                    @foreach (array_diff($selectedIds, $visibleIds) as $selectedId)
                         <input type="hidden" name="eligible_quiz_ids[]" value="{{ $selectedId }}">
                     @endforeach
-                    <div class="grid grid-cols-1 gap-2.5 max-h-96 overflow-y-auto kt-scrollable-y">
+                    <div class="grid grid-cols-1 gap-2.5 overflow-y-auto kt-scrollable-y" style="height: 60vh; max-height: 60vh; overflow-y: auto;">
                         @foreach ($bankQuestions as $q)
                             @php
                                 $usedIn = $q->eligibleAssessments->where('id', '!=', $assessment->id)->pluck('assessment_code');
@@ -76,12 +88,11 @@
                                 data-pool-option
                                 data-pool-question-text="{{ mb_strtolower($q->question) }}"
                                 data-pool-question-type="{{ $q->quiz_type }}"
+                                data-pool-question-subject="{{ $q->subject_id }}"
+                                data-pool-question-section="{{ $q->subject?->sections_id }}"
                                 data-pool-question-batch="{{ $q->batch_label }}" />
                         @endforeach
                         <span class="text-xs text-secondary-foreground px-1 hidden" data-pool-no-match>No questions match your filters.</span>
-                    </div>
-                    <div class="flex justify-center pt-2" data-pool-pagination>
-                        {{ $bankQuestions->links() }}
                     </div>
                     @error('eligible_quiz_ids')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
                 </div>
@@ -106,94 +117,119 @@
     <script nonce="{{ $cspNonce ?? '' }}">
         (function () {
             var summary = document.querySelector('[data-pool-summary]');
-            var boxes = document.querySelectorAll('input[data-pool-option]');
-            var total = boxes.length;
             if (!summary) return;
+            var form = summary.closest('form');
+            var bankTotal = {{ $bankTotal }};
 
+            // A selected id is either a ticked on-page checkbox or an off-page hidden input; count both.
+            function countSelected() {
+                return form.querySelectorAll('input[data-pool-option]:checked').length
+                    + form.querySelectorAll('input[type="hidden"][name="eligible_quiz_ids[]"]').length;
+            }
             function updateSummary() {
-                var checked = document.querySelectorAll('input[data-pool-option]:checked').length;
-                summary.textContent = checked + ' of ' + total + ' selected';
+                summary.textContent = countSelected() + ' of ' + bankTotal + ' selected';
             }
 
-            boxes.forEach(function (box) {
+            form.querySelectorAll('input[data-pool-option]').forEach(function (box) {
                 box.addEventListener('change', updateSummary);
             });
 
-            // Select All / Select None only affect currently VISIBLE questions (respects an
-            // active search), so narrowing the search then clicking Select All ticks just the matches.
+            // Select All picks every question currently visible after the active filters.
             var selectAll = document.querySelector('[data-pool-select-all]');
             var selectNone = document.querySelector('[data-pool-select-none]');
+            var boxes = form.querySelectorAll('input[data-pool-option]');
             if (selectAll) {
                 selectAll.addEventListener('click', function () {
-                    boxes.forEach(function (box) { if (box.dataset.poolHidden !== '1') box.checked = true; });
+                    boxes.forEach(function (box) {
+                        var label = box.closest('label');
+                        if (!label || !label.classList.contains('hidden')) box.checked = true;
+                    });
                     updateSummary();
                 });
             }
             if (selectNone) {
                 selectNone.addEventListener('click', function () {
-                    boxes.forEach(function (box) { if (box.dataset.poolHidden !== '1') box.checked = false; });
+                    form.querySelectorAll('input[data-pool-option]').forEach(function (b) { b.checked = false; });
+                    form.querySelectorAll('input[type="hidden"][name="eligible_quiz_ids[]"]').forEach(function (h) { h.remove(); });
                     updateSummary();
                 });
             }
 
-            // Search + Type + Batch all narrow the same list together (every active
-            // criterion must match). Select All/None only ever touch what's currently visible.
+            // Search + Type stay client-side; Batch is server-side.
             var search = document.querySelector('[data-pool-search]');
             var typeFilter = document.querySelector('[data-pool-filter-type]');
             var batchFilter = document.querySelector('[data-pool-filter-batch]');
+            var subjectFilter = document.querySelector('[data-pool-filter-subject]');
+            var sectionFilter = document.querySelector('[data-pool-filter-section]');
             var noMatch = document.querySelector('[data-pool-no-match]');
 
-            // Search + Type stay client-side (narrow within the current, already batch-filtered page).
-            // Batch is server-side (see below) so it spans the whole bank across pages.
             function applyFilters() {
                 var term = search ? search.value.trim().toLowerCase() : '';
                 var type = typeFilter ? typeFilter.value : '';
+                var subject = subjectFilter ? subjectFilter.value : '';
+                var section = sectionFilter ? sectionFilter.value : '';
                 var visible = 0;
-
                 boxes.forEach(function (box) {
                     var label = box.closest('label');
                     var match = (!term || (box.dataset.poolQuestionText || '').indexOf(term) !== -1)
-                        && (!type || box.dataset.poolQuestionType === type);
+                        && (!type || box.dataset.poolQuestionType === type)
+                        && (!subject || box.dataset.poolQuestionSubject === subject)
+                        && (!section || box.dataset.poolQuestionSection === section);
                     if (label) label.classList.toggle('hidden', !match);
-                    box.dataset.poolHidden = match ? '' : '1';
                     if (match) visible++;
                 });
                 if (noMatch) noMatch.classList.toggle('hidden', visible !== 0);
             }
 
+            function updateLinkedFilters(source) {
+                if (!subjectFilter || !sectionFilter) return;
+
+                if (source === sectionFilter) {
+                    Array.from(subjectFilter.options).forEach(function (option) {
+                        option.hidden = !!sectionFilter.value && option.value !== ''
+                            && option.dataset.poolSubjectSection !== sectionFilter.value;
+                    });
+                    if (subjectFilter.selectedOptions[0] && subjectFilter.selectedOptions[0].hidden) subjectFilter.value = '';
+                }
+
+                if (source === subjectFilter) {
+                    var option = subjectFilter.options[subjectFilter.selectedIndex];
+                    var sectionId = option ? option.dataset.poolSubjectSection : '';
+                    Array.from(sectionFilter.options).forEach(function (section) {
+                        section.hidden = !!sectionId && section.value !== '' && section.value !== sectionId;
+                    });
+                    sectionFilter.value = sectionId || '';
+                }
+            }
             if (search) search.addEventListener('input', applyFilters);
             if (typeFilter) typeFilter.addEventListener('change', applyFilters);
+            if (subjectFilter) subjectFilter.addEventListener('change', function () {
+                updateLinkedFilters(subjectFilter);
+                applyFilters();
+            });
+            if (sectionFilter) sectionFilter.addEventListener('change', function () {
+                updateLinkedFilters(sectionFilter);
+                applyFilters();
+            });
 
-            // Build a URL from the current page carrying unsaved selections, so navigating (batch
-            // change or paging) never discards ticked questions.
+            // Carry selections through batch changes so changing the filter never drops ticked questions.
             function urlWithSelections(base) {
                 var url = new URL(base, window.location.origin);
                 url.searchParams.delete('selected[]');
-                document.querySelectorAll('input[name="eligible_quiz_ids[]"]:checked').forEach(function (box) {
-                    url.searchParams.append('selected[]', box.value);
+                var seen = {};
+                form.querySelectorAll('input[data-pool-option]:checked, input[type="hidden"][name="eligible_quiz_ids[]"]').forEach(function (el) {
+                    if (!seen[el.value]) { seen[el.value] = 1; url.searchParams.append('selected[]', el.value); }
                 });
                 return url;
             }
 
-            // Task 13: batch filters the whole bank server-side. Navigate with ?batch=… and drop
-            // page so results reset to page 1; selections ride along as selected[].
+            // Task 13: batch filters the whole bank server-side; selections ride along as selected[].
             if (batchFilter) {
                 batchFilter.addEventListener('change', function () {
                     var url = urlWithSelections(window.location.href);
-                    url.searchParams.delete('page');
                     if (batchFilter.value) url.searchParams.set('batch', batchFilter.value);
                     else url.searchParams.delete('batch');
                     window.location.href = url.toString();
-                });
-            }
-
-            // Carry unsaved selections through pagination so changing pages does not discard them.
-            var pagination = document.querySelector('[data-pool-pagination]');
-            if (pagination) {
-                pagination.addEventListener('click', function (event) {
-                    var link = event.target.closest('a[href]');
-                    if (!link) return;
-                    link.href = urlWithSelections(link.href).toString();
                 });
             }
         })();

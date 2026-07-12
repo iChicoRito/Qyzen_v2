@@ -92,8 +92,8 @@ class MaterialUploadTest extends TestCase
 
         $this->assertNull(LearningMaterial::find($first->id));
         $this->assertNotNull(LearningMaterial::find($second->id));
-        Storage::disk('local')->assertMissing($first->storage_path);
-        Storage::disk('local')->assertExists($second->storage_path);
+        Storage::disk('learning-materials')->assertMissing($first->storage_path);
+        Storage::disk('learning-materials')->assertExists($second->storage_path);
     }
 
     public function test_bulk_delete_keeps_a_file_still_shared_by_a_surviving_row(): void
@@ -109,7 +109,7 @@ class MaterialUploadTest extends TestCase
         $this->actingAs($this->edu)->delete(route('educator.materials.bulk-destroy'), ['ids' => [$first->id]]);
 
         $this->assertNull(LearningMaterial::find($first->id));
-        Storage::disk('local')->assertExists($second->storage_path); // survivor still references it
+        Storage::disk('learning-materials')->assertExists($second->storage_path); // survivor still references it
     }
 
     public function test_bulk_delete_ignores_another_educators_materials(): void

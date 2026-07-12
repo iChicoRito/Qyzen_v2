@@ -212,10 +212,9 @@ class AssessmentController extends Controller
         $this->authorize('update', $assessment);
 
         $validator = Validator::make($request->all(), [
-            'student_ids' => ['required', 'array', 'min:1'],
+            'student_ids' => ['nullable', 'array'],
             'student_ids.*' => ['integer'],
-            'action' => ['required', 'in:exempt,unexempt'],
-            'reason' => ['nullable', 'string', 'max:255', Rule::requiredIf($request->input('action') === 'exempt')],
+            'reason' => ['nullable', 'string', 'max:255', Rule::requiredIf(fn () => ($request->input('action', 'exempt') === 'exempt') && count($request->input('student_ids', [])) > 0)],
         ]);
         if ($validator->fails()) {
             if ($request->ajax() || $request->expectsJson()) {
@@ -232,27 +231,37 @@ class AssessmentController extends Controller
 
         // Only students actually enrolled in this assessment's subject can be exempted — a
         // stray/forged id in the bulk payload is silently dropped, not a hard error.
-        $studentIds = Enrolled::where('educator_id', Auth::id())
+        $requestedAction = $request->input('action');
+        $isFinalState = $requestedAction === null;
+        $action = in_array($requestedAction, ['exempt', 'unexempt'], true) ? $requestedAction : 'exempt';
+        $eligibleStudentIds = Enrolled::where('educator_id', Auth::id())
             ->where('subject_id', $assessment->subject_id)
-            ->whereIn('student_id', $data['student_ids'])
             ->pluck('student_id');
+        $selectedStudentIds = collect($data['student_ids'] ?? [])->map(fn ($id) => (int) $id);
+        $studentIds = $isFinalState
+            ? $eligibleStudentIds
+            : $eligibleStudentIds->intersect($selectedStudentIds)->values();
 
         foreach ($studentIds as $studentId) {
-            $values = ['is_active' => $data['action'] === 'exempt'];
-            if ($data['action'] === 'exempt') {
-                $values['reason'] = $data['reason'];
+            if ($action === 'exempt') {
+                StudentAssessmentExemption::updateOrCreate([
+                    'educator_id' => Auth::id(), 'student_id' => $studentId, 'assessment_id' => $assessment->id,
+                ], ['is_active' => $isFinalState ? $selectedStudentIds->contains($studentId) : true, 'reason' => $data['reason'] ?? null]);
+            } elseif (! $isFinalState || $selectedStudentIds->contains($studentId)) {
+                StudentAssessmentExemption::where([
+                    'educator_id' => Auth::id(), 'student_id' => $studentId, 'assessment_id' => $assessment->id,
+                ])->update(['is_active' => false]);
             }
-
-            StudentAssessmentExemption::updateOrCreate([
-                'educator_id' => Auth::id(), 'student_id' => $studentId, 'assessment_id' => $assessment->id,
-            ], $values);
-
         }
 
-        if ($data['action'] === 'exempt') {
+        $activeStudentIds = $isFinalState
+            ? $selectedStudentIds->intersect($eligibleStudentIds)->values()
+            : $studentIds;
+
+        if ($action === 'exempt' && $activeStudentIds->isNotEmpty()) {
             $exemptionMessage = 'You have been exempted from assessment '.$assessment->assessment_code.'. Reason: '.$data['reason'];
 
-            $this->notifications->emitToMany(Auth::user(), 'assessment_exempted', $studentIds->all(), [
+            $this->notifications->emitToMany(Auth::user(), 'assessment_exempted', $activeStudentIds->all(), [
                 'subject_id' => $assessment->subject_id,
                 'assessment_id' => $assessment->id,
                 'section_id' => $assessment->section_id,
@@ -262,7 +271,7 @@ class AssessmentController extends Controller
                 'metadata' => ['reason' => $data['reason']],
             ]);
 
-            foreach ($studentIds as $studentId) {
+            foreach ($activeStudentIds as $studentId) {
                 $conversation = $this->conversations->findOrCreateConversation(
                     Auth::user(),
                     User::findOrFail($studentId),
@@ -272,15 +281,16 @@ class AssessmentController extends Controller
             }
         }
 
-        $verb = $data['action'] === 'exempt' ? 'exempted' : 'un-exempted';
-        $message = $studentIds->count().' student(s) '.$verb.'.';
+        $verb = $action === 'exempt' ? 'exempted' : 'un-exempted';
+        $message = $activeStudentIds->count().' student(s) '.$verb.'.';
 
         if ($request->expectsJson()) {
             return response()->json([
                 'status' => 'success',
                 'message' => $message,
-                'action' => $data['action'],
-                'affected_student_ids' => $studentIds->values()->all(),
+                'action' => $action,
+                'affected_student_ids' => $activeStudentIds->all(),
+                'active_student_ids' => StudentAssessmentExemption::where('assessment_id', $assessment->id)->whereIn('student_id', $eligibleStudentIds)->where('is_active', true)->pluck('student_id')->all(),
             ]);
         }
 
@@ -313,9 +323,8 @@ class AssessmentController extends Controller
         $this->authorize('update', $assessment);
 
         $validator = Validator::make($request->all(), [
-            'student_ids' => ['required', 'array', 'min:1'],
+            'student_ids' => ['nullable', 'array'],
             'student_ids.*' => ['integer'],
-            'action' => ['required', 'in:grant,revoke'],
         ]);
         if ($validator->fails()) {
             if ($request->ajax() || $request->expectsJson()) {
@@ -330,25 +339,37 @@ class AssessmentController extends Controller
         }
         $data = $validator->validated();
 
-        $studentIds = Enrolled::where('educator_id', Auth::id())
+        $requestedAction = $request->input('action');
+        $isFinalState = $requestedAction === null;
+        $action = in_array($requestedAction, ['grant', 'revoke'], true) ? $requestedAction : 'grant';
+        $eligibleStudentIds = Enrolled::where('educator_id', Auth::id())
             ->where('subject_id', $assessment->subject_id)
-            ->whereIn('student_id', $data['student_ids'])
             ->pluck('student_id');
+        $selectedStudentIds = collect($data['student_ids'] ?? [])->map(fn ($id) => (int) $id);
+        $studentIds = $isFinalState
+            ? $eligibleStudentIds
+            : $eligibleStudentIds->intersect($selectedStudentIds)->values();
 
         foreach ($studentIds as $studentId) {
-            StudentAssessmentAccess::updateOrCreate([
-                'educator_id' => Auth::id(),
-                'student_id' => $studentId,
-                'assessment_id' => $assessment->id,
-            ], [
-                'is_active' => $data['action'] === 'grant',
-            ]);
+            if ($action === 'grant') {
+                StudentAssessmentAccess::updateOrCreate([
+                    'educator_id' => Auth::id(), 'student_id' => $studentId, 'assessment_id' => $assessment->id,
+                ], ['is_active' => $isFinalState ? $selectedStudentIds->contains($studentId) : true]);
+            } elseif (! $isFinalState || $selectedStudentIds->contains($studentId)) {
+                StudentAssessmentAccess::where([
+                    'educator_id' => Auth::id(), 'student_id' => $studentId, 'assessment_id' => $assessment->id,
+                ])->update(['is_active' => false]);
+            }
         }
 
-        if ($data['action'] === 'grant') {
+        $activeStudentIds = $isFinalState
+            ? $selectedStudentIds->intersect($eligibleStudentIds)->values()
+            : $studentIds;
+
+        if ($action === 'grant' && $activeStudentIds->isNotEmpty()) {
             $accessMessage = 'You have been granted special access to assessment '.$assessment->assessment_code.'.';
 
-            $this->notifications->emitToMany(Auth::user(), 'assessment_access_granted', $studentIds->all(), [
+            $this->notifications->emitToMany(Auth::user(), 'assessment_access_granted', $activeStudentIds->all(), [
                 'subject_id' => $assessment->subject_id,
                 'assessment_id' => $assessment->id,
                 'section_id' => $assessment->section_id,
@@ -357,7 +378,7 @@ class AssessmentController extends Controller
                 'link_path' => route('student.assessments.index'),
             ]);
 
-            foreach ($studentIds as $studentId) {
+            foreach ($activeStudentIds as $studentId) {
                 $conversation = $this->conversations->findOrCreateConversation(
                     Auth::user(),
                     User::findOrFail($studentId),
@@ -367,15 +388,16 @@ class AssessmentController extends Controller
             }
         }
 
-        $verb = $data['action'] === 'grant' ? 'granted special access for' : 'revoked special access for';
-        $message = $studentIds->count().' student(s) '.$verb.'.';
+        $verb = $action === 'grant' ? 'granted special access for' : 'revoked special access for';
+        $message = $activeStudentIds->count().' student(s) '.$verb.'.';
 
         if ($request->expectsJson()) {
             return response()->json([
                 'status' => 'success',
                 'message' => $message,
-                'action' => $data['action'],
-                'affected_student_ids' => $studentIds->values()->all(),
+                'action' => $action,
+                'affected_student_ids' => $activeStudentIds->all(),
+                'active_student_ids' => StudentAssessmentAccess::where('assessment_id', $assessment->id)->whereIn('student_id', $eligibleStudentIds)->where('is_active', true)->pluck('student_id')->all(),
             ]);
         }
 

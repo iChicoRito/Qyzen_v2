@@ -190,8 +190,7 @@
         });
 
         {{-- Task 01: exemption list (educator/assessments/exemptions.blade.php) — live search filter,
-             select-all (only touches currently-visible rows), and carrying the clicked action button's
-             intent into a hidden field. Delegated (not a page-local script) so it works both as a full
+             select-all (only touches currently-visible rows). Delegated (not a page-local script) so it works both as a full
              page load and injected into the shared modal via innerHTML. --}}
         document.addEventListener('input', function (e) {
             var search = e.target.closest('[data-exempt-search]');
@@ -215,12 +214,6 @@
                 box.checked = all.checked;
             });
         });
-        document.addEventListener('click', function (e) {
-            var btn = e.target.closest('[data-exempt-action]');
-            if (!btn) return;
-            var input = btn.closest('form') && btn.closest('form').querySelector('[data-exempt-action-input]');
-            if (input) input.value = btn.dataset.exemptAction;
-        });
         document.addEventListener('submit', function (e) {
             var form = e.target.closest('[data-assessment-modal-form]');
             if (!form) return;
@@ -228,8 +221,6 @@
 
             var token = form.querySelector('input[name="_token"]');
             var btn = e.submitter || form.querySelector('button[type="submit"]');
-            var actionInput = form.querySelector('[data-exempt-action-input]');
-            if (actionInput && btn && btn.dataset.exemptAction) actionInput.value = btn.dataset.exemptAction;
             if (btn) btn.disabled = true;
 
             var actionUrl = new URL(form.getAttribute('action'), window.location.href);
@@ -255,12 +246,11 @@
                 });
             }).then(function (data) {
                 var action = data.action || '';
-                var active = action === 'exempt' || action === 'grant';
                 var isAccess = action === 'grant' || action === 'revoke';
-                var ids = (data.affected_student_ids || []).map(String);
+                var activeIds = (data.active_student_ids || []).map(String);
 
                 form.querySelectorAll('[data-exempt-checkbox]').forEach(function (box) {
-                    if (ids.indexOf(String(box.value)) === -1) return;
+                    var active = activeIds.indexOf(String(box.value)) !== -1;
                     box.checked = active;
                     var status = box.closest('[data-exempt-row]') && box.closest('[data-exempt-row]').querySelector('[data-exempt-status]');
                     if (!status) return;
@@ -273,7 +263,7 @@
                 if (!note) {
                     note = document.createElement('div');
                     note.setAttribute('data-assessment-modal-message', 'true');
-                    note.className = 'kt-alert kt-alert-success';
+                    note.className = 'kt-alert kt-alert-light';
                     form.prepend(note);
                 }
                 note.textContent = data.message || 'Saved.';
@@ -284,7 +274,7 @@
                     note.setAttribute('data-assessment-modal-message', 'true');
                     form.prepend(note);
                 }
-                note.className = 'kt-alert kt-alert-destructive';
+                note.className = 'kt-alert kt-alert-light';
                 note.textContent = (data && data.message) || 'Could not save changes.';
             }).finally(function () {
                 if (btn) btn.disabled = false;

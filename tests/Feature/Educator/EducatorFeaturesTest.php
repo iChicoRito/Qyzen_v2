@@ -516,23 +516,18 @@ class EducatorFeaturesTest extends TestCase
         ]);
     }
 
-    public function test_exemption_toggle_validation_errors_stay_json_for_fetch_submission(): void
+    public function test_exemption_save_accepts_empty_selection_for_fetch_submission(): void
     {
         $subject = $this->subject($this->eduA);
         $assessment = Assessment::create($this->assessmentModelData($subject));
 
-        $response = $this->actingAs($this->eduA)
-            ->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
-            ->post(route('educator.assessments.exemptions.toggle', $assessment), [
+        $this->actingAs($this->eduA)
+            ->postJson(route('educator.assessments.exemptions.toggle', $assessment), [
                 'action' => 'exempt',
                 'reason' => '',
             ])
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Please correct the highlighted fields.');
-
-        $errors = $response->json('errors');
-        $this->assertArrayHasKey('student_ids', $errors);
-        $this->assertArrayHasKey('reason', $errors);
+            ->assertOk()
+            ->assertJsonPath('affected_student_ids', []);
     }
 
     public function test_exempting_a_student_sends_the_assessment_and_reason(): void
@@ -605,7 +600,7 @@ class EducatorFeaturesTest extends TestCase
     }
 
     // Task 01: the exemptions list pre-checks an already-exempted student's checkbox (mirroring
-    // the "Exempted" badge), so "Un-exempt Selected" works without having to re-select them.
+    // the "Exempted" badge), so Save Changes preserves the active state.
     public function test_exemptions_list_pre_checks_already_exempted_students(): void
     {
         $subject = $this->subject($this->eduA);
@@ -759,20 +754,17 @@ class EducatorFeaturesTest extends TestCase
         ]);
     }
 
-    public function test_special_access_toggle_validation_errors_stay_json_for_fetch_submission(): void
+    public function test_special_access_save_accepts_empty_selection_for_fetch_submission(): void
     {
         $subject = $this->subject($this->eduA);
         $assessment = Assessment::create($this->assessmentModelData($subject));
 
-        $response = $this->actingAs($this->eduA)
-            ->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
-            ->post(route('educator.assessments.access.toggle', $assessment), [
+        $this->actingAs($this->eduA)
+            ->postJson(route('educator.assessments.access.toggle', $assessment), [
                 'action' => 'grant',
             ])
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Please correct the highlighted fields.');
-
-        $this->assertArrayHasKey('student_ids', $response->json('errors'));
+            ->assertOk()
+            ->assertJsonPath('affected_student_ids', []);
     }
 
     public function test_special_access_toggle_ignores_non_enrolled_students_and_other_educators(): void
@@ -877,8 +869,9 @@ class EducatorFeaturesTest extends TestCase
 
         $this->assertStringNotContainsString('data-modal-cancel', $html);
         $this->assertStringNotContainsString('Close', $html);
-        $this->assertStringContainsString('Exempt Selected', $html);
-        $this->assertStringContainsString('Un-exempt Selected', $html);
+        $this->assertStringContainsString('Save Changes', $html);
+        $this->assertStringNotContainsString('Exempt Selected', $html);
+        $this->assertStringNotContainsString('Un-exempt Selected', $html);
     }
 
     public function test_exemptions_modal_renders_students_in_a_table(): void
@@ -900,6 +893,73 @@ class EducatorFeaturesTest extends TestCase
         $this->assertSame(1, $xpath->query('//table[contains(@class, "kt-table")]')->length);
         $this->assertSame(1, $xpath->query('//tbody/tr')->length);
         $this->assertSame(1, $xpath->query('//input[@data-exempt-select-all]')->length);
+    }
+
+    public function test_exemption_save_applies_checked_and_unchecked_state_and_accepts_empty_selection(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $checked = $this->student;
+        $unchecked = $this->makeUser('student', 'student');
+        Enrolled::create(['student_id' => $checked->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        Enrolled::create(['student_id' => $unchecked->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        StudentAssessmentExemption::create([
+            'educator_id' => $this->eduA->id, 'student_id' => $unchecked->id,
+            'assessment_id' => $assessment->id, 'reason' => 'Existing', 'is_active' => true,
+        ]);
+
+        $this->actingAs($this->eduA)
+            ->postJson(route('educator.assessments.exemptions.toggle', $assessment), [
+                'student_ids' => [$checked->id], 'reason' => 'Absent',
+            ])
+            ->assertOk()
+            ->assertJsonPath('affected_student_ids', [$checked->id]);
+
+        $this->assertDatabaseHas('tbl_student_assessment_exemptions', [
+            'assessment_id' => $assessment->id, 'student_id' => $checked->id, 'is_active' => 1,
+        ]);
+        $this->assertDatabaseHas('tbl_student_assessment_exemptions', [
+            'assessment_id' => $assessment->id, 'student_id' => $unchecked->id, 'is_active' => 0,
+        ]);
+
+        $this->actingAs($this->eduA)
+            ->postJson(route('educator.assessments.exemptions.toggle', $assessment), [])
+            ->assertOk()
+            ->assertJsonPath('affected_student_ids', []);
+    }
+
+    public function test_access_modal_uses_save_changes_and_access_save_applies_unchecked_state(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $checked = $this->student;
+        $unchecked = $this->makeUser('student', 'student');
+        foreach ([$checked, $unchecked] as $student) {
+            Enrolled::create(['student_id' => $student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        }
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        StudentAssessmentAccess::create([
+            'educator_id' => $this->eduA->id, 'student_id' => $unchecked->id,
+            'assessment_id' => $assessment->id, 'is_active' => true,
+        ]);
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.assessments.access', ['assessment' => $assessment, 'modal' => 1]))
+            ->assertOk()
+            ->assertSee('Save Changes')
+            ->assertDontSee('Grant Selected')
+            ->assertDontSee('Revoke Selected');
+
+        $this->actingAs($this->eduA)
+            ->postJson(route('educator.assessments.access.toggle', $assessment), ['student_ids' => [$checked->id]])
+            ->assertOk()
+            ->assertJsonPath('affected_student_ids', [$checked->id]);
+
+        $this->assertDatabaseHas('tbl_student_assessment_access', [
+            'assessment_id' => $assessment->id, 'student_id' => $checked->id, 'is_active' => 1,
+        ]);
+        $this->assertDatabaseHas('tbl_student_assessment_access', [
+            'assessment_id' => $assessment->id, 'student_id' => $unchecked->id, 'is_active' => 0,
+        ]);
     }
 
     public function test_quiz_bank_page_exposes_section_subject_code_and_batch_filters(): void

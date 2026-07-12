@@ -20,8 +20,6 @@
 
                 <form method="POST" action="{{ route('educator.assessments.access.toggle', $assessment, false) }}" class="flex flex-col gap-4" data-assessment-modal-form data-no-spinner>
                     @csrf
-                    <input type="hidden" name="action" data-exempt-action-input>
-
                     <div class="kt-scrollable-x-auto max-h-[24rem] overflow-y-auto kt-scrollable-y rounded-lg border border-border">
                         <table class="kt-table table-auto kt-table-border">
                             <thead>
@@ -64,8 +62,7 @@
                     <span class="text-xs text-secondary-foreground px-1 hidden" data-exempt-no-match>No students match your search.</span>
 
                     <div class="flex flex-wrap justify-end gap-2">
-                        <button type="submit" class="kt-btn kt-btn-outline kt-btn-primary" data-exempt-action="grant">Grant Selected</button>
-                        <button type="submit" class="kt-btn kt-btn-outline" data-exempt-action="revoke">Revoke Selected</button>
+                        <button type="submit" class="kt-btn kt-btn-outline kt-btn-primary">Save Changes</button>
                     </div>
                 </form>
             @endif

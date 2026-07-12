@@ -18,6 +18,7 @@ use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 // Stage H: student feature tests. The headline assertion is the H6 INVARIANT — correct_answer
@@ -237,6 +238,48 @@ class StudentFeaturesTest extends TestCase
 
         $this->assertDatabaseHas('tbl_notifications', [
             'recipient_user_id' => $this->educator->id, 'event_type' => 'quiz_submitted',
+        ]);
+    }
+
+    public function test_submitting_consumes_active_special_access(): void
+    {
+        $access = StudentAssessmentAccess::create([
+            'educator_id' => $this->educator->id, 'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id, 'is_active' => true,
+        ]);
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
+
+        $this->actingAs($this->student)
+            ->post(route('student.take-quiz.submit', $this->assessment), [
+                'answers' => [$quizzes[0]->id => 'B'],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('tbl_student_assessment_access', [
+            'id' => $access->id, 'is_active' => 0,
+        ]);
+    }
+
+    public function test_submitting_does_not_consume_a_newer_special_access_grant(): void
+    {
+        $access = StudentAssessmentAccess::create([
+            'educator_id' => $this->educator->id, 'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id, 'is_active' => true,
+        ]);
+        $future = now()->addMinute();
+        DB::table('tbl_student_assessment_access')->where('id', $access->id)->update([
+            'updated_at' => $future,
+        ]);
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
+
+        $this->actingAs($this->student)
+            ->post(route('student.take-quiz.submit', $this->assessment), [
+                'answers' => [$quizzes[0]->id => 'B'],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('tbl_student_assessment_access', [
+            'id' => $access->id, 'is_active' => 1,
         ]);
     }
 

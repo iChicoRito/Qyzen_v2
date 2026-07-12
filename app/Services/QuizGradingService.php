@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Assessment;
 use App\Models\Quiz;
 use App\Models\Score;
+use App\Models\StudentAssessmentAccess;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -102,6 +103,12 @@ class QuizGradingService
             ]);
             $score->taken_at ??= now();
             $score->save();
+
+            StudentAssessmentAccess::where('assessment_id', $assessment->id)
+                ->where('student_id', $student->id)
+                ->where('is_active', true)
+                ->where('updated_at', '<=', $score->submitted_at)
+                ->update(['is_active' => false, 'updated_at' => now()]);
 
             // quiz_submitted → the assessment's educator (student emit rule, D5).
             $this->notifications->emit($student, 'quiz_submitted', $assessment->educator_id, [

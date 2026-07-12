@@ -219,6 +219,8 @@ Route::middleware(['auth', 'verified', 'role:educator'])
 
         // G9 materials + signed download.
         Route::get('materials/{material}/download', [MaterialController::class, 'download'])->name('materials.download');
+        // Task 13: bulk delete — declared before the resource so {material} doesn't shadow "bulk".
+        Route::delete('materials/bulk', [MaterialController::class, 'bulkDestroy'])->name('materials.bulk-destroy');
         Route::resource('materials', MaterialController::class)->except('show');
         Route::resource('announcements', EducatorAnnouncementController::class)->except('show');
 

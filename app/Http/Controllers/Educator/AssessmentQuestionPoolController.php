@@ -23,9 +23,16 @@ class AssessmentQuestionPoolController extends Controller
     {
         $this->authorize('update', $assessment);
 
+        // Task 13: batch is a server-side filter applied to the WHOLE bank before pagination,
+        // so a selected batch finds matching questions on any page (not just the current one).
+        $batch = request()->query('batch');
         $bankQuestions = Quiz::visibleTo(Auth::user())
+            ->when($batch, fn ($q) => $q->where('batch_label', $batch))
             ->with(['subject:id,subject_code,subject_name,sections_id', 'subject.section:id,section_name', 'eligibleAssessments:id,assessment_code'])
             ->orderBy('id')->paginate(TableQuery::perPage(request()))->withQueryString();
+        // Unfiltered total drives the "show the filter controls" gate + the summary denominator,
+        // so filtering down to <=8 questions never hides the batch dropdown (which would trap the user).
+        $bankTotal = Quiz::visibleTo(Auth::user())->count();
         $eligibleIds = $assessment->eligibleQuizzes()->pluck('tbl_quizzes.id')->all();
         $pendingIds = Quiz::visibleTo(Auth::user())
             ->whereKey((array) request()->query('selected', []))
@@ -34,7 +41,7 @@ class AssessmentQuestionPoolController extends Controller
         $batches = Quiz::visibleTo(Auth::user())->whereNotNull('batch_label')
             ->distinct()->orderBy('batch_label')->pluck('batch_label');
 
-        return view('educator.assessments.pool', compact('assessment', 'bankQuestions', 'eligibleIds', 'batches'));
+        return view('educator.assessments.pool', compact('assessment', 'bankQuestions', 'bankTotal', 'eligibleIds', 'batches'));
     }
 
     public function update(UpdateQuestionPoolRequest $request, Assessment $assessment): RedirectResponse

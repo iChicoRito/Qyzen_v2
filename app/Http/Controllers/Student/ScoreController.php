@@ -115,7 +115,9 @@ class ScoreController extends Controller
 
         // Build review rows server-side. correct_answer is loaded here but only EXPOSED per the gate.
         // is_correct reuses the authoritative grader so review and grading can't disagree.
-        $review = Quiz::whereIn('id', $score->drawn_quiz_ids ?? [])
+        // withTrashed: keep a student's own past-attempt review whole even after the educator
+        // deletes the question from the bank (Task 13).
+        $review = Quiz::withTrashed()->whereIn('id', $score->drawn_quiz_ids ?? [])
             ->get(['id', 'question', 'quiz_type', 'choices', 'correct_answer'])
             ->map(function (Quiz $q) use ($studentAnswers, $allowReview, $grading) {
                 $given = $studentAnswers[$q->id] ?? ($studentAnswers[(string) $q->id] ?? null);

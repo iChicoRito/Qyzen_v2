@@ -106,6 +106,67 @@ class EducatorFeaturesTest extends TestCase
             ->assertForbidden();
     }
 
+    // Task 13: deleting a bank question must never remove a recorded score, and the historical
+    // per-question review must still resolve the (now soft-deleted) question.
+    public function test_deleting_bank_question_preserves_scores_and_review(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        $quiz = Quiz::create([
+            'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+            'question' => 'What is 2+2?', 'quiz_type' => 'multiple_choice',
+            'choices' => ['A' => '3', 'B' => '4'], 'correct_answer' => 'B',
+        ]);
+        $score = Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id,
+            'assessment_id' => $assessment->id, 'subject_id' => $subject->id,
+            'section_id' => $subject->sections_id, 'score' => 1, 'total_questions' => 1,
+            'status' => 'passed', 'is_passed' => true,
+            'student_answer' => [$quiz->id => 'B'], 'drawn_quiz_ids' => [$quiz->id],
+        ]);
+
+        // Delete the question (soft delete) — and confirm bulk "delete all" is just as safe.
+        $this->actingAs($this->eduA)->delete(route('educator.quizzes.bulk'), ['quiz_ids' => [$quiz->id]])
+            ->assertRedirect(route('educator.quizzes.index'));
+
+        // Score survives; question is gone from the bank but recoverable for review.
+        $this->assertDatabaseHas('tbl_scores', ['id' => $score->id, 'score' => 1, 'is_passed' => true]);
+        $this->assertNull(Quiz::find($quiz->id));
+        $this->assertNotNull(Quiz::withTrashed()->find($quiz->id));
+
+        // Educator attempt-detail still renders the deleted question text (via withTrashed).
+        $this->actingAs($this->eduA)->get(route('educator.scores.show', $score))
+            ->assertOk()->assertSee('What is 2+2?');
+    }
+
+    // Task 13: batch filter must span the whole bank, so a batch whose questions sit on a later
+    // pagination page still surfaces when selected.
+    public function test_pool_batch_filter_finds_questions_across_pages(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        // 12 "Batch A" questions fill page 1 (per_page 10) and spill to page 2.
+        for ($i = 0; $i < 12; $i++) {
+            Quiz::create([
+                'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+                'question' => "ALPHA question {$i}", 'quiz_type' => 'identification',
+                'correct_answer' => 'x', 'batch_label' => 'Batch A',
+            ]);
+        }
+        // One "Batch B" question, created last → highest id → would land on page 2 unfiltered.
+        Quiz::create([
+            'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+            'question' => 'BETA question unique', 'quiz_type' => 'identification',
+            'correct_answer' => 'y', 'batch_label' => 'Batch B',
+        ]);
+
+        // Filtering by Batch B surfaces its question (not page-local) and hides Batch A entirely.
+        $this->actingAs($this->eduA)->get(route('educator.assessments.pool.edit', $assessment).'?batch='.urlencode('Batch B'))
+            ->assertOk()
+            ->assertSee('BETA question unique')
+            ->assertDontSee('ALPHA question 0');
+    }
+
     public function test_educator_can_view_own_lists(): void
     {
         foreach (['educator.dashboard', 'educator.sections.index', 'educator.subjects.index', 'educator.enrollment.index', 'educator.assessments.index', 'educator.quizzes.index', 'educator.scores.index', 'educator.materials.index', 'educator.chats.index', 'educator.monitoring.index'] as $route) {
@@ -968,9 +1029,12 @@ class EducatorFeaturesTest extends TestCase
             ->delete(route('educator.quizzes.bulk'), ['quiz_ids' => [$owned->id, $foreign->id]])
             ->assertRedirect(route('educator.quizzes.index'));
 
-        $this->assertDatabaseMissing('tbl_quizzes', ['id' => $owned->id]);
-        $this->assertDatabaseHas('tbl_quizzes', ['id' => $kept->id]);
-        $this->assertDatabaseHas('tbl_quizzes', ['id' => $foreign->id]);
+        // Task 13: questions are soft-deleted (scores that reference them must stay reviewable),
+        // so the row is retained with deleted_at set and gone from normal bank queries.
+        $this->assertSoftDeleted('tbl_quizzes', ['id' => $owned->id]);
+        $this->assertNull(Quiz::find($owned->id));
+        $this->assertDatabaseHas('tbl_quizzes', ['id' => $kept->id, 'deleted_at' => null]);
+        $this->assertDatabaseHas('tbl_quizzes', ['id' => $foreign->id, 'deleted_at' => null]);
     }
 
     public function test_quiz_bank_bulk_delete_validates_ids_and_renders_current_page_controls(): void

@@ -185,7 +185,9 @@ class ScoreController extends Controller
         // correct_answer is loaded SERVER-SIDE here (educator view) — never serialized to a student.
         // Only this attempt's pinned drawn subset — not the assessment's full eligible pool.
         $score->load(['student:id,given_name,surname,user_id']);
-        $reviewQuestions = Quiz::whereIn('id', $score->drawn_quiz_ids ?? [])->get();
+        // withTrashed: a question deleted from the bank after this attempt must still resolve
+        // here so historical per-question review stays whole (Task 13).
+        $reviewQuestions = Quiz::withTrashed()->whereIn('id', $score->drawn_quiz_ids ?? [])->get();
 
         return view('educator.scores.show', compact('score', 'reviewQuestions'));
     }

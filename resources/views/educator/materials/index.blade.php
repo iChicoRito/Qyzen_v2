@@ -2,6 +2,15 @@
 @section('title', 'Materials')
 @section('heading', 'Learning Materials')
 @section('toolbar')
+    {{-- Task 13: bulk delete. Checkboxes in the AJAX-swapped table submit via form="materials_bulk_form". --}}
+    <form id="materials_bulk_form" method="POST" action="{{ route('educator.materials.bulk-destroy') }}"
+          data-confirm="Delete the selected materials? This cannot be undone."
+          data-confirm-title="Delete selected materials?">
+        @csrf @method('DELETE')
+        <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-destructive" data-material-bulk-delete disabled>
+            Bulk delete <span data-material-bulk-count>0</span>
+        </button>
+    </form>
     <button type="button" class="kt-btn kt-btn-sm kt-btn-primary"
             data-modal-url="{{ route('educator.materials.create') }}" data-modal-target="#form_modal" data-modal-title="Upload materials">Upload</button>
 @endsection
@@ -39,6 +48,7 @@
         <x-slot:head>
             <thead>
                 <tr>
+                    <th class="w-[40px]"><input type="checkbox" class="kt-checkbox kt-checkbox-sm" data-material-select-all aria-label="Select all materials on this page"></th>
                     <th class="min-w-[200px]" data-sort="file"><span class="kt-table-col"><span class="kt-table-col-label">File</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="min-w-[120px]" data-sort="subject"><span class="kt-table-col"><span class="kt-table-col-label">Subject</span><span class="kt-table-col-sort"></span></span></th>
                     <th class="min-w-[110px]" data-sort="section"><span class="kt-table-col"><span class="kt-table-col-label">Section</span><span class="kt-table-col-sort"></span></span></th>
@@ -52,6 +62,7 @@
         @forelse ($groups as $rows)
             @foreach ($rows as $m)
                 <tr>
+                    <td><input type="checkbox" class="kt-checkbox kt-checkbox-sm" name="ids[]" value="{{ $m->id }}" form="materials_bulk_form" data-material-select aria-label="Select material"></td>
                     <td class="text-mono font-medium text-sm">
                         <div class="flex items-center gap-2.5">
                             <img class="size-5 shrink-0" alt="{{ strtoupper($m->file_extension) }} file"
@@ -92,9 +103,34 @@
                 </tr>
             @endforeach
         @empty
-            <tr><td colspan="7" class="text-center text-secondary-foreground py-5">No materials.</td></tr>
+            <tr><td colspan="8" class="text-center text-secondary-foreground py-5">No materials.</td></tr>
         @endforelse
     </x-data-table>
 
     <x-modal id="form_modal" width="640px" />
 @endsection
+
+@push('scripts')
+<script nonce="{{ $cspNonce ?? '' }}">
+(function () {
+    // Delegated on document so it survives the data-table's AJAX row swaps (page/filter/sort).
+    // Selection is page-scoped: after a swap the fresh rows start unchecked.
+    document.addEventListener('change', function (event) {
+        if (!event.target.matches('[data-material-select], [data-material-select-all]')) return;
+        var root = document.getElementById('materials_table_form');
+        var boxes = root ? root.querySelectorAll('[data-material-select]') : [];
+        if (event.target.matches('[data-material-select-all]')) {
+            boxes.forEach(function (box) { box.checked = event.target.checked; });
+        }
+        var selected = Array.from(boxes).filter(function (box) { return box.checked; }).length;
+        var bulkButton = document.querySelector('[data-material-bulk-delete]');
+        if (!bulkButton) return;
+        bulkButton.disabled = selected === 0;
+        bulkButton.querySelector('[data-material-bulk-count]').textContent = selected;
+    }, true);
+    document.getElementById('materials_bulk_form').addEventListener('submit', function (event) {
+        if (!document.querySelector('[name="ids[]"]:checked')) event.preventDefault();
+    });
+})();
+</script>
+@endpush

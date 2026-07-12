@@ -74,6 +74,64 @@ class MaterialUploadTest extends TestCase
         Storage::disk('learning-materials')->assertMissing($path);
     }
 
+    public function test_bulk_delete_removes_only_selected_rows_and_gcs_orphaned_files(): void
+    {
+        $subject = $this->subject();
+        // Two separate uploads → two distinct files, one row each.
+        foreach (['a.pdf', 'b.pdf'] as $name) {
+            $this->actingAs($this->edu)->post(route('educator.materials.store'), [
+                'subject_ids' => [$subject->id],
+                'files' => [UploadedFile::fake()->create($name, 100, 'application/pdf')],
+            ]);
+        }
+        [$first, $second] = LearningMaterial::where('educator_id', $this->edu->id)->orderBy('id')->get();
+
+        $this->actingAs($this->edu)
+            ->delete(route('educator.materials.bulk-destroy'), ['ids' => [$first->id]])
+            ->assertRedirect(route('educator.materials.index'));
+
+        $this->assertNull(LearningMaterial::find($first->id));
+        $this->assertNotNull(LearningMaterial::find($second->id));
+        Storage::disk('local')->assertMissing($first->storage_path);
+        Storage::disk('local')->assertExists($second->storage_path);
+    }
+
+    public function test_bulk_delete_keeps_a_file_still_shared_by_a_surviving_row(): void
+    {
+        [$subjectA, $subjectB] = [$this->subject(), $this->subject()];
+        // One upload to two subjects → two rows sharing one physical file.
+        $this->actingAs($this->edu)->post(route('educator.materials.store'), [
+            'subject_ids' => [$subjectA->id, $subjectB->id],
+            'files' => [UploadedFile::fake()->create('shared.pdf', 100, 'application/pdf')],
+        ]);
+        [$first, $second] = LearningMaterial::where('educator_id', $this->edu->id)->orderBy('id')->get();
+
+        $this->actingAs($this->edu)->delete(route('educator.materials.bulk-destroy'), ['ids' => [$first->id]]);
+
+        $this->assertNull(LearningMaterial::find($first->id));
+        Storage::disk('local')->assertExists($second->storage_path); // survivor still references it
+    }
+
+    public function test_bulk_delete_ignores_another_educators_materials(): void
+    {
+        $other = User::factory()->create(['user_type' => 'educator', 'email_verified_at' => now()]);
+        $other->roles()->attach(Role::where('name', 'educator')->value('id'));
+        $section = Section::create(['educator_id' => $other->id, 'academic_term_id' => $this->term->id,
+            'section_name' => 'S'.uniqid(), 'is_active' => true]);
+        $otherSubject = Subject::create(['educator_id' => $other->id, 'sections_id' => $section->id,
+            'subject_code' => 'CS'.rand(100, 999), 'subject_name' => 'Other', 'is_active' => true]);
+        $this->actingAs($other)->post(route('educator.materials.store'), [
+            'subject_ids' => [$otherSubject->id],
+            'files' => [UploadedFile::fake()->create('theirs.pdf', 100, 'application/pdf')],
+        ]);
+        $theirs = LearningMaterial::where('educator_id', $other->id)->firstOrFail();
+
+        // Our educator tries to bulk-delete their row — the where(educator_id) filter drops it.
+        $this->actingAs($this->edu)->delete(route('educator.materials.bulk-destroy'), ['ids' => [$theirs->id]]);
+
+        $this->assertNotNull(LearningMaterial::find($theirs->id));
+    }
+
     public function test_unsupported_extension_is_rejected(): void
     {
         $subject = $this->subject();

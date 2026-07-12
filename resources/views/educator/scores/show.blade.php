@@ -58,7 +58,9 @@
             </form>
 
             {{-- Per-question review --}}
-            <div class="grid gap-3">
+            {{-- Task 13: pb keeps the table clear of the modal footer/bottom edge (modal.blade.php
+                 zeroes the card padding in-modal, so without this the last row butts the border). --}}
+            <div class="grid gap-3 pb-5">
                 <h4 class="text-sm font-semibold text-mono">Per-question review</h4>
                 @php $answers = $score->student_answer ?? []; @endphp
                 <div class="kt-scrollable-x-auto">

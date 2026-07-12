@@ -6,9 +6,15 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Quiz extends Model
 {
+    // Task 13: soft-delete so deleting a bank question leaves the bank/pool (global scope
+    // excludes trashed from every read + new draws) but past attempts can still resolve the
+    // question text/correct answer for historical review via withTrashed().
+    use SoftDeletes;
+
     protected $table = 'tbl_quizzes';
 
     // D2: educator ownership / student enrollment (educator+subject). No admin policy

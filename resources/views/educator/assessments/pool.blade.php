@@ -29,7 +29,7 @@
                             </div>
                         @endif
                     </div>
-                    @if ($bankQuestions->total() > 8)
+                    @if ($bankTotal > 8)
                         <div class="flex flex-wrap items-center gap-2">
                             <label class="kt-input grow min-w-52">
                                 <i class="ki-filled ki-magnifier"></i>
@@ -40,14 +40,16 @@
                                 <option value="multiple_choice">Multiple Choice</option>
                                 <option value="identification">Identification</option>
                             </select>
+                            {{-- Task 13: batch filters server-side across the whole bank (navigate on change,
+                                 carrying selections) so matches on any page show, not just the current one. --}}
                             <select class="kt-select w-56" data-pool-filter-batch>
                                 <option value="">All batches</option>
-                                @foreach ($batches as $b)<option value="{{ $b }}">{{ $b }}</option>@endforeach
+                                @foreach ($batches as $b)<option value="{{ $b }}" @selected(request('batch') === $b)>{{ $b }}</option>@endforeach
                             </select>
                         </div>
                     @endif
                     <span class="text-xs text-secondary-foreground" data-pool-summary>
-                        {{ count($selectedIds) }} of {{ $bankQuestions->total() }} selected
+                        {{ count($selectedIds) }} of {{ $bankTotal }} selected
                     </span>
                     @php $pageIds = $bankQuestions->getCollection()->pluck('id')->all(); @endphp
                     @foreach (array_diff($selectedIds, $pageIds) as $selectedId)
@@ -141,17 +143,17 @@
             var batchFilter = document.querySelector('[data-pool-filter-batch]');
             var noMatch = document.querySelector('[data-pool-no-match]');
 
+            // Search + Type stay client-side (narrow within the current, already batch-filtered page).
+            // Batch is server-side (see below) so it spans the whole bank across pages.
             function applyFilters() {
                 var term = search ? search.value.trim().toLowerCase() : '';
                 var type = typeFilter ? typeFilter.value : '';
-                var batch = batchFilter ? batchFilter.value : '';
                 var visible = 0;
 
                 boxes.forEach(function (box) {
                     var label = box.closest('label');
                     var match = (!term || (box.dataset.poolQuestionText || '').indexOf(term) !== -1)
-                        && (!type || box.dataset.poolQuestionType === type)
-                        && (!batch || box.dataset.poolQuestionBatch === batch);
+                        && (!type || box.dataset.poolQuestionType === type);
                     if (label) label.classList.toggle('hidden', !match);
                     box.dataset.poolHidden = match ? '' : '1';
                     if (match) visible++;
@@ -161,7 +163,29 @@
 
             if (search) search.addEventListener('input', applyFilters);
             if (typeFilter) typeFilter.addEventListener('change', applyFilters);
-            if (batchFilter) batchFilter.addEventListener('change', applyFilters);
+
+            // Build a URL from the current page carrying unsaved selections, so navigating (batch
+            // change or paging) never discards ticked questions.
+            function urlWithSelections(base) {
+                var url = new URL(base, window.location.origin);
+                url.searchParams.delete('selected[]');
+                document.querySelectorAll('input[name="eligible_quiz_ids[]"]:checked').forEach(function (box) {
+                    url.searchParams.append('selected[]', box.value);
+                });
+                return url;
+            }
+
+            // Task 13: batch filters the whole bank server-side. Navigate with ?batch=… and drop
+            // page so results reset to page 1; selections ride along as selected[].
+            if (batchFilter) {
+                batchFilter.addEventListener('change', function () {
+                    var url = urlWithSelections(window.location.href);
+                    url.searchParams.delete('page');
+                    if (batchFilter.value) url.searchParams.set('batch', batchFilter.value);
+                    else url.searchParams.delete('batch');
+                    window.location.href = url.toString();
+                });
+            }
 
             // Carry unsaved selections through pagination so changing pages does not discard them.
             var pagination = document.querySelector('[data-pool-pagination]');
@@ -169,12 +193,7 @@
                 pagination.addEventListener('click', function (event) {
                     var link = event.target.closest('a[href]');
                     if (!link) return;
-                    var url = new URL(link.href, window.location.origin);
-                    url.searchParams.delete('selected[]');
-                    document.querySelectorAll('input[name="eligible_quiz_ids[]"]:checked').forEach(function (box) {
-                        url.searchParams.append('selected[]', box.value);
-                    });
-                    link.href = url.toString();
+                    link.href = urlWithSelections(link.href).toString();
                 });
             }
         })();

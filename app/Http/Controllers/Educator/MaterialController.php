@@ -15,8 +15,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 // G9: learning materials. Files stored on the 'local' disk; download via a signed temporary
@@ -165,6 +167,49 @@ class MaterialController extends Controller
         ]);
 
         return redirect()->route('educator.materials.index')->with('status', 'Material deleted.');
+    }
+
+    // Task 13: bulk delete selected materials in one action. Batch-aware version of destroy()'s
+    // orphan guard — rows are deleted first, then each distinct storage_path is GC'd only once no
+    // surviving row references it, so a file shared across subjects isn't dropped while still in use.
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $this->authorize('viewAny', LearningMaterial::class);
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', Rule::exists('tbl_learning_materials', 'id')],
+        ]);
+
+        $materials = LearningMaterial::where('educator_id', Auth::id())->whereKey($data['ids'])->get();
+
+        // Recipients + shared paths captured before rows are gone.
+        $notifyBySubject = $materials->groupBy('subject_id');
+        $paths = $materials->pluck('storage_path')->unique();
+
+        DB::transaction(function () use ($materials): void {
+            foreach ($materials as $material) {
+                $this->authorize('delete', $material);
+                $material->delete();
+            }
+        });
+
+        foreach ($paths as $path) {
+            $stillReferenced = LearningMaterial::where('storage_path', $path)->exists();
+            if (! $stillReferenced) {
+                Storage::disk(self::DISK)->delete($path);
+            }
+        }
+
+        foreach ($notifyBySubject as $subjectId => $group) {
+            $this->notifications->emitToMany(Auth::user(), 'learning_material_deleted', $this->enrolledStudentIds((int) $subjectId), [
+                'subject_id' => (int) $subjectId, 'section_id' => $group->first()->section_id,
+                'title' => 'Learning material removed',
+                'link_path' => route('student.materials.index'),
+            ]);
+        }
+
+        return redirect()->route('educator.materials.index')->with('status', 'Selected materials deleted.');
     }
 
     // Signed temporary URL target — access re-checked here even though the URL is signed.

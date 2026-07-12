@@ -13,6 +13,7 @@ use App\Models\Score;
 use App\Models\Section;
 use App\Models\Subject;
 use App\Models\User;
+use Database\Seeders\Data\SubjectQuestions;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -21,17 +22,7 @@ class RealDummySeeder extends Seeder
 {
     private const PASSWORD = 'password';
 
-    private const PROGRAM_CODE = 'BSIT';
-
-    private const EDUCATORS = 5;
-
-    private const SECTIONS_PER_EDUCATOR = 5;
-
-    private const SUBJECTS_PER_SECTION = 5;
-
     private const STUDENTS_PER_SECTION = 40;
-
-    private const QUIZZES_PER_ASSESSMENT = 4;
 
     // Every 4th student in a section (by seed order) retakes the assessment once more,
     // producing an older + a newer Score row so multi-attempt history/best-score logic has data.
@@ -39,28 +30,74 @@ class RealDummySeeder extends Seeder
 
     private int $extraAttemptsSeeded = 0;
 
-    private const SECTION_BLUEPRINTS = [
-        ['year' => 1, 'semester' => 1, 'time' => 'M', 'number' => 1],
-        ['year' => 2, 'semester' => 1, 'time' => 'A', 'number' => 2],
-        ['year' => 3, 'semester' => 2, 'time' => 'E', 'number' => 3],
-        ['year' => 4, 'semester' => 1, 'time' => 'M', 'number' => 4],
-        ['year' => 1, 'semester' => 2, 'time' => 'A', 'number' => 5],
+    private int $studentCounter = 0;
+
+    // Real faculty loads. Educator 1 is Mark Adrianne Salunga's actual NCST schedule
+    // (S.Y. 2026-2027, 1st sem); educators 2-3 are realistic filler so cross-educator
+    // ownership isolation stays demonstrable. section_name already encodes
+    // program+year+semester+shift+block, so it's used verbatim. All loads are 1st sem.
+    private const LOAD = [
+        [
+            'given' => 'Mark Adrianne', 'surname' => 'Salunga', 'email' => 'mark.salunga@qyzen.edu.ph',
+            'sections' => [
+                ['name' => 'BSIT11A3', 'subjects' => [['IT102', 'Computer Programming 1']]],
+                ['name' => 'BSIT11E1', 'subjects' => [['IT102', 'Computer Programming 1']]],
+                ['name' => 'BSIT21A1', 'subjects' => [['IT202', 'Interactive Media Design']]],
+                ['name' => 'BSIT21A2', 'subjects' => [['IT202', 'Interactive Media Design'], ['IT206', 'Web Systems and Technologies 2']]],
+                ['name' => 'BSIT21M3', 'subjects' => [['IT202', 'Interactive Media Design']]],
+                ['name' => 'BSIT21M4', 'subjects' => [['IT202', 'Interactive Media Design']]],
+                ['name' => 'BSCS21A1', 'subjects' => [['CS202', 'Graphics and Visual Computing']]],
+                ['name' => 'BSIT31M4', 'subjects' => [['IT301', 'Human-Computer Interaction 2']]],
+                ['name' => 'BSIT41M2', 'subjects' => [['IT402', 'Technopreneurship']]],
+            ],
+        ],
+        [
+            'given' => 'Katrina', 'surname' => 'Adlawan', 'email' => 'katrina.adlawan@qyzen.edu.ph',
+            'sections' => [
+                ['name' => 'BSIT12M1', 'subjects' => [['IT103', 'Discrete Mathematics']]],
+                ['name' => 'BSIT22A3', 'subjects' => [['IT204', 'Data Structures and Algorithms']]],
+                ['name' => 'BSIT32M2', 'subjects' => [['IT305', 'Information Assurance and Security']]],
+                ['name' => 'BSCS31A2', 'subjects' => [['CS301', 'Automata Theory and Formal Languages']]],
+            ],
+        ],
+        [
+            'given' => 'Enrico', 'surname' => 'Regalado', 'email' => 'enrico.regalado@qyzen.edu.ph',
+            'sections' => [
+                ['name' => 'BSIT12M2', 'subjects' => [['IT101', 'Computer Programming 2']]],
+                ['name' => 'BSIT31A1', 'subjects' => [['IT302', 'Systems Integration and Architecture']]],
+                ['name' => 'BSIT41E1', 'subjects' => [['IT401', 'Capstone Project 2']]],
+                ['name' => 'BSCS41M1', 'subjects' => [['CS401', 'Thesis Writing 2']]],
+            ],
+        ],
     ];
 
-    private const SUBJECT_BLUEPRINTS = [
-        ['code' => 'IT101', 'name' => 'Programming Fundamentals'],
-        ['code' => 'IT102', 'name' => 'Web Development'],
-        ['code' => 'IT103', 'name' => 'Database Systems'],
-        ['code' => 'IT104', 'name' => 'Networking Basics'],
-        ['code' => 'IT105', 'name' => 'Systems Analysis'],
+    // Deterministic Filipino name pools — sizes are coprime-ish so given+surname both
+    // vary as the running student counter advances (no faker; seeding stays reproducible).
+    private const GIVEN_NAMES = [
+        'Juan', 'Maria', 'Jose', 'Andrea', 'Gabriel', 'Sofia', 'Angelo', 'Bianca', 'Miguel', 'Camille',
+        'Rafael', 'Isabela', 'Paulo', 'Nicole', 'Diego', 'Patricia', 'Emmanuel', 'Trisha', 'Lorenzo', 'Kyla',
+        'Sebastian', 'Danica', 'Vincent', 'Althea', 'Joaquin', 'Erika', 'Nathaniel', 'Jasmine', 'Francis', 'Reyna',
+        'Christian', 'Lianne', 'Marco', 'Shaira', 'Dominic', 'Yohan', 'Aaron', 'Mikaela', 'Ivan', 'Precious',
+        'Kenneth', 'Charmaine',
     ];
 
-    private const QUESTIONS = [
-        ['What is 2 + 2?', 'multiple_choice', ['A' => '3', 'B' => '4', 'C' => '5', 'D' => '6'], 'B'],
-        ['What is 5 x 3?', 'multiple_choice', ['A' => '15', 'B' => '8', 'C' => '53', 'D' => '12'], 'A'],
-        ['What is 10 / 2?', 'multiple_choice', ['A' => '2', 'B' => '20', 'C' => '5', 'D' => '8'], 'C'],
-        ['Name the result of 7 - 4.', 'identification', null, '3'],
+    private const SURNAMES = [
+        'Dela Cruz', 'Santos', 'Reyes', 'Bautista', 'Ocampo', 'Villanueva', 'Mendoza', 'Garcia', 'Ramos', 'Aquino',
+        'Torres', 'Flores', 'Castillo', 'Rivera', 'Gonzales', 'Domingo', 'Manalo', 'Salazar', 'Navarro', 'Padilla',
+        'Aguilar', 'Fernandez', 'Cabrera', 'Espiritu', 'Pascual', 'Del Rosario', 'Lopez', 'Marquez', 'Trinidad', 'Velasco',
+        'Cortez', 'Bernardo', 'Yalung', 'Guevara', 'Sarmiento', 'Alonzo', 'Rosario', 'Concepcion', 'Macaraeg', 'Lacsamana',
     ];
+
+    // Each subject gets a 30-question bank; these four assessments draw from it. Quiz 1/2/3 take
+    // distinct thirds (10 each); the Long Quiz is cumulative (all 30). offset/size index the bank.
+    private const ASSESSMENTS = [
+        ['code' => 'QUIZ1', 'offset' => 0, 'size' => 10, 'time_limit' => '20'],
+        ['code' => 'QUIZ2', 'offset' => 10, 'size' => 10, 'time_limit' => '20'],
+        ['code' => 'QUIZ3', 'offset' => 20, 'size' => 10, 'time_limit' => '20'],
+        ['code' => 'LONGQUIZ', 'offset' => 0, 'size' => 30, 'time_limit' => '60'],
+    ];
+
+    private const BANK_SIZE = 30;
 
     public function run(): void
     {
@@ -71,76 +108,45 @@ class RealDummySeeder extends Seeder
 
         $year = AcademicYear::firstOrCreate(['year' => '2026 - 2027'], ['is_active' => true]);
         $terms = $this->terms($year);
+        $firstSem = $terms[1];
 
-        for ($educatorIndex = 1; $educatorIndex <= self::EDUCATORS; $educatorIndex++) {
-            $educator = $this->educator($educatorIndex, $educatorRole);
+        foreach (self::LOAD as $educatorIndex => $educatorBlueprint) {
+            $educator = $this->educator($educatorIndex + 1, $educatorBlueprint, $educatorRole);
 
-            foreach (self::SECTION_BLUEPRINTS as $sectionIndex => $blueprint) {
+            foreach ($educatorBlueprint['sections'] as $sectionBlueprint) {
                 $section = Section::firstOrCreate(
                     [
                         'educator_id' => $educator->id,
-                        'section_name' => $this->sectionName($blueprint),
+                        'section_name' => $sectionBlueprint['name'],
                     ],
                     [
-                        'academic_term_id' => $terms[$blueprint['semester']]->id,
+                        'academic_term_id' => $firstSem->id,
                         'is_active' => true,
                     ],
                 );
 
-                $section->terms()->syncWithoutDetaching([$terms[$blueprint['semester']]->id]);
+                $section->terms()->syncWithoutDetaching([$firstSem->id]);
 
-                $students = $this->sectionStudents($educatorIndex, $sectionIndex + 1, $studentRole);
+                $students = $this->sectionStudents($studentRole);
 
-                foreach (self::SUBJECT_BLUEPRINTS as $subjectBlueprint) {
-                    $subjectIndex = array_search($subjectBlueprint, self::SUBJECT_BLUEPRINTS, true);
+                foreach ($sectionBlueprint['subjects'] as [$code, $name]) {
                     $subject = Subject::firstOrCreate(
                         [
                             'educator_id' => $educator->id,
                             'sections_id' => $section->id,
-                            'subject_code' => $subjectBlueprint['code'],
+                            'subject_code' => $code,
                         ],
                         [
-                            'subject_name' => $subjectBlueprint['name'],
+                            'subject_name' => $name,
                             'is_active' => true,
                         ],
                     );
 
-                    $schedule = $this->assessmentSchedule($educatorIndex, $sectionIndex, $subjectIndex);
+                    // One 30-question bank per subject; the four assessments draw slices of it.
+                    $bank = $this->questionBank($subject, $educator);
 
-                    $assessment = Assessment::firstOrCreate(
-                        [
-                            'assessment_code' => 'QUIZ1',
-                            'subject_id' => $subject->id,
-                            'section_id' => $section->id,
-                            'term' => $terms[$blueprint['semester']]->id,
-                        ],
-                        [
-                            'educator_id' => $educator->id,
-                            'time_limit' => '30',
-                            'cheating_attempts' => 3,
-                            'is_shuffle' => true,
-                            'is_active' => true,
-                            'allow_review' => true,
-                            'allow_retake' => true,
-                            'retake_count' => 1,
-                            'allow_hint' => false,
-                            'hint_count' => 0,
-                            'start_date' => $schedule['start_date'],
-                            'end_date' => $schedule['end_date'],
-                            'start_time' => $schedule['start_time'],
-                            'end_time' => $schedule['end_time'],
-                        ],
-                    );
-                    $assessment->forceFill([
-                        'start_date' => $schedule['start_date'],
-                        'end_date' => $schedule['end_date'],
-                        'start_time' => $schedule['start_time'],
-                        'end_time' => $schedule['end_time'],
-                    ])->save();
-
-                    $quizzes = $this->quizzes($assessment, $subject, $educator);
-
-                    foreach ($students as $studentPosition => $student) {
+                    // Enroll the section's students into this subject once (not per assessment).
+                    foreach ($students as $student) {
                         Enrolled::firstOrCreate(
                             [
                                 'educator_id' => $educator->id,
@@ -149,29 +155,78 @@ class RealDummySeeder extends Seeder
                             ],
                             ['is_active' => true],
                         );
+                    }
 
-                        $latestAttempt = $this->scoreAttempt($assessment, $subject, $section, $student, $quizzes);
+                    foreach (self::ASSESSMENTS as $assessmentIndex => $assessmentDef) {
+                        $poolQuizzes = array_slice($bank, $assessmentDef['offset'], $assessmentDef['size']);
+                        $poolIds = collect($poolQuizzes)->pluck('id')->all();
+                        $schedule = $this->assessmentSchedule($educatorIndex, $section->id, $assessmentIndex);
 
-                        if (($studentPosition + 1) % self::RETAKE_EVERY_NTH_STUDENT === 0) {
-                            $this->seedRetake($assessment, $subject, $section, $student, $quizzes, $latestAttempt);
-                        }
-
-                        Score::updateOrCreate(
+                        $assessment = Assessment::firstOrCreate(
                             [
-                                'student_id' => $student->id,
-                                'assessment_id' => $assessment->id,
-                                'submitted_at' => $latestAttempt['submitted_at'],
+                                'assessment_code' => $assessmentDef['code'],
+                                'subject_id' => $subject->id,
+                                'section_id' => $section->id,
+                                'term' => $firstSem->id,
                             ],
-                            $latestAttempt,
+                            [
+                                'educator_id' => $educator->id,
+                                'time_limit' => $assessmentDef['time_limit'],
+                                'cheating_attempts' => 3,
+                                'is_shuffle' => true,
+                                'is_active' => true,
+                                'allow_review' => true,
+                                'allow_retake' => true,
+                                'retake_count' => 1,
+                                'allow_hint' => false,
+                                'hint_count' => 0,
+                                'start_date' => $schedule['start_date'],
+                                'end_date' => $schedule['end_date'],
+                                'start_time' => $schedule['start_time'],
+                                'end_time' => $schedule['end_time'],
+                            ],
                         );
+                        $assessment->forceFill([
+                            'start_date' => $schedule['start_date'],
+                            'end_date' => $schedule['end_date'],
+                            'start_time' => $schedule['start_time'],
+                            'end_time' => $schedule['end_time'],
+                        ])->save();
+
+                        $assessment->eligibleQuizzes()->sync($poolIds);
+                        $assessment->update(['pool_size' => $assessmentDef['size']]);
+
+                        foreach ($students as $studentPosition => $student) {
+                            $latestAttempt = $this->scoreAttempt($assessment, $subject, $section, $student, $poolQuizzes, $studentPosition + 1);
+
+                            if (($studentPosition + 1) % self::RETAKE_EVERY_NTH_STUDENT === 0) {
+                                $this->seedRetake($assessment, $subject, $section, $student, $poolQuizzes, $latestAttempt);
+                            }
+
+                            Score::updateOrCreate(
+                                [
+                                    'student_id' => $student->id,
+                                    'assessment_id' => $assessment->id,
+                                    'submitted_at' => $latestAttempt['submitted_at'],
+                                ],
+                                $latestAttempt,
+                            );
+                        }
                     }
                 }
             }
         }
 
         $this->assertCounts();
-        $totalScores = self::EDUCATORS * self::SECTIONS_PER_EDUCATOR * self::SUBJECTS_PER_SECTION * (self::STUDENTS_PER_SECTION + $this->retakesPerAssessment());
-        $this->command?->info("RealDummySeeder: 5 educators, 25 sections, 125 subjects, 1000 students, {$totalScores} scores ({$this->extraAttemptsSeeded} retake attempts).");
+        $sections = $this->totalSections();
+        $students = $sections * self::STUDENTS_PER_SECTION;
+        $assessments = $this->totalSubjectLoads() * count(self::ASSESSMENTS);
+        $scores = $assessments * (self::STUDENTS_PER_SECTION + $this->retakesPerAssessment());
+        $this->command?->info(sprintf(
+            'RealDummySeeder: %d educators, %d sections, %d students, %d assessments, %d quizzes, %d scores (%d retakes).',
+            count(self::LOAD), $sections, $students, $assessments,
+            $this->totalSubjectLoads() * self::BANK_SIZE, $scores, $this->extraAttemptsSeeded,
+        ));
     }
 
     /** @return array{0: Role, 1: Role, 2: Role} */
@@ -193,7 +248,7 @@ class RealDummySeeder extends Seeder
 
     private function admin(Role $adminRole): void
     {
-        $this->user('admin', '2026-ADMIN-SEED', 'Ada', 'Admin', 'admin@qyzen.edu.ph', $adminRole);
+        $this->user('admin', '2026-0000', 'Ada', 'Administrator', 'admin@qyzen.edu.ph', $adminRole);
     }
 
     /** @return array<int, AcademicTerm> */
@@ -211,48 +266,44 @@ class RealDummySeeder extends Seeder
         ];
     }
 
-    private function educator(int $educatorIndex, Role $educatorRole): User
+    /** @param array{given: string, surname: string, email: string} $blueprint */
+    private function educator(int $educatorNumber, array $blueprint, Role $educatorRole): User
     {
         return $this->user(
             'educator',
-            sprintf('2026-EDU-%03d', $educatorIndex),
-            'Educator'.$educatorIndex,
-            'Seed',
-            "educator{$educatorIndex}.seed@qyzen.edu.ph",
+            sprintf('2026-%04d', $educatorNumber),
+            $blueprint['given'],
+            $blueprint['surname'],
+            $blueprint['email'],
             $educatorRole,
         );
     }
 
     /** @return User[] */
-    private function sectionStudents(int $educatorIndex, int $sectionIndex, Role $studentRole): array
+    private function sectionStudents(Role $studentRole): array
     {
         $students = [];
 
         for ($studentIndex = 1; $studentIndex <= self::STUDENTS_PER_SECTION; $studentIndex++) {
-            $studentNumber = (($educatorIndex - 1) * self::SECTIONS_PER_EDUCATOR * self::STUDENTS_PER_SECTION)
-                + (($sectionIndex - 1) * self::STUDENTS_PER_SECTION)
-                + $studentIndex;
+            $n = ++$this->studentCounter;
+            $given = self::GIVEN_NAMES[$n % count(self::GIVEN_NAMES)];
+            // Stride coprime with the pool size (7 vs 40) so consecutive students walk the whole
+            // surname list — every student in a section gets a distinct surname, and given+surname
+            // pairings don't lock-step (given cycles at 42, surname at 40).
+            $surname = self::SURNAMES[($n * 7) % count(self::SURNAMES)];
+            $emailLocal = strtolower(str_replace(' ', '', $given.'.'.$surname)).'.'.$n;
 
             $students[] = $this->user(
                 'student',
-                sprintf('2026-STU-%04d', $studentNumber),
-                sprintf('Stu%d%d', $educatorIndex, $sectionIndex),
-                sprintf('Learner%02d', $studentIndex),
-                sprintf('student-e%d-s%d-%02d@qyzen.edu.ph', $educatorIndex, $sectionIndex, $studentIndex),
+                sprintf('2026-%05d', $n),
+                $given,
+                $surname,
+                $emailLocal.'@student.qyzen.edu.ph',
                 $studentRole,
             );
         }
 
         return $students;
-    }
-
-    private function sectionName(array $blueprint): string
-    {
-        return self::PROGRAM_CODE
-            .$blueprint['year']
-            .$blueprint['semester']
-            .$blueprint['time']
-            .$blueprint['number'];
     }
 
     private function user(string $type, string $userId, string $given, string $surname, string $email, Role $role): User
@@ -280,18 +331,18 @@ class RealDummySeeder extends Seeder
     }
 
     /** @return array{start_date: string, end_date: string, start_time: string, end_time: string} */
-    private function assessmentSchedule(int $educatorIndex, int $sectionIndex, int $subjectIndex): array
+    private function assessmentSchedule(int $educatorIndex, int $sectionId, int $subjectIndex): array
     {
-        $offsetDays = (($educatorIndex - 1) * self::SECTIONS_PER_EDUCATOR) + $sectionIndex + $subjectIndex;
+        $offsetDays = ($educatorIndex * 3) + ($sectionId % 5) + $subjectIndex;
         $startDate = now()->startOfDay()->subDays(2)->addDays($offsetDays);
-        $oneDayWindow = (($sectionIndex + $subjectIndex) % 2) === 0;
+        $oneDayWindow = (($sectionId + $subjectIndex) % 2) === 0;
         $endDate = $oneDayWindow ? $startDate->copy() : $startDate->copy()->addDays(2);
         $timeSlots = [
             ['08:00', '17:00'],
             ['09:00', '18:00'],
             ['13:00', '20:00'],
         ];
-        $slot = $timeSlots[($educatorIndex + $sectionIndex + $subjectIndex) % count($timeSlots)];
+        $slot = $timeSlots[($educatorIndex + $sectionId + $subjectIndex) % count($timeSlots)];
 
         return [
             'start_date' => $startDate->toDateString(),
@@ -301,16 +352,21 @@ class RealDummySeeder extends Seeder
         ];
     }
 
-    /** @return Quiz[] */
-    private function quizzes(Assessment $assessment, Subject $subject, User $educator): array
+    /**
+     * The subject's 30-question bank, keyed to its subject_code (realistic per-topic content).
+     * Idempotent: reuses existing rows if the bank was already seeded.
+     *
+     * @return Quiz[]
+     */
+    private function questionBank(Subject $subject, User $educator): array
     {
-        $existing = $assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
-        if ($existing->isNotEmpty()) {
+        $existing = Quiz::where('subject_id', $subject->id)->orderBy('id')->get();
+        if ($existing->count() >= self::BANK_SIZE) {
             return $existing->all();
         }
 
         $quizzes = [];
-        foreach (self::QUESTIONS as [$question, $type, $choices, $correct]) {
+        foreach (SubjectQuestions::for($subject->subject_code) as [$question, $type, $choices, $correct]) {
             $quizzes[] = Quiz::create([
                 'subject_id' => $subject->id,
                 'educator_id' => $educator->id,
@@ -321,25 +377,19 @@ class RealDummySeeder extends Seeder
             ]);
         }
 
-        $quizIds = collect($quizzes)->pluck('id')->all();
-        $assessment->eligibleQuizzes()->sync($quizIds);
-        $assessment->update(['pool_size' => count($quizIds)]);
-
         return $quizzes;
     }
 
     /** @param Quiz[] $quizzes */
-    private function scoreAttempt(Assessment $assessment, Subject $subject, Section $section, User $student, array $quizzes): array
+    private function scoreAttempt(Assessment $assessment, Subject $subject, Section $section, User $student, array $quizzes, int $studentPosition): array
     {
         $total = count($quizzes);
-        $studentNumber = (int) substr((string) $student->user_id, -2);
-        $studentSequence = max(1, (int) substr((string) $student->user_id, -4));
-        $correctCount = max(1, ($studentNumber - 1) % ($total + 1));
+        $correctCount = max(1, ($studentPosition - 1) % ($total + 1));
         $isPassed = ($correctCount / $total) >= 0.75;
         $startDate = $assessment->start_date->copy();
         $windowDays = max(1, $assessment->start_date->diffInDays($assessment->end_date) + 1);
-        $dayOffset = ($studentSequence - 1) % $windowDays;
-        $minuteOffset = (($studentSequence - 1) * 17) % 540;
+        $dayOffset = ($studentPosition - 1) % $windowDays;
+        $minuteOffset = (($studentPosition - 1) * 17) % 540;
         $submittedAt = $startDate
             ->copy()
             ->addDays($dayOffset)
@@ -404,117 +454,121 @@ class RealDummySeeder extends Seeder
         $this->extraAttemptsSeeded++;
     }
 
+    private function totalSections(): int
+    {
+        return array_sum(array_map(fn ($e) => count($e['sections']), self::LOAD));
+    }
+
+    private function totalSubjectLoads(): int
+    {
+        $count = 0;
+        foreach (self::LOAD as $educator) {
+            foreach ($educator['sections'] as $section) {
+                $count += count($section['subjects']);
+            }
+        }
+
+        return $count;
+    }
+
     private function assertCounts(): void
     {
+        $educatorEmails = array_column(self::LOAD, 'email');
         $educatorIds = User::where('user_type', 'educator')
-            ->where('email', 'like', 'educator%.seed@qyzen.edu.ph')
+            ->whereIn('email', $educatorEmails)
             ->pluck('id');
 
-        if ($educatorIds->count() !== self::EDUCATORS) {
-            throw new \RuntimeException('RealDummySeeder expected exactly 5 seeded educators.');
+        if ($educatorIds->count() !== count(self::LOAD)) {
+            throw new \RuntimeException('RealDummySeeder expected exactly '.count(self::LOAD).' seeded educators.');
         }
 
+        $expectedStudents = $this->totalSections() * self::STUDENTS_PER_SECTION;
         $studentCount = User::where('user_type', 'student')
-            ->where('email', 'like', 'student-e%-s%-%@qyzen.edu.ph')
+            ->where('email', 'like', '%@student.qyzen.edu.ph')
             ->count();
 
-        if ($studentCount !== self::EDUCATORS * self::SECTIONS_PER_EDUCATOR * self::STUDENTS_PER_SECTION) {
-            throw new \RuntimeException('RealDummySeeder expected exactly 1000 seeded students.');
+        if ($studentCount !== $expectedStudents) {
+            throw new \RuntimeException("RealDummySeeder expected exactly {$expectedStudents} seeded students.");
         }
 
-        foreach ($educatorIds as $educatorId) {
-            $sectionIds = Section::where('educator_id', $educatorId)->pluck('id');
+        foreach (self::LOAD as $educatorIndex => $educatorBlueprint) {
+            $educatorId = User::where('email', $educatorBlueprint['email'])->value('id');
+            $sectionCount = Section::where('educator_id', $educatorId)->count();
 
-            if ($sectionIds->count() !== self::SECTIONS_PER_EDUCATOR) {
-                throw new \RuntimeException("Educator {$educatorId} does not have 5 sections.");
+            if ($sectionCount !== count($educatorBlueprint['sections'])) {
+                throw new \RuntimeException("Educator {$educatorId} does not have ".count($educatorBlueprint['sections']).' sections.');
             }
 
-            foreach ($sectionIds as $sectionId) {
+            foreach ($educatorBlueprint['sections'] as $sectionBlueprint) {
+                $sectionId = Section::where('educator_id', $educatorId)
+                    ->where('section_name', $sectionBlueprint['name'])
+                    ->value('id');
+                $expectedSubjects = count($sectionBlueprint['subjects']);
+
                 $subjectIds = Subject::where('educator_id', $educatorId)
                     ->where('sections_id', $sectionId)
                     ->pluck('id');
 
-                if ($subjectIds->count() !== self::SUBJECTS_PER_SECTION) {
-                    throw new \RuntimeException("Section {$sectionId} does not have 5 subjects.");
+                if ($subjectIds->count() !== $expectedSubjects) {
+                    throw new \RuntimeException("Section {$sectionId} does not have {$expectedSubjects} subjects.");
                 }
 
+                // 40 unique students shared across the section's subjects.
                 $studentsInSection = Enrolled::where('educator_id', $educatorId)
                     ->whereIn('subject_id', $subjectIds)
                     ->distinct('student_id')
                     ->count('student_id');
 
                 if ($studentsInSection !== self::STUDENTS_PER_SECTION) {
-                    throw new \RuntimeException("Section {$sectionId} does not have 40 unique students shared across its subjects.");
+                    throw new \RuntimeException("Section {$sectionId} does not have ".self::STUDENTS_PER_SECTION.' unique students.');
                 }
 
                 foreach ($subjectIds as $subjectId) {
-                    $assessmentCount = Assessment::where('educator_id', $educatorId)
-                        ->where('subject_id', $subjectId)
-                        ->where('section_id', $sectionId)
-                        ->count();
-
-                    if ($assessmentCount !== 1) {
-                        throw new \RuntimeException("Subject {$subjectId} does not have exactly 1 assessment.");
+                    $bankCount = Quiz::where('subject_id', $subjectId)->count();
+                    if ($bankCount !== self::BANK_SIZE) {
+                        throw new \RuntimeException("Subject {$subjectId} bank does not have ".self::BANK_SIZE.' questions.');
                     }
-
-                    $assessmentId = Assessment::where('educator_id', $educatorId)
-                        ->where('subject_id', $subjectId)
-                        ->where('section_id', $sectionId)
-                        ->value('id');
-
-                    $quizCount = Assessment::find($assessmentId)->eligibleQuizzes()->count();
-
-                    if ($quizCount !== self::QUIZZES_PER_ASSESSMENT) {
-                        throw new \RuntimeException("Assessment {$assessmentId} does not have 4 quizzes.");
-                    }
-
-                    $subjectStudentCount = Enrolled::where('educator_id', $educatorId)
-                        ->where('subject_id', $subjectId)
-                        ->count();
-
-                    if ($subjectStudentCount !== self::STUDENTS_PER_SECTION) {
-                        throw new \RuntimeException("Subject {$subjectId} does not have 40 enrolled students.");
-                    }
-
-                    $scoreCount = Score::where('educator_id', $educatorId)
-                        ->where('subject_id', $subjectId)
-                        ->where('section_id', $sectionId)
-                        ->where('assessment_id', $assessmentId)
-                        ->count();
 
                     $expectedScoreCount = self::STUDENTS_PER_SECTION + $this->retakesPerAssessment();
+                    foreach (self::ASSESSMENTS as $assessmentDef) {
+                        $assessment = Assessment::where('educator_id', $educatorId)
+                            ->where('subject_id', $subjectId)
+                            ->where('section_id', $sectionId)
+                            ->where('assessment_code', $assessmentDef['code'])
+                            ->first();
 
-                    if ($scoreCount !== $expectedScoreCount) {
-                        throw new \RuntimeException("Assessment {$assessmentId} does not have {$expectedScoreCount} score rows (attempts + retakes).");
+                        if (! $assessment) {
+                            throw new \RuntimeException("Subject {$subjectId} is missing the {$assessmentDef['code']} assessment.");
+                        }
+
+                        if ($assessment->eligibleQuizzes()->count() !== $assessmentDef['size']) {
+                            throw new \RuntimeException("Assessment {$assessment->id} pool is not {$assessmentDef['size']} questions.");
+                        }
+
+                        if (Score::where('assessment_id', $assessment->id)->count() !== $expectedScoreCount) {
+                            throw new \RuntimeException("Assessment {$assessment->id} does not have {$expectedScoreCount} score rows.");
+                        }
                     }
                 }
             }
-
-            $educatorStudentCount = Enrolled::where('educator_id', $educatorId)
-                ->join('tbl_users', 'tbl_users.id', '=', 'tbl_enrolled.student_id')
-                ->where('tbl_users.email', 'like', 'student-e%-s%-%@qyzen.edu.ph')
-                ->distinct('tbl_enrolled.student_id')
-                ->count('tbl_enrolled.student_id');
-
-            if ($educatorStudentCount !== self::SECTIONS_PER_EDUCATOR * self::STUDENTS_PER_SECTION) {
-                throw new \RuntimeException("Educator {$educatorId} does not have 200 exclusive students.");
-            }
         }
 
+        $loads = $this->totalSubjectLoads();
+        $expectedAssessments = $loads * count(self::ASSESSMENTS);
+        $expectedQuizzes = $loads * self::BANK_SIZE;
         $assessmentCount = Assessment::whereIn('educator_id', $educatorIds)->count();
         $quizCount = Quiz::whereIn('educator_id', $educatorIds)->count();
         $scoreCount = Score::whereIn('educator_id', $educatorIds)->count();
 
-        if ($assessmentCount !== self::EDUCATORS * self::SECTIONS_PER_EDUCATOR * self::SUBJECTS_PER_SECTION) {
-            throw new \RuntimeException('RealDummySeeder expected exactly 125 assessments.');
+        if ($assessmentCount !== $expectedAssessments) {
+            throw new \RuntimeException("RealDummySeeder expected exactly {$expectedAssessments} assessments.");
         }
 
-        if ($quizCount !== $assessmentCount * self::QUIZZES_PER_ASSESSMENT) {
-            throw new \RuntimeException('RealDummySeeder expected exactly 500 quizzes.');
+        if ($quizCount !== $expectedQuizzes) {
+            throw new \RuntimeException("RealDummySeeder expected exactly {$expectedQuizzes} quizzes.");
         }
 
-        $expectedTotalScores = $assessmentCount * (self::STUDENTS_PER_SECTION + $this->retakesPerAssessment());
-
+        $expectedTotalScores = $expectedAssessments * (self::STUDENTS_PER_SECTION + $this->retakesPerAssessment());
         if ($scoreCount !== $expectedTotalScores) {
             throw new \RuntimeException("RealDummySeeder expected exactly {$expectedTotalScores} scores.");
         }

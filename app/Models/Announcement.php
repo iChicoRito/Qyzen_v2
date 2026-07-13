@@ -5,9 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class Announcement extends Model
 {
+    public const PRIVATE_DISK = 'announcement-images';
+
     protected $table = 'tbl_announcements';
 
     protected $fillable = [
@@ -17,6 +20,17 @@ class Announcement extends Model
     protected $casts = [
         'is_global' => 'boolean', 'images' => 'array', 'is_active' => 'boolean',
     ];
+
+    public static function readableImageDisk(string $path): ?string
+    {
+        foreach ([self::PRIVATE_DISK, 'local'] as $disk) {
+            if (Storage::disk($disk)->exists($path)) {
+                return $disk;
+            }
+        }
+
+        return null;
+    }
 
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {

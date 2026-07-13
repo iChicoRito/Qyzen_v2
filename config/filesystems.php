@@ -72,6 +72,22 @@ return [
             'report' => false,
         ],
 
+        'database-backups' => [
+            'driver' => 'local',
+            'root' => env('DATABASE_BACKUP_ROOT', storage_path('app/private/backups')),
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        'announcement-images' => [
+            'driver' => 'local',
+            'root' => env('ANNOUNCEMENT_IMAGE_ROOT', dirname(base_path()).DIRECTORY_SEPARATOR.'qyzen-announcement-images'),
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

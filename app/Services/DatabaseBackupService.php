@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
@@ -21,25 +20,30 @@ class DatabaseBackupService
     {
         $driver = DB::connection()->getDriverName();
 
+        yield match ($driver) {
+            'mysql' => "SET FOREIGN_KEY_CHECKS=0;\n\n",
+            'sqlite' => "PRAGMA foreign_keys=OFF;\n\n",
+            default => throw new RuntimeException("DatabaseBackupService does not support the [{$driver}] driver."),
+        };
+
         // schemaQualified: false — both MySQL and SQLite otherwise prefix names with the
         // database/schema (e.g. "qyzen_v2.tbl_users" / "main.tbl_users"), which breaks a plain
         // backtick-wrap in SHOW CREATE TABLE / INSERT INTO below and the sqlite_master lookup.
         foreach (Schema::getTableListing(schemaQualified: false) as $table) {
             yield "-- Table: {$table}\n";
 
-            // Schema::getTableListing() can list a table that the server then fails to read (a
-            // stale/orphaned entry in the server's own table listing, not something this app can
-            // control) — skip that one table and keep exporting the rest rather than losing the
-            // whole backup to one bad table.
-            try {
-                yield $this->createTableStatement($driver, $table).";\n\n";
-                yield from $this->insertStatements($table);
-            } catch (QueryException $e) {
-                yield "-- SKIPPED: could not read table `{$table}` ({$e->getMessage()})\n";
-            }
+            // Any unreadable table aborts the dump. The command removes the partial file so an
+            // incomplete export can never consume a valid retention slot.
+            yield "DROP TABLE IF EXISTS `{$table}`;\n";
+            yield $this->createTableStatement($driver, $table).";\n\n";
+            yield from $this->insertStatements($table);
 
             yield "\n";
         }
+
+        yield $driver === 'mysql'
+            ? "SET FOREIGN_KEY_CHECKS=1;\n"
+            : "PRAGMA foreign_keys=ON;\n";
     }
 
     private function createTableStatement(string $driver, string $table): string

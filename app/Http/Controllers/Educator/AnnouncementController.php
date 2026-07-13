@@ -18,8 +18,6 @@ use Illuminate\View\View;
 
 class AnnouncementController extends Controller
 {
-    private const DISK = 'local';
-
     public function __construct(private NotificationService $notifications) {}
 
     public function index(Request $request): View
@@ -108,7 +106,7 @@ class AnnouncementController extends Controller
     {
         return array_map(function ($file): array {
             return [
-                'path' => $file->store('announcements/'.Auth::id(), self::DISK),
+                'path' => $file->store('announcements/'.Auth::id(), Announcement::PRIVATE_DISK),
                 'name' => $file->getClientOriginalName(),
                 'mime' => $file->getClientMimeType(),
             ];
@@ -117,7 +115,9 @@ class AnnouncementController extends Controller
 
     private function deleteImages(array $images): void
     {
-        Storage::disk(self::DISK)->delete(array_filter(array_column($images, 'path')));
+        $paths = array_filter(array_column($images, 'path'));
+        Storage::disk(Announcement::PRIVATE_DISK)->delete($paths);
+        Storage::disk('local')->delete($paths);
     }
 
     private function notifyStudents(Announcement $announcement): void

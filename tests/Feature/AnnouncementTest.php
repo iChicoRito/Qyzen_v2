@@ -13,6 +13,7 @@ use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -68,7 +69,7 @@ class AnnouncementTest extends TestCase
 
     public function test_educator_can_create_edit_and_delete_announcement(): void
     {
-        Storage::fake('local');
+        Storage::fake('announcement-images');
 
         $response = $this->actingAs($this->educator)->post(route('educator.announcements.store'), [
             'title' => 'Exam update',
@@ -83,7 +84,7 @@ class AnnouncementTest extends TestCase
         $announcement = Announcement::firstOrFail();
         $this->assertSame('<p>Hello <strong>class</strong></p>', $announcement->body);
         $this->assertCount(1, $announcement->images);
-        Storage::disk('local')->assertExists($announcement->images[0]['path']);
+        Storage::disk('announcement-images')->assertExists($announcement->images[0]['path']);
 
         $this->actingAs($this->educator)->put(route('educator.announcements.update', $announcement), [
             'title' => 'Updated exam', 'description' => '', 'body' => '<p>Updated</p>',
@@ -96,7 +97,7 @@ class AnnouncementTest extends TestCase
             ->delete(route('educator.announcements.destroy', $announcement))
             ->assertRedirect(route('educator.announcements.index'));
         $this->assertDatabaseMissing('tbl_announcements', ['id' => $announcement->id]);
-        Storage::disk('local')->assertMissing($path);
+        Storage::disk('announcement-images')->assertMissing($path);
     }
 
     public function test_announcement_editor_binding_is_delegated_for_modal_fragments(): void
@@ -229,7 +230,7 @@ class AnnouncementTest extends TestCase
 
     public function test_announcement_images_are_private_and_enrollment_gated(): void
     {
-        Storage::fake('local');
+        Storage::fake('announcement-images');
         $this->actingAs($this->educator)->post(route('educator.announcements.store'), [
             'title' => 'Image notice', 'body' => '<p>Body</p>', 'subject_id' => $this->subject->id,
             'is_global' => '0', 'images' => [UploadedFile::fake()->create('notice.png', 10, 'image/png')],
@@ -238,6 +239,56 @@ class AnnouncementTest extends TestCase
 
         $this->actingAs($this->student)->get(route('student.announcements.image', [$announcement, 0]))->assertOk();
         $this->actingAs($this->otherStudent)->get(route('student.announcements.image', [$announcement, 0]))->assertForbidden();
+    }
+
+    public function test_announcement_images_fall_back_to_legacy_local_storage(): void
+    {
+        Storage::fake('announcement-images');
+        Storage::fake('local')->put('announcements/legacy.jpg', 'legacy-image');
+        $announcement = Announcement::create([
+            'educator_id' => $this->educator->id,
+            'subject_id' => $this->subject->id,
+            'title' => 'Legacy image',
+            'body' => '<p>Legacy</p>',
+            'is_global' => false,
+            'is_active' => true,
+            'images' => [[
+                'path' => 'announcements/legacy.jpg',
+                'name' => 'legacy.jpg',
+                'mime' => 'image/jpeg',
+            ]],
+        ]);
+
+        $response = $this->actingAs($this->student)
+            ->get(route('student.announcements.image', [$announcement, 0]))
+            ->assertOk();
+
+        $this->assertSame('legacy-image', file_get_contents($response->baseResponse->getFile()->getPathname()));
+    }
+
+    public function test_command_migrates_legacy_images_idempotently_and_reports_missing_files(): void
+    {
+        Storage::fake('announcement-images');
+        Storage::fake('local')->put('announcements/legacy.jpg', 'legacy-image');
+        Announcement::create([
+            'educator_id' => $this->educator->id,
+            'subject_id' => $this->subject->id,
+            'title' => 'Migration',
+            'body' => '<p>Migration</p>',
+            'is_global' => false,
+            'is_active' => true,
+            'images' => [
+                ['path' => 'announcements/legacy.jpg', 'name' => 'legacy.jpg', 'mime' => 'image/jpeg'],
+                ['path' => 'announcements/missing.jpg', 'name' => 'missing.jpg', 'mime' => 'image/jpeg'],
+            ],
+        ]);
+
+        $this->assertSame(0, Artisan::call('announcements:migrate-image-storage'));
+        Storage::disk('announcement-images')->assertExists('announcements/legacy.jpg');
+        $this->assertStringContainsString('Copied 1 image(s); 0 already present; 1 missing.', Artisan::output());
+
+        $this->assertSame(0, Artisan::call('announcements:migrate-image-storage'));
+        $this->assertStringContainsString('Copied 0 image(s); 1 already present; 1 missing.', Artisan::output());
     }
 
     private function createAnnouncement(array $overrides = []): Announcement

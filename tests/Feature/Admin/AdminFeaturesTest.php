@@ -226,10 +226,14 @@ class AdminFeaturesTest extends TestCase
 
     public function test_signed_account_confirm_link_marks_user_verified(): void
     {
+        $otherAdmin = $this->makeUser('admin', 'admin');
+        $inactiveAdmin = $this->makeUser('admin', 'admin');
+        $inactiveAdmin->forceFill(['is_active' => false])->save();
         $user = User::factory()->create([
             'user_type' => 'student',
             'email_verified_at' => null,
         ]);
+        $user->roles()->attach(Role::where('name', 'student')->value('id'));
 
         $url = URL::temporarySignedRoute('account.activate', now()->addHour(), ['user' => $user]);
 
@@ -237,6 +241,39 @@ class AdminFeaturesTest extends TestCase
             ->assertRedirect(route('login'));
 
         $this->assertNotNull($user->fresh()->email_verified_at);
+        foreach ([$this->admin, $otherAdmin] as $admin) {
+            $this->assertDatabaseHas('tbl_notifications', [
+                'recipient_user_id' => $admin->id,
+                'actor_user_id' => $user->id,
+                'event_type' => 'student_email_verified',
+                'link_path' => route('admin.users.show', $user, false),
+            ]);
+        }
+        $this->assertDatabaseMissing('tbl_notifications', [
+            'recipient_user_id' => $inactiveAdmin->id,
+            'event_type' => 'student_email_verified',
+        ]);
+
+        $this->get($url)->assertRedirect(route('login'));
+        $this->assertSame(2, \App\Models\Notification::where('event_type', 'student_email_verified')->count());
+    }
+
+    public function test_standard_email_verification_notifies_active_admins(): void
+    {
+        $student = $this->makeUser('student', 'student');
+        $student->forceFill(['email_verified_at' => null])->save();
+        $url = URL::temporarySignedRoute('verification.verify', now()->addHour(), [
+            'id' => $student->getKey(),
+            'hash' => sha1($student->getEmailForVerification()),
+        ]);
+
+        $this->actingAs($student)->get($url)->assertRedirect();
+
+        $this->assertDatabaseHas('tbl_notifications', [
+            'recipient_user_id' => $this->admin->id,
+            'actor_user_id' => $student->id,
+            'event_type' => 'student_email_verified',
+        ]);
     }
 
     public function test_admin_resend_sends_new_credentials_with_activation_link(): void

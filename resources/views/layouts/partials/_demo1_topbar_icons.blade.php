@@ -145,7 +145,7 @@
          <div class="border-b border-b-border">
          </div>
          <div class="grid grid-cols-2 p-5 gap-2.5" id="notifications_all_footer">
-          <form action="{{ route('notifications.read-all') }}" method="POST" id="notifications_mark_all_form" @class(['hidden' => (($unreadCount ?? 0) === 0)])>
+          <form action="{{ route('notifications.read-all') }}" method="POST" id="notifications_mark_all_form">
            @csrf
            <button class="kt-btn kt-btn-outline justify-center w-full" type="submit">
             Mark all as read
@@ -209,8 +209,6 @@
             dot.textContent = count > 9 ? '9+' : String(count);
            }
 
-           function setFormVisible(v) { if (form) { form.classList.toggle('hidden', !v); } }
-
            if (form) {
             form.addEventListener('submit', function (e) {
              e.preventDefault();
@@ -223,7 +221,7 @@
                 var d = el.querySelector('.kt-avatar-status');
                 if (d) { d.classList.remove('kt-avatar-status-online'); d.classList.add('kt-avatar-status-offline'); }
                });
-               window.qyzenUnread.notif = 0; window.qyzenRenderBell(); renderTabDots(); setFormVisible(false);
+               window.qyzenUnread.notif = 0; window.qyzenRenderBell(); renderTabDots();
               })
               .catch(function () { form.submit(); });
             });
@@ -237,7 +235,7 @@
               .then(function (r) { if (!r.ok) throw r; return r.json(); })
               .then(function (data) {
                if (list && typeof data.html === 'string') { list.innerHTML = data.html; }
-               window.qyzenUnread.notif = 0; window.qyzenRenderBell(); renderTabDots(); setFormVisible(false);
+               window.qyzenUnread.notif = 0; window.qyzenRenderBell(); renderTabDots();
               })
               .catch(function () { deleteForm.submit(); });
             });
@@ -250,7 +248,6 @@
              .then(function (data) {
               if (list && typeof data.html === 'string') { list.innerHTML = data.html; }
               window.qyzenUnread.notif = data.unread_count; window.qyzenRenderBell(); renderTabDots();
-              setFormVisible(data.unread_count > 0);
              })
              .catch(function () {});
            }

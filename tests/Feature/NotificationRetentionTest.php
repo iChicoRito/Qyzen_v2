@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Notification;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -14,48 +15,52 @@ class NotificationRetentionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_command_deletes_only_educator_read_notifications_older_than_three_days(): void
+    public function test_command_deletes_educator_and_student_notifications_at_least_three_days_old(): void
     {
         Carbon::setTestNow('2026-07-10 12:00:00');
         $educator = User::factory()->educator()->create();
         $student = User::factory()->create();
+        $admin = User::factory()->admin()->create();
 
         $oldEducatorRead = $this->makeNotification($educator, true, now()->subDays(4));
         $oldEducatorUnread = $this->makeNotification($educator, false, now()->subDays(4));
         $recentEducatorRead = $this->makeNotification($educator, true, now()->subDays(2));
         $boundaryEducatorRead = $this->makeNotification($educator, true, now()->subDays(3));
         $oldStudentRead = $this->makeNotification($student, true, now()->subDays(10));
+        $oldStudentUnread = $this->makeNotification($student, false, now()->subDays(4));
+        $oldAdmin = $this->makeNotification($admin, true, now()->subDays(10));
 
         $exitCode = Artisan::call('notifications:prune');
 
         $this->assertSame(0, $exitCode);
-        $this->assertStringContainsString('Deleted 1 notification(s).', Artisan::output());
+        $this->assertStringContainsString('Deleted 5 notification(s).', Artisan::output());
         $this->assertDatabaseMissing('tbl_notifications', ['id' => $oldEducatorRead->id]);
-        $this->assertDatabaseHas('tbl_notifications', ['id' => $oldEducatorUnread->id]);
+        $this->assertDatabaseMissing('tbl_notifications', ['id' => $oldEducatorUnread->id]);
         $this->assertDatabaseHas('tbl_notifications', ['id' => $recentEducatorRead->id]);
-        $this->assertDatabaseHas('tbl_notifications', ['id' => $boundaryEducatorRead->id]);
-        $this->assertDatabaseHas('tbl_notifications', ['id' => $oldStudentRead->id]);
+        $this->assertDatabaseMissing('tbl_notifications', ['id' => $boundaryEducatorRead->id]);
+        $this->assertDatabaseMissing('tbl_notifications', ['id' => $oldStudentRead->id]);
+        $this->assertDatabaseMissing('tbl_notifications', ['id' => $oldStudentUnread->id]);
+        $this->assertDatabaseHas('tbl_notifications', ['id' => $oldAdmin->id]);
     }
 
     public function test_command_reports_zero_when_nothing_is_eligible(): void
     {
         Carbon::setTestNow('2026-07-10 12:00:00');
-        $student = User::factory()->create();
-        $this->makeNotification($student, true, now()->subYears(2));
+        $admin = User::factory()->admin()->create();
+        $this->makeNotification($admin, true, now()->subYears(2));
 
         Artisan::call('notifications:prune');
 
         $this->assertStringContainsString('Deleted 0 notification(s).', Artisan::output());
     }
 
-    public function test_command_is_registered_to_run_every_three_days(): void
+    public function test_command_is_registered_to_run_daily(): void
     {
-        Artisan::call('schedule:list');
+        $event = collect(app(Schedule::class)->events())
+            ->first(fn ($event) => str_contains($event->command, 'notifications:prune'));
 
-        $output = Artisan::output();
-
-        $this->assertStringContainsString('0 0 */3 * *', $output);
-        $this->assertStringContainsString('notifications:prune', $output);
+        $this->assertNotNull($event);
+        $this->assertSame('0 0 * * *', $event->expression);
     }
 
     private function makeNotification(User $user, bool $isRead, Carbon $createdAt): Notification

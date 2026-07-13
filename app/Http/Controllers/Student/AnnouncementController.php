@@ -34,9 +34,11 @@ class AnnouncementController extends Controller
     {
         $this->authorize('view', $announcement);
         $item = $announcement->images[$image] ?? null;
-        abort_unless(is_array($item) && isset($item['path']) && Storage::disk('local')->exists($item['path']), 404);
+        abort_unless(is_array($item) && isset($item['path']), 404);
+        $disk = Announcement::readableImageDisk($item['path']);
+        abort_unless($disk, 404);
 
-        return response()->file(Storage::disk('local')->path($item['path']), [
+        return response()->file(Storage::disk($disk)->path($item['path']), [
             'Content-Type' => $item['mime'] ?? 'application/octet-stream',
             'Content-Disposition' => 'inline; filename="'.addslashes($item['name'] ?? 'announcement-image').'"',
         ]);

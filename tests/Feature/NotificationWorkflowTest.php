@@ -162,6 +162,19 @@ class NotificationWorkflowTest extends TestCase
         $res->assertSee(route('notifications.destroy-all'), false); // delete-all form target present
     }
 
+    public function test_notification_actions_remain_visible_when_everything_is_read(): void
+    {
+        $response = $this->actingAs($this->student)->get(route('student.assessments.index'))->assertOk();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $form = (new \DOMXPath($dom))->query('//*[@id="notifications_mark_all_form"]')->item(0);
+
+        $this->assertNotNull($form);
+        $this->assertStringNotContainsString('hidden', $form->getAttribute('class'));
+        $response->assertDontSee('setFormVisible', false);
+        $response->assertSee(route('notifications.destroy-all'), false);
+    }
+
     public function test_bell_shows_unread_count_indicator(): void
     {
         // No unread → no indicator element rendered (the id="" attribute, not the JS string ref).

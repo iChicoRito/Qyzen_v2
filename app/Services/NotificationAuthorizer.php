@@ -89,6 +89,16 @@ class NotificationAuthorizer
 
     private function studentCanEmit(User $actor, string $eventType, int $recipientId, ?int $assessmentId): bool
     {
+        if ($eventType === 'student_email_verified') {
+            return $actor->hasVerifiedEmail()
+                && User::whereKey($recipientId)
+                    ->where('is_active', true)
+                    ->whereHas('roles', fn ($query) => $query
+                        ->where('name', 'admin')
+                        ->where('tbl_roles.is_active', true))
+                    ->exists();
+        }
+
         if ($eventType !== 'quiz_submitted') {
             return false;
         }

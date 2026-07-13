@@ -12,8 +12,8 @@ Artisan::command('inspire', function () {
 // Laravel 13 has no app/Console/Kernel.php — schedules are registered here.
 //
 // This only *decides* when to run; something outside Laravel still has to invoke the scheduler
-// every minute. On Hostinger shared hosting, add this to hPanel -> Advanced -> Cron Jobs, set to
-// run every minute (Laravel itself decides daily-vs-not from ->daily() below):
-//   php /home/<user>/domains/<domain>/artisan schedule:run >> /dev/null 2>&1
+// every minute. On Hostinger shared hosting, use a Custom cron scheduled every minute; hPanel
+// owns the schedule/output settings, so the command field contains no cron prefix or redirection:
+//   /usr/bin/php /home/u560807207/domains/qyzen.space/public_html/artisan schedule:run
 Schedule::command('backup:database')->daily()->withoutOverlapping();
-Schedule::command('notifications:prune')->cron('0 0 */3 * *')->withoutOverlapping();
+Schedule::command('notifications:prune')->daily()->withoutOverlapping();

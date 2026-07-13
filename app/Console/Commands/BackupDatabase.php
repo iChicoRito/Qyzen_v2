@@ -6,10 +6,11 @@ use App\Services\DatabaseBackupService;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Throwable;
 
-// Task 05 (task 2): streams DatabaseBackupService::lines() straight to a file handle under
-// storage/app/private/backups — never builds the dump as one in-memory string — then prunes to
+// Task 05 (task 2): streams DatabaseBackupService::lines() straight to the database-backups disk,
+// never builds the dump as one in-memory string, then prunes to
 // the 7 most recent backups so unattended daily cron runs on Hostinger's small disk quota can't
 // fill it. Scheduled from routes/console.php; see that file's comment for the required Hostinger
 // hPanel Cron Jobs entry (this command only runs on request/schedule, it can't wire the panel).
@@ -17,7 +18,7 @@ class BackupDatabase extends Command
 {
     protected $signature = 'backup:database';
 
-    protected $description = 'Export a full SQL database backup to storage/app/private/backups and keep only the 7 most recent';
+    protected $description = 'Export a full SQL database backup to durable private storage and keep only the 7 most recent';
 
     private const KEEP = 7;
 
@@ -35,11 +36,10 @@ class BackupDatabase extends Command
     public function handle(DatabaseBackupService $backups): int
     {
         /** @var FilesystemAdapter $disk */
-        $disk = Storage::disk('local');
-        $disk->makeDirectory('backups');
+        $disk = Storage::disk('database-backups');
 
         $sequence = sprintf('%020d', hrtime(true));
-        $path = 'backups/qyzen-backup-'.now()->format('Y-m-d_His')."-{$sequence}.sql";
+        $path = 'qyzen-backup-'.now()->format('Y-m-d_His')."-{$sequence}.sql";
 
         $handle = fopen($disk->path($path), 'w');
 
@@ -51,7 +51,9 @@ class BackupDatabase extends Command
 
         try {
             foreach ($backups->lines() as $chunk) {
-                fwrite($handle, $chunk);
+                if (fwrite($handle, $chunk) !== strlen($chunk)) {
+                    throw new RuntimeException("Could not write the complete backup to {$path}.");
+                }
             }
         } catch (Throwable $e) {
             // Don't leave a partial/corrupt dump on disk — it would otherwise be counted as a
@@ -64,7 +66,7 @@ class BackupDatabase extends Command
 
         fclose($handle);
 
-        $this->info("Backup written to storage/app/private/{$path}");
+        $this->info("Backup written to the database-backups disk: {$path}");
 
         $this->pruneOldBackups($disk);
 
@@ -73,7 +75,7 @@ class BackupDatabase extends Command
 
     private function pruneOldBackups(FilesystemAdapter $disk): void
     {
-        $files = collect($disk->files('backups'))
+        $files = collect($disk->files())
             ->filter(fn (string $file) => preg_match(self::NAME_PATTERN, basename($file)) === 1)
             ->sortByDesc(fn (string $file) => basename($file), SORT_STRING)
             ->values();

@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
 use App\Services\DatabaseBackupService;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
@@ -20,22 +22,25 @@ class BackupDatabaseTest extends TestCase
     {
         parent::setUp();
 
-        Storage::fake('local');
+        Storage::fake('database-backups');
     }
 
     public function test_command_writes_a_backup_file_with_real_content(): void
     {
         Artisan::call('backup:database');
 
-        $files = Storage::disk('local')->files('backups');
+        $files = Storage::disk('database-backups')->files();
 
         $this->assertCount(1, $files);
         $this->assertStringEndsWith('.sql', $files[0]);
 
-        $content = Storage::disk('local')->get($files[0]);
+        $content = Storage::disk('database-backups')->get($files[0]);
 
         $this->assertStringContainsString('CREATE TABLE', $content);
         $this->assertStringContainsString('tbl_users', $content);
+        $this->assertStringContainsString('PRAGMA foreign_keys=OFF;', $content);
+        $this->assertStringContainsString('DROP TABLE IF EXISTS `tbl_users`;', $content);
+        $this->assertStringEndsWith("PRAGMA foreign_keys=ON;\n", $content);
     }
 
     public function test_command_returns_success(): void
@@ -56,16 +61,16 @@ class BackupDatabaseTest extends TestCase
         $writtenInOrder = [];
 
         for ($i = 0; $i < 9; $i++) {
-            $before = Storage::disk('local')->files('backups');
+            $before = Storage::disk('database-backups')->files();
             Artisan::call('backup:database');
-            $after = Storage::disk('local')->files('backups');
+            $after = Storage::disk('database-backups')->files();
 
             $new = array_values(array_diff($after, $before));
             $this->assertCount(1, $new, "Expected exactly one new backup file on iteration {$i}.");
             $writtenInOrder[] = $new[0];
         }
 
-        $remaining = Storage::disk('local')->files('backups');
+        $remaining = Storage::disk('database-backups')->files();
         sort($remaining);
 
         $expectedSurvivors = array_slice($writtenInOrder, -7);
@@ -97,7 +102,7 @@ class BackupDatabaseTest extends TestCase
             $this->assertSame('simulated mid-export failure', $e->getMessage());
         }
 
-        $this->assertSame([], Storage::disk('local')->files('backups'));
+        $this->assertSame([], Storage::disk('database-backups')->files());
     }
 
     // Regression: pruneOldBackups() used to sort survivors by the embedded hrtime(true) sequence
@@ -112,20 +117,20 @@ class BackupDatabaseTest extends TestCase
         // Seven "pre-reboot" backups: large hrtime sequences, but an earlier calendar date.
         for ($i = 0; $i < 7; $i++) {
             $sequence = sprintf('%020d', 900000000000000000 + $i);
-            Storage::disk('local')->put("backups/qyzen-backup-2026-01-01_00000{$i}-{$sequence}.sql", 'pre-reboot');
+            Storage::disk('database-backups')->put("qyzen-backup-2026-01-01_00000{$i}-{$sequence}.sql", 'pre-reboot');
         }
 
         // One "post-reboot" backup: later calendar date, but the clock reset gave it a tiny
         // sequence — smaller than every pre-reboot sequence above.
         $postRebootSequence = sprintf('%020d', 1000);
-        $postRebootFile = "backups/qyzen-backup-2026-01-02_000000-{$postRebootSequence}.sql";
-        Storage::disk('local')->put($postRebootFile, 'post-reboot');
+        $postRebootFile = "qyzen-backup-2026-01-02_000000-{$postRebootSequence}.sql";
+        Storage::disk('database-backups')->put($postRebootFile, 'post-reboot');
 
         // Triggers pruning against the 8 seeded files plus the real backup this call writes (9
         // total candidates going into a KEEP-7 prune).
         Artisan::call('backup:database');
 
-        $remaining = Storage::disk('local')->files('backups');
+        $remaining = Storage::disk('database-backups')->files();
 
         $this->assertCount(7, $remaining);
         $this->assertContains($postRebootFile, $remaining, 'The genuinely newer post-reboot backup must survive.');
@@ -139,19 +144,41 @@ class BackupDatabaseTest extends TestCase
     // deleted once it aged out of the top 7.
     public function test_retention_never_touches_files_outside_its_own_naming_pattern(): void
     {
-        Storage::disk('local')->put('backups/README.txt', 'not a backup, leave me alone');
+        Storage::disk('database-backups')->put('README.txt', 'not a backup, leave me alone');
 
         for ($i = 0; $i < 9; $i++) {
             Artisan::call('backup:database');
         }
 
-        $this->assertTrue(Storage::disk('local')->exists('backups/README.txt'));
+        $this->assertTrue(Storage::disk('database-backups')->exists('README.txt'));
 
         $backupFiles = array_values(array_filter(
-            Storage::disk('local')->files('backups'),
+            Storage::disk('database-backups')->files(),
             fn (string $file) => basename($file) !== 'README.txt'
         ));
 
         $this->assertCount(7, $backupFiles);
+    }
+
+    public function test_backup_is_registered_daily(): void
+    {
+        $event = collect(app(Schedule::class)->events())
+            ->first(fn ($event) => str_contains($event->command, 'backup:database'));
+
+        $this->assertNotNull($event);
+        $this->assertSame('0 0 * * *', $event->expression);
+    }
+
+    public function test_generated_sql_can_restore_into_a_clean_sqlite_database(): void
+    {
+        User::factory()->create(['email' => 'restore-check@example.com']);
+        Artisan::call('backup:database');
+
+        $file = Storage::disk('database-backups')->files()[0];
+        $sql = Storage::disk('database-backups')->get($file);
+        $pdo = new \PDO('sqlite::memory:');
+
+        $this->assertNotFalse($pdo->exec($sql));
+        $this->assertSame('restore-check@example.com', $pdo->query("SELECT email FROM tbl_users WHERE email = 'restore-check@example.com'")->fetchColumn());
     }
 }

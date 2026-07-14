@@ -257,7 +257,39 @@
             if (submitted) return;
             submitted = true;
             $('qz-warnings-input').value = warnings;
-            form.submit();
+            Swal.fire({
+                title: 'Submitting...',
+                text: 'Please wait while your assessment is graded.',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: function () { Swal.showLoading(); }
+            });
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new FormData(form),
+                credentials: 'same-origin'
+            }).then(function (r) {
+                return r.json().catch(function () { return {}; }).then(function (data) {
+                    if (!r.ok) throw data;
+                    return data;
+                });
+            }).then(function (data) {
+                window.location.href = data.redirect_url || @json(route('student.assessments.index'));
+            }).catch(function (data) {
+                submitted = false;
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Could not submit',
+                    text: (data && data.message) || 'Please check your connection and try again.',
+                    confirmButtonColor: '#3475db'
+                });
+            });
         }
         function attemptSubmit() {
             const blank = unansweredCount();

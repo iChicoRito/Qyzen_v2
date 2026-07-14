@@ -153,6 +153,65 @@ class EnrollmentImportTest extends TestCase
         $this->assertDatabaseHas('tbl_enrolled', ['student_id' => $this->student->id, 'subject_id' => $this->subject->id]);
     }
 
+    public function test_owner_can_cancel_queued_import_and_delete_upload_file(): void
+    {
+        Storage::fake('local');
+
+        $import = EnrollmentImport::create([
+            'initiated_by_user_id' => $this->educator->id,
+            'original_filename' => 'enrollments.xlsx',
+            'upload_path' => 'imports/uploads/enrollments.xlsx',
+            'status' => 'queued',
+        ]);
+        Storage::disk('local')->put($import->upload_path, 'upload');
+
+        $this->actingAs($this->educator)
+            ->patch(route('educator.enrollment.imports.cancel', $import))
+            ->assertRedirect(route('educator.enrollment.index'))
+            ->assertSessionHas('status', 'Enrollment import cancelled.');
+
+        $this->assertSame('cancelled', $import->fresh()->status);
+        Storage::disk('local')->assertMissing($import->upload_path);
+    }
+
+    public function test_cancelled_import_job_does_not_create_enrollments(): void
+    {
+        Storage::fake('local');
+
+        $path = 'imports/uploads/enrollments.xlsx';
+        Storage::disk('local')->put($path, $this->xlsxRaw([
+            ['STUD-001', 'MATH101', 'Section A', 'active'],
+        ]));
+
+        $import = EnrollmentImport::create([
+            'initiated_by_user_id' => $this->educator->id,
+            'original_filename' => 'enrollments.xlsx',
+            'upload_path' => $path,
+            'status' => 'cancelled',
+        ]);
+
+        (new ProcessEnrollmentImport($import))->handle(app(NotificationService::class));
+
+        $this->assertSame('cancelled', $import->fresh()->status);
+        $this->assertSame(0, Enrolled::count());
+    }
+
+    public function test_other_educator_cannot_cancel_import(): void
+    {
+        $import = EnrollmentImport::create([
+            'initiated_by_user_id' => $this->educator->id,
+            'original_filename' => 'enrollments.xlsx',
+            'upload_path' => 'imports/uploads/enrollments.xlsx',
+            'status' => 'queued',
+        ]);
+
+        $this->actingAs($this->makeEducator())
+            ->patch(route('educator.enrollment.imports.cancel', $import))
+            ->assertForbidden();
+
+        $this->assertSame('queued', $import->fresh()->status);
+    }
+
     public function test_import_detail_modal_is_owner_only(): void
     {
         $import = EnrollmentImport::create([

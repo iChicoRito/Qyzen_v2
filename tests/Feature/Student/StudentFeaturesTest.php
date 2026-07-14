@@ -215,6 +215,45 @@ class StudentFeaturesTest extends TestCase
         $this->assertSame('passed', $score->status);
     }
 
+    public function test_json_submit_grades_and_returns_result_redirect_url(): void
+    {
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
+
+        $response = $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.submit', $this->assessment), [
+                'answers' => [$quizzes[0]->id => 'B'],
+                'warnings' => 0,
+            ])
+            ->assertOk()
+            ->assertJson([
+                'status' => 'success',
+                'message' => 'Submitted and graded.',
+            ]);
+
+        $score = Score::where('student_id', $this->student->id)
+            ->where('assessment_id', $this->assessment->id)
+            ->firstOrFail();
+
+        $this->assertSame(route('student.scores.show', $score), $response->json('redirect_url'));
+    }
+
+    public function test_expired_assessment_rejects_json_submit_without_creating_score(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 12:00:00', config('app.school_timezone')));
+        $this->assessment->update(['start_date' => '2026-07-10', 'end_date' => '2026-07-10', 'start_time' => '08:00', 'end_time' => '12:00']);
+
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.submit', $this->assessment), ['answers' => []])
+            ->assertStatus(422)
+            ->assertJson([
+                'status' => 'error',
+                'message' => 'This attempt is no longer eligible.',
+            ]);
+
+        $this->assertSame(0, Score::where('student_id', $this->student->id)->count());
+        Carbon::setTestNow();
+    }
+
     public function test_submit_below_75_percent_fails(): void
     {
         $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();

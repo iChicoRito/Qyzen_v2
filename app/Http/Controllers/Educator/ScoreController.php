@@ -23,6 +23,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -223,6 +224,7 @@ class ScoreController extends Controller
         $this->authorize('import', Score::class);
 
         $request->validate([
+            'term_id' => ['required', 'integer', 'exists:tbl_academic_term,id'],
             'assessment_uuid' => ['required', 'uuid'],
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
         ]);
@@ -230,6 +232,12 @@ class ScoreController extends Controller
         $assessment = Assessment::visibleTo($request->user())
             ->where('uuid', $request->input('assessment_uuid'))
             ->firstOrFail();
+
+        if ((int) $assessment->term !== (int) $request->input('term_id')) {
+            throw ValidationException::withMessages([
+                'assessment_uuid' => ['The selected assessment does not belong to the selected term.'],
+            ]);
+        }
 
         $import = new OfflineScoresImport;
         Excel::import($import, $request->file('file'));

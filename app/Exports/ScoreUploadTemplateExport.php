@@ -10,12 +10,12 @@ class ScoreUploadTemplateExport implements FromArray, WithHeadings
     public function array(): array
     {
         return [
-            ['2026-12345', 8, 10],
+            ['2026-12345', 8],
         ];
     }
 
     public function headings(): array
     {
-        return ['student_id', 'score', 'total_questions'];
+        return ['student_id', 'score'];
     }
 }

@@ -11,6 +11,7 @@ use App\Models\Enrolled;
 use App\Models\EnrollmentImport;
 use App\Models\Subject;
 use App\Models\User;
+use App\Services\EnrollmentExportService;
 use App\Services\NotificationService;
 use App\Support\TableQuery;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,7 +26,10 @@ use Maatwebsite\Excel\Facades\Excel;
 // notifications to students only (best-effort via NotificationService).
 class EnrollmentController extends Controller
 {
-    public function __construct(private NotificationService $notifications) {}
+    public function __construct(
+        private NotificationService $notifications,
+        private EnrollmentExportService $exports,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -264,6 +268,32 @@ class EnrollmentController extends Controller
         $imports = EnrollmentImport::ownedBy($request->user())->latest()->take(6)->get();
 
         return view('educator.enrollment._import-timeline', compact('imports'));
+    }
+
+    public function cancelImport(EnrollmentImport $enrollmentImport): RedirectResponse
+    {
+        $this->authorize('view', $enrollmentImport);
+
+        if ($enrollmentImport->status !== 'queued') {
+            return redirect()->route('educator.enrollment.index')
+                ->with('status', 'Only queued enrollment imports can be cancelled.');
+        }
+
+        Storage::disk('local')->delete($enrollmentImport->upload_path);
+        $enrollmentImport->forceFill([
+            'status' => 'cancelled',
+            'error_message' => null,
+        ])->save();
+
+        return redirect()->route('educator.enrollment.index')
+            ->with('status', 'Enrollment import cancelled.');
+    }
+
+    public function download()
+    {
+        $this->authorize('viewAny', Enrolled::class);
+
+        return $this->exports->download(Auth::user());
     }
 
     public function clearImportHistory(Request $request): RedirectResponse

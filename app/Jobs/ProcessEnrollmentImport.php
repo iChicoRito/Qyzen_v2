@@ -21,6 +21,10 @@ class ProcessEnrollmentImport implements ShouldQueue
     public function handle(NotificationService $notifications): void
     {
         $record = $this->enrollmentImport->fresh(['owner']);
+        if (! $record || $record->status !== 'queued') {
+            return;
+        }
+
         $record->forceFill([
             'status' => 'processing',
             'error_message' => null,

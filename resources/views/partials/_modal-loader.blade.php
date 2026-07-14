@@ -16,6 +16,9 @@
             if (window.initAnnouncementEditors && document.querySelector('[data-quill-editor], [data-quill-value]')) {
                 window.initAnnouncementEditors(document);
             }
+            if (window.initDateTimePickers) {
+                window.initDateTimePickers(document);
+            }
         }
         document.addEventListener('click', function (e) {
             var trigger = e.target.closest('[data-modal-url]');

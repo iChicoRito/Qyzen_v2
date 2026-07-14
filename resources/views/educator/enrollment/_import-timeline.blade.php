@@ -22,6 +22,7 @@
                                     : ['ki-check-circle', 'text-green-600'],
                                 'failed' => ['ki-cross-circle', 'text-destructive'],
                                 'processing' => ['ki-loading', ''],
+                                'cancelled' => ['ki-cross-circle', 'text-secondary-foreground'],
                                 default => ['ki-time', 'text-yellow-600'],
                             };
                         @endphp
@@ -49,6 +50,9 @@
                                             @case('failed')
                                                 failed to import.
                                                 @break
+                                            @case('cancelled')
+                                                was cancelled.
+                                                @break
                                             @default
                                                 queued for import.
                                         @endswitch
@@ -60,6 +64,12 @@
                                 </div>
                                 @if ($import->failed_report_path)
                                     <a href="{{ route('educator.enrollment.import.report', $import) }}" class="kt-link kt-link-underlined kt-link-dashed text-sm mt-1">Download failed rows</a>
+                                @endif
+                                @if ($import->status === 'queued')
+                                    <form method="POST" action="{{ route('educator.enrollment.imports.cancel', $import) }}" class="mt-2" data-confirm="Cancel this queued enrollment import?" data-confirm-title="Cancel import?">
+                                        @csrf @method('PATCH')
+                                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline">Cancel</button>
+                                    </form>
                                 @endif
                             </div>
                         </div>

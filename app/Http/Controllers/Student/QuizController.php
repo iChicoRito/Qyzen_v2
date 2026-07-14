@@ -14,6 +14,7 @@ use App\Services\AssessmentAvailabilityService;
 use App\Services\QuizGradingService;
 use App\Support\TableQuery;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -255,13 +256,20 @@ class QuizController extends Controller
     }
 
     // H6 ⚠ submit → server-side grading. correct_answer is loaded server-side in the service only.
-    public function submit(Request $request, Assessment $assessment): RedirectResponse
+    public function submit(Request $request, Assessment $assessment): JsonResponse|RedirectResponse
     {
         $this->authorize('view', $assessment);
 
         // Re-validate eligibility server-side (don't trust the client's gate).
         $summary = $this->availability->summarize($assessment, Auth::id());
         if (! $summary['can_take']) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'This attempt is no longer eligible.',
+                ], 422);
+            }
+
             return redirect()->route('student.assessments.index')
                 ->with('status', 'This attempt is no longer eligible.');
         }
@@ -272,6 +280,14 @@ class QuizController extends Controller
         ]);
 
         $score = $this->grading->grade(Auth::user(), $assessment, $data['answers'] ?? [], (int) ($data['warnings'] ?? 0));
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Submitted and graded.',
+                'redirect_url' => route('student.scores.show', $score),
+            ]);
+        }
 
         return redirect()->route('student.scores.show', $score)->with('status', 'Submitted and graded.');
     }

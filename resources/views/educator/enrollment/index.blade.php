@@ -2,7 +2,7 @@
 @section('title', 'Enrollment')
 @section('heading', 'Enrollment')
 @section('toolbar')
-    <a href="{{ route('educator.enrollment.import.template') }}" class="kt-btn kt-btn-sm kt-btn-outline">Download template</a>
+    <a href="{{ route('educator.enrollment.download') }}" class="kt-btn kt-btn-sm kt-btn-outline">Download Enrollment</a>
     <button type="button" class="kt-btn kt-btn-sm kt-btn-secondary" data-kt-modal-toggle="#kt_enroll_import">Import (xlsx)</button>
     <button type="button" class="kt-btn kt-btn-sm kt-btn-primary"
             data-modal-url="{{ route('educator.enrollment.create') }}" data-modal-target="#form_modal" data-modal-title="Enroll students">Enroll students</button>
@@ -76,6 +76,12 @@
                     <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0" data-kt-modal-dismiss="true"><i class="ki-filled ki-cross"></i></button>
                 </div>
                 <div class="kt-modal-body flex flex-col gap-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <label class="kt-form-label">Template</label>
+                        <a href="{{ route('educator.enrollment.import.template') }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0">
+                            <i class="ki-filled ki-cloud-download"></i> Download
+                        </a>
+                    </div>
                     <p class="text-sm text-secondary-foreground">Columns: student_user_id, subject_code, section_name, status. Only .xlsx files; you can select multiple.</p>
                     <input type="file" name="file[]" accept=".xlsx" class="kt-input" multiple required>
                 </div>

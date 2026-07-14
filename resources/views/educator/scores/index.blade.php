@@ -2,7 +2,6 @@
 @section('title', 'Scores')
 @section('heading', 'Scores')
 @section('toolbar')
-    <a href="{{ route('educator.scores.upload.template') }}" class="kt-btn kt-btn-sm kt-btn-outline">Download upload template</a>
     <button type="button" class="kt-btn kt-btn-sm kt-btn-secondary" data-kt-modal-toggle="#score_upload_modal">Upload offline scores</button>
     <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" data-kt-modal-toggle="#export_modal">Download Grades</button>
 @endsection
@@ -126,6 +125,21 @@
                     </button>
                 </div>
                 <div class="kt-modal-body flex flex-col gap-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <label class="kt-form-label">Template</label>
+                        <a href="{{ route('educator.scores.upload.template') }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0">
+                            <i class="ki-filled ki-cloud-download"></i> Download
+                        </a>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="kt-form-label">Term</label>
+                        <select id="upload_term_sel" name="term_id" class="kt-select" required
+                            data-kt-select="true"
+                            data-kt-select-placeholder="Select term">
+                            <option value="">Select term</option>
+                        </select>
+                        @error('term_id')<span class="text-xs text-destructive">{{ $message }}</span>@enderror
+                    </div>
                     {{-- Section filter (not posted — narrows assessment list) --}}
                     <div class="flex flex-col gap-1">
                         <label class="kt-form-label">Section <span class="text-secondary-foreground font-normal">(optional filter)</span></label>
@@ -149,7 +163,7 @@
                         </select>
                         @error('assessment_uuid')<span class="text-xs text-destructive">{{ $message }}</span>@enderror
                     </div>
-                    <p class="text-sm text-secondary-foreground">Columns: student_id, score, total_questions.</p>
+                    <p class="text-sm text-secondary-foreground">Columns: student_id, score. Question count comes from the selected assessment.</p>
                     <input type="file" name="file" accept=".xlsx,.xls,.csv" class="kt-input" required>
                     @error('file')<span class="text-xs text-destructive">{{ $message }}</span>@enderror
                 </div>
@@ -166,8 +180,19 @@
         var opts = window.__exportOptions || [];
         if (!opts.length) return;
 
+        var termSel = document.getElementById('upload_term_sel');
         var secSel = document.getElementById('upload_section_sel');
         var assSel = document.getElementById('upload_assessment_sel');
+
+        var seenTerms = {};
+        opts.forEach(function (o) {
+            if (!o.termId || seenTerms[o.termId]) return;
+            seenTerms[o.termId] = true;
+            var el = document.createElement('option');
+            el.value = o.termId;
+            el.textContent = o.termLabel || 'Untitled term';
+            termSel.appendChild(el);
+        });
 
         // Unique sections
         var seen = {};
@@ -184,6 +209,7 @@
         function fillAssessments(sectionId) {
             while (assSel.options.length > 1) assSel.remove(1);
             opts.forEach(function (o) {
+                if (!termSel.value || String(o.termId) !== String(termSel.value)) return;
                 if (sectionId && String(o.sectionId) !== String(sectionId)) return;
                 var el = document.createElement('option');
                 el.value = o.uuid;
@@ -193,9 +219,12 @@
             });
         }
 
-        fillAssessments(null);
-
+        termSel.addEventListener('change', function () {
+            assSel.value = '';
+            fillAssessments(secSel.value || null);
+        });
         secSel.addEventListener('change', function () {
+            assSel.value = '';
             fillAssessments(secSel.value || null);
         });
     })();

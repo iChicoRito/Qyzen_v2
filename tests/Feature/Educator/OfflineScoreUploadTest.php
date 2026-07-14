@@ -81,9 +81,10 @@ class OfflineScoreUploadTest extends TestCase
     {
         $this->actingAs($this->educator)
             ->post(route('educator.scores.upload'), [
+                'term_id' => $this->assessment->term,
                 'assessment_uuid' => $this->assessment->uuid,
                 'file' => $this->csv([
-                    ['2026-12345', 1, 1],
+                    ['2026-12345', 1],
                 ]),
             ])
             ->assertRedirect(route('educator.scores.index'));
@@ -91,6 +92,7 @@ class OfflineScoreUploadTest extends TestCase
         $score = Score::firstOrFail();
         $this->assertSame($this->student->id, $score->student_id);
         $this->assertSame($this->educator->id, $score->educator_id);
+        $this->assertSame($this->assessment->effectivePoolSize(), $score->total_questions);
         $this->assertTrue($score->is_passed);
         $this->assertSame('passed', $score->status);
     }
@@ -99,10 +101,11 @@ class OfflineScoreUploadTest extends TestCase
     {
         $this->actingAs($this->educator)
             ->post(route('educator.scores.upload'), [
+                'term_id' => $this->assessment->term,
                 'assessment_uuid' => $this->assessment->uuid,
                 'file' => $this->csv([
-                    ['2026-12345', 1, 1],
-                    ['2026-99999', 1, 1],
+                    ['2026-12345', 1],
+                    ['2026-99999', 1],
                 ]),
             ])
             ->assertSessionHasErrors('file');
@@ -116,9 +119,10 @@ class OfflineScoreUploadTest extends TestCase
 
         $this->actingAs($otherEducator)
             ->post(route('educator.scores.upload'), [
+                'term_id' => $this->assessment->term,
                 'assessment_uuid' => $this->assessment->uuid,
                 'file' => $this->csv([
-                    ['2026-12345', 1, 1],
+                    ['2026-12345', 1],
                 ]),
             ])
             ->assertNotFound();
@@ -130,9 +134,10 @@ class OfflineScoreUploadTest extends TestCase
     {
         $this->actingAs($this->educator)
             ->post(route('educator.scores.upload'), [
+                'term_id' => $this->assessment->term,
                 'assessment_uuid' => $this->assessment->uuid,
                 'file' => $this->csv([
-                    ['2026-12345', 2, 1],
+                    ['2026-12345', 2],
                 ]),
             ])
             ->assertSessionHasErrors('file');
@@ -158,9 +163,10 @@ class OfflineScoreUploadTest extends TestCase
 
         $this->actingAs($this->educator)
             ->post(route('educator.scores.upload'), [
+                'term_id' => $this->assessment->term,
                 'assessment_uuid' => $this->assessment->uuid,
                 'file' => $this->csv([
-                    ['2026-12345', 1, 1],
+                    ['2026-12345', 1],
                 ]),
             ])
             ->assertSessionHasErrors('file');
@@ -168,11 +174,32 @@ class OfflineScoreUploadTest extends TestCase
         $this->assertSame(1, Score::count());
     }
 
+    public function test_mismatched_term_and_assessment_is_rejected(): void
+    {
+        $otherTerm = AcademicTerm::create([
+            'term_name' => 'Midterm',
+            'semester' => '1st Semester',
+            'academic_year_id' => $this->assessment->academicTerm->academic_year_id,
+        ]);
+
+        $this->actingAs($this->educator)
+            ->post(route('educator.scores.upload'), [
+                'term_id' => $otherTerm->id,
+                'assessment_uuid' => $this->assessment->uuid,
+                'file' => $this->csv([
+                    ['2026-12345', 1],
+                ]),
+            ])
+            ->assertSessionHasErrors('assessment_uuid');
+
+        $this->assertSame(0, Score::count());
+    }
+
     private function csv(array $rows): UploadedFile
     {
         $path = tempnam(sys_get_temp_dir(), 'scores');
         $handle = fopen($path, 'w');
-        fputcsv($handle, ['student_id', 'score', 'total_questions']);
+        fputcsv($handle, ['student_id', 'score']);
         foreach ($rows as $row) {
             fputcsv($handle, $row);
         }

@@ -173,11 +173,13 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         Route::resource('subjects', SubjectController::class)->except('show');
 
         // G4 enrollment: bulk import routes precede the resource binding.
+        Route::get('enrollment/download', [EnrollmentController::class, 'download'])->name('enrollment.download');
         Route::get('enrollment/import/template', [EnrollmentController::class, 'importTemplate'])->name('enrollment.import.template');
         Route::post('enrollment/import', [EnrollmentController::class, 'import'])->name('enrollment.import');
         Route::delete('enrollment/imports', [EnrollmentController::class, 'clearImportHistory'])->name('enrollment.imports.clear');
         Route::get('enrollment/imports/timeline', [EnrollmentController::class, 'importTimeline'])->name('enrollment.imports.timeline');
         Route::get('enrollment/imports/{enrollmentImport}/report', [EnrollmentController::class, 'downloadImportReport'])->name('enrollment.import.report');
+        Route::patch('enrollment/imports/{enrollmentImport}/cancel', [EnrollmentController::class, 'cancelImport'])->name('enrollment.imports.cancel');
         Route::get('enrollment/imports/{enrollmentImport}', [EnrollmentController::class, 'showImport'])->name('enrollment.imports.show');
         Route::get('enrollment/subject/{subject}', [EnrollmentController::class, 'showSubject'])->name('enrollment.subject');
         Route::post('enrollment/subject/{subject}/unenroll-all', [EnrollmentController::class, 'unenrollAllForSubject'])->name('enrollment.subject.unenrollAll');

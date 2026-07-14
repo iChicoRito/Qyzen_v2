@@ -19,6 +19,11 @@ class OfflineScoreUploadService
             throw ValidationException::withMessages(['file' => ['The upload has no score rows.']]);
         }
 
+        $totalQuestions = $assessment->effectivePoolSize();
+        if ($totalQuestions < 1) {
+            throw ValidationException::withMessages(['file' => ['The selected assessment has no configured questions.']]);
+        }
+
         $errors = [];
         $clean = [];
         $seen = [];
@@ -28,7 +33,6 @@ class OfflineScoreUploadService
             $validator = Validator::make($row, [
                 'student_id' => ['required', 'string'],
                 'score' => ['required', 'integer', 'min:0'],
-                'total_questions' => ['required', 'integer', 'min:1'],
             ]);
 
             if ($validator->fails()) {
@@ -45,13 +49,8 @@ class OfflineScoreUploadService
 
                 continue;
             }
-            if ((int) $data['score'] > (int) $data['total_questions']) {
-                $errors[] = "Row {$line}: score cannot exceed total_questions.";
-
-                continue;
-            }
-            if ($assessment->pool_size > 0 && (int) $data['total_questions'] !== (int) $assessment->pool_size) {
-                $errors[] = "Row {$line}: total_questions does not match the assessment quiz count.";
+            if ((int) $data['score'] > $totalQuestions) {
+                $errors[] = "Row {$line}: score cannot exceed the assessment quiz count.";
 
                 continue;
             }
@@ -85,7 +84,7 @@ class OfflineScoreUploadService
                 continue;
             }
 
-            $passed = (((int) $data['score'] / (int) $data['total_questions']) * 100) >= 75;
+            $passed = (((int) $data['score'] / $totalQuestions) * 100) >= 75;
             $now = Carbon::now();
 
             $clean[] = [
@@ -95,7 +94,7 @@ class OfflineScoreUploadService
                 'subject_id' => $assessment->subject_id,
                 'section_id' => $assessment->section_id,
                 'score' => (int) $data['score'],
-                'total_questions' => (int) $data['total_questions'],
+                'total_questions' => $totalQuestions,
                 'student_answer' => [],
                 'warning_attempts' => 0,
                 'status' => $passed ? 'passed' : 'failed',

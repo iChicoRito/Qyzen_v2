@@ -7,6 +7,8 @@
 
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
+import flatpickr from 'flatpickr';
+import 'flatpickr/dist/flatpickr.min.css';
 
 const toolbar = [
     [{ header: [1, 2, 3, false] }],
@@ -31,8 +33,35 @@ window.initAnnouncementEditors = function initAnnouncementEditors(root = documen
     });
 };
 
+window.initDateTimePickers = function initDateTimePickers(root = document) {
+    root.querySelectorAll('[data-flatpickr-date]:not([data-flatpickr-ready])').forEach((input) => {
+        flatpickr(input, {
+            dateFormat: 'Y-m-d',
+            allowInput: true,
+        });
+        input.dataset.flatpickrReady = 'true';
+    });
+
+    root.querySelectorAll('[data-flatpickr-time]:not([data-flatpickr-ready])').forEach((input) => {
+        flatpickr(input, {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: 'H:i',
+            altInput: true,
+            altFormat: 'h:i K',
+            time_24hr: false,
+            allowInput: true,
+        });
+        input.dataset.flatpickrReady = 'true';
+    });
+};
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => window.initAnnouncementEditors());
+    document.addEventListener('DOMContentLoaded', () => {
+        window.initAnnouncementEditors();
+        window.initDateTimePickers();
+    });
 } else {
     window.initAnnouncementEditors();
+    window.initDateTimePickers();
 }

@@ -60,19 +60,19 @@
 <div class="grid grid-cols-2 gap-5">
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Start Date</label>
-        <input type="date" name="start_date" class="kt-input cursor-pointer" value="{{ old('start_date', optional($a?->start_date)->format('Y-m-d')) }}" required>
+        <input type="text" name="start_date" class="kt-input cursor-pointer" value="{{ old('start_date', optional($a?->start_date)->format('Y-m-d')) }}" required data-flatpickr-date>
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">End Date</label>
-        <input type="date" name="end_date" class="kt-input cursor-pointer" value="{{ old('end_date', optional($a?->end_date)->format('Y-m-d')) }}" required>
+        <input type="text" name="end_date" class="kt-input cursor-pointer" value="{{ old('end_date', optional($a?->end_date)->format('Y-m-d')) }}" required data-flatpickr-date>
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Start Time</label>
-        <input type="time" name="start_time" class="kt-input cursor-pointer" value="{{ old('start_time', $a?->start_time) }}" required>
+        <input type="text" name="start_time" class="kt-input cursor-pointer" value="{{ old('start_time', $a?->start_time) }}" required data-flatpickr-time>
     </div>
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">End Time</label>
-        <input type="time" name="end_time" class="kt-input cursor-pointer" value="{{ old('end_time', $a?->end_time) }}" required>
+        <input type="text" name="end_time" class="kt-input cursor-pointer" value="{{ old('end_time', $a?->end_time) }}" required data-flatpickr-time>
     </div>
 </div>
 

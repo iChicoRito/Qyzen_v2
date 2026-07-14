@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AjaxFormResponse;
 use App\Http\Middleware\EnsurePasswordIsChanged;
 use App\Http\Middleware\RequireRole;
 use App\Http\Middleware\SecurityHeaders;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // J1/J2: security headers + CSP nonce on every web response.
         $middleware->web(append: [
             SecurityHeaders::class,
+            AjaxFormResponse::class,
             EnsurePasswordIsChanged::class,
         ]);
     })

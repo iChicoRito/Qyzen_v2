@@ -155,7 +155,7 @@
                                     </span>
                                     <input class="kt-switch" data-kt-theme-switch-state="dark" data-kt-theme-switch-toggle="true" name="check" type="checkbox" value="1" />
                                 </div>
-                                <form method="POST" action="{{ route('logout') }}">@csrf
+                                <form method="POST" action="{{ route('logout') }}" data-native-submit>@csrf
                                     <button type="submit" class="kt-btn kt-btn-outline justify-center w-full">Sign Out</button>
                                 </form>
                             </div>

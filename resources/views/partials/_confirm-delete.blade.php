@@ -10,7 +10,11 @@
             ? document.querySelector(el.dataset.confirmForm)
             : el.closest('form') || (el.closest('.kt-menu-item') && el.closest('.kt-menu-item').querySelector('form'));
         if (!form) return;
-        if (!window.Swal) { form.submit(); return; } // fail-open if SweetAlert missing
+        function submitForm() {
+            if (form.requestSubmit) { form.requestSubmit(); return; }
+            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        }
+        if (!window.Swal) { submitForm(); return; } // fail-open if SweetAlert missing
         Swal.fire({
             title: el.dataset.confirmTitle || 'Are you sure?',
             text: el.dataset.confirm,
@@ -20,6 +24,6 @@
             cancelButtonText: 'Cancel',
             confirmButtonColor: '#dc2626',
             reverseButtons: true,
-        }).then(function (r) { if (r.isConfirmed) form.submit(); });
+        }).then(function (r) { if (r.isConfirmed) submitForm(); });
     });
 </script>

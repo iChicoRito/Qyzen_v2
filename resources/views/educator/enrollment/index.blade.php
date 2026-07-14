@@ -93,7 +93,7 @@
     </div>
 
     @push('scripts')
-    <script nonce="{{ $cspNonce ?? '' }}">
+    <script nonce="{{ $cspNonce ?? '' }}" data-ajax-rerun>
         (function () {
             var panel = document.getElementById('enrollment_import_timeline');
             if (!panel) return;

@@ -3,7 +3,7 @@
      educator's own assessments, flattened + inlined below so the cascading selects need no
      fetch to populate. --}}
 <x-modal id="export_modal" width="640px" title="Download Grades">
-    <script nonce="{{ $cspNonce ?? '' }}">window.__exportOptions = @json($exportOptions);</script>
+    <script nonce="{{ $cspNonce ?? '' }}" data-ajax-rerun>window.__exportOptions = @json($exportOptions);</script>
     <style nonce="{{ $cspNonce ?? '' }}">
         #export_modal .export-method-card:has(input:checked) {
             border-color: var(--color-primary);
@@ -116,7 +116,7 @@
 </x-modal>
 
 @push('scripts')
-<script nonce="{{ $cspNonce ?? '' }}">
+<script nonce="{{ $cspNonce ?? '' }}" data-ajax-rerun>
 (function () {
     var options = window.__exportOptions || [];
     if (!options.length) return;

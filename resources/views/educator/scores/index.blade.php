@@ -175,7 +175,7 @@
     </div>
 
     @push('scripts')
-    <script nonce="{{ $cspNonce ?? '' }}">
+    <script nonce="{{ $cspNonce ?? '' }}" data-ajax-rerun>
     (function () {
         var opts = window.__exportOptions || [];
         if (!opts.length) return;

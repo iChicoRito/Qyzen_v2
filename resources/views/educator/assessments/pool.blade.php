@@ -114,7 +114,7 @@
     </div>
 
     @push('scripts')
-    <script nonce="{{ $cspNonce ?? '' }}">
+    <script nonce="{{ $cspNonce ?? '' }}" data-ajax-rerun>
         (function () {
             var summary = document.querySelector('[data-pool-summary]');
             if (!summary) return;

@@ -93,7 +93,7 @@
 </div>
 
 @push('scripts')
-<script nonce="{{ $cspNonce ?? '' }}">
+<script nonce="{{ $cspNonce ?? '' }}" data-ajax-rerun>
 (function () {
     var id  = '{{ $id }}';
     var lsKey = id + '_per_page';

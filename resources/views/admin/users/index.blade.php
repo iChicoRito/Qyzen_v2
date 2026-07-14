@@ -298,36 +298,39 @@
 
     {{-- Delegated click handling survives page changes because rows are server-rendered. --}}
     @push('scripts')
-    <script nonce="{{ $cspNonce ?? '' }}">
-        document.addEventListener('DOMContentLoaded', function () {
+    <script nonce="{{ $cspNonce ?? '' }}" data-ajax-rerun>
+        (function () {
             // Edit: fill the shared modal from the clicked row's data-* attributes, then open it.
             // Delegated on document so it survives datatable re-renders.
-            var editForm = document.querySelector('#kt_user_edit_form');
-            var editModal = document.querySelector('#kt_user_edit_modal');
-            document.addEventListener('click', function (e) {
-                var link = e.target.closest('.js-user-edit');
-                if (!link || !editForm || !editModal) return;
-                e.preventDefault();
+            if (!window.qyzenUserEditBound) {
+                window.qyzenUserEditBound = true;
+                document.addEventListener('click', function (e) {
+                    var link = e.target.closest('.js-user-edit');
+                    var editForm = document.querySelector('#kt_user_edit_form');
+                    var editModal = document.querySelector('#kt_user_edit_modal');
+                    if (!link || !editForm || !editModal) return;
+                    e.preventDefault();
 
-                editForm.setAttribute('action', link.dataset.action);
-                document.querySelector('#edit_user_name').textContent = link.dataset.name || 'user';
-                document.querySelector('#edit_user_type').value = link.dataset.user_type || 'student';
-                document.querySelector('#edit_user_id').value = link.dataset.user_id || '';
-                document.querySelector('#edit_given_name').value = link.dataset.given_name || '';
-                document.querySelector('#edit_surname').value = link.dataset.surname || '';
-                document.querySelector('#edit_email').value = link.dataset.email || '';
-                document.querySelector('#edit_is_active').value = link.dataset.is_active || '1';
+                    editForm.setAttribute('action', link.dataset.action);
+                    document.querySelector('#edit_user_name').textContent = link.dataset.name || 'user';
+                    document.querySelector('#edit_user_type').value = link.dataset.user_type || 'student';
+                    document.querySelector('#edit_user_id').value = link.dataset.user_id || '';
+                    document.querySelector('#edit_given_name').value = link.dataset.given_name || '';
+                    document.querySelector('#edit_surname').value = link.dataset.surname || '';
+                    document.querySelector('#edit_email').value = link.dataset.email || '';
+                    document.querySelector('#edit_is_active').value = link.dataset.is_active || '1';
 
-                var roles = (link.dataset.roles || '').split(',').filter(Boolean);
-                editForm.querySelectorAll('.js-edit-role').forEach(function (cb) {
-                    cb.checked = roles.indexOf(cb.value) !== -1;
+                    var roles = (link.dataset.roles || '').split(',').filter(Boolean);
+                    editForm.querySelectorAll('.js-edit-role').forEach(function (cb) {
+                        cb.checked = roles.indexOf(cb.value) !== -1;
+                    });
+
+                    if (typeof KTModal !== 'undefined') {
+                        KTModal.getOrCreateInstance(editModal).show();
+                    }
                 });
-
-                if (typeof KTModal !== 'undefined') {
-                    KTModal.getOrCreateInstance(editModal).show();
-                }
-            });
-        });
+            }
+        })();
 
         // Live upload timeline: while any import is queued/processing, re-fetch the panel every 4s
         // (polling — the project's chosen transport; Reverb stays dormant) so status lands without a refresh.

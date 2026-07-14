@@ -1,4 +1,4 @@
-@extends('layouts.fragment')
+@extends(request()->boolean('modal') ? 'layouts.fragment' : 'educator.layout')
 @section('title', 'Add Question')
 @section('heading', 'Add Question')
 @section('content')

@@ -111,7 +111,7 @@
 @endsection
 
 @push('scripts')
-<script nonce="{{ $cspNonce ?? '' }}">
+<script nonce="{{ $cspNonce ?? '' }}" data-ajax-rerun>
 (function () {
     // Delegated on document so it survives the data-table's AJAX row swaps (page/filter/sort).
     // Selection is page-scoped: after a swap the fresh rows start unchecked.

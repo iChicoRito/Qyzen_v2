@@ -137,7 +137,7 @@
 @endsection
 
 @push('scripts')
-<script nonce="{{ $cspNonce ?? '' }}">
+<script nonce="{{ $cspNonce ?? '' }}" data-ajax-rerun>
 (function () {
     document.addEventListener('change', function (event) {
         var select = event.target.closest('select[data-filter]');

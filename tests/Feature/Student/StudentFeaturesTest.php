@@ -237,6 +237,25 @@ class StudentFeaturesTest extends TestCase
         $this->assertSame(route('student.scores.show', $score), $response->json('redirect_url'));
     }
 
+    // Regression: two overlapping submit requests (a lost response racing a client retry, or a
+    // bfcache reload racing an in-flight request) can both reach grade() before either commits
+    // — the second call's "in_progress" lookup then finds nothing (the first already flipped
+    // it). Must return the existing graded Score, not silently create a second attempt that
+    // burns a retake slot and double-notifies the educator. Tested at the service layer since
+    // that's exactly the race window the controller's availability gate can't close.
+    public function test_grade_is_idempotent_when_called_twice_for_the_same_attempt(): void
+    {
+        $grading = app(\App\Services\QuizGradingService::class);
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
+        $answers = [$quizzes[0]->id => 'B'];
+
+        $first = $grading->grade($this->student, $this->assessment, $answers, 0);
+        $second = $grading->grade($this->student, $this->assessment, $answers, 0);
+
+        $this->assertSame($first->id, $second->id);
+        $this->assertSame(1, Score::where('student_id', $this->student->id)->where('assessment_id', $this->assessment->id)->count());
+    }
+
     public function test_expired_assessment_rejects_json_submit_without_creating_score(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-10 12:00:00', config('app.school_timezone')));

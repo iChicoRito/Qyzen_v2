@@ -13,12 +13,14 @@ use App\Models\Subject;
 use App\Services\AssessmentAvailabilityService;
 use App\Services\QuizGradingService;
 use App\Support\TableQuery;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 // H2–H6: student quiz engine. Enrollment-gated (visibleTo) + schedule + attempt gates.
@@ -30,6 +32,25 @@ class QuizController extends Controller
         private AssessmentAvailabilityService $availability,
         private QuizGradingService $grading,
     ) {}
+
+    // Wraps the enrollment-gate check with diagnostic logging — the 403 this throws is
+    // legitimate (enrollment was revoked/changed), but production support had no way to see
+    // why it fired mid-exam. Logged here once, at the single choke point every quiz action
+    // re-checks through.
+    private function authorizeQuizAccess(Assessment $assessment): void
+    {
+        try {
+            $this->authorize('view', $assessment);
+        } catch (AuthorizationException $e) {
+            Log::warning('Student quiz access denied', [
+                'student_id' => Auth::id(),
+                'assessment_id' => $assessment->id,
+                'route' => request()->route()?->getName(),
+            ]);
+
+            throw $e;
+        }
+    }
 
     // H2: enrolled assessments + availability badge + can-take.
     public function index(Request $request): View
@@ -104,7 +125,15 @@ class QuizController extends Controller
     // H3: take-quiz session load — eligibility + draft restore + stable shuffle + server timer.
     public function take(Assessment $assessment): Response|RedirectResponse
     {
-        $this->authorize('view', $assessment);
+        try {
+            $this->authorizeQuizAccess($assessment);
+        } catch (AuthorizationException) {
+            // Never dead-end a student mid-exam on the raw framework 403 page — send them
+            // somewhere they can act on, with an explanation. The denial itself is already
+            // logged inside authorizeQuizAccess().
+            return redirect()->route('student.assessments.index')
+                ->with('status', 'You no longer have access to this assessment. Please contact your teacher if this seems wrong.');
+        }
 
         // Post-submit lock: a finished attempt can't be reloaded. If no attempt remains, send the
         // student to their latest result (or the list) rather than back into the quiz.
@@ -197,7 +226,7 @@ class QuizController extends Controller
     // H4: autosave draft (debounced fetch). Returns minimal JSON, never correct_answer.
     public function saveDraft(Request $request, Assessment $assessment)
     {
-        $this->authorize('view', $assessment);
+        $this->authorizeQuizAccess($assessment);
 
         if (! $this->availability->summarize($assessment, Auth::id())['can_take']) {
             return response()->json(['message' => 'This attempt is no longer eligible.'], 422);
@@ -218,7 +247,7 @@ class QuizController extends Controller
     // deducted per call; the answer is only revealed when outcome === 'won'.
     public function hint(Request $request, Assessment $assessment)
     {
-        $this->authorize('view', $assessment);
+        $this->authorizeQuizAccess($assessment);
 
         $summary = $this->availability->summarize($assessment, Auth::id());
         if (! $summary['can_take']) {
@@ -258,7 +287,7 @@ class QuizController extends Controller
     // H6 ⚠ submit → server-side grading. correct_answer is loaded server-side in the service only.
     public function submit(Request $request, Assessment $assessment): JsonResponse|RedirectResponse
     {
-        $this->authorize('view', $assessment);
+        $this->authorizeQuizAccess($assessment);
 
         // Re-validate eligibility server-side (don't trust the client's gate).
         $summary = $this->availability->summarize($assessment, Auth::id());

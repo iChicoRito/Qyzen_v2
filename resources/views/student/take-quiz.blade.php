@@ -248,8 +248,16 @@
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'Accept': 'application/json'},
                 body: JSON.stringify({answers: collectAnswers(), warnings})
-            }).then(() => {}) // silent background save — no visual indicator
-              .catch(() => { dirty = true; });
+            }).then((r) => {
+                if (!r.ok) {
+                    // Silent by design (no visual indicator), but a failed save must still be
+                    // logged and retried — otherwise answers stop persisting with zero feedback.
+                    r.json().catch(() => ({})).then((data) => {
+                        console.error('[quiz] autosave failed', r.status, data);
+                    });
+                    dirty = true;
+                }
+            }).catch(() => { dirty = true; });
         }
 
         // ---- Submit ----
@@ -324,9 +332,9 @@
             const resultEl = $('qz-hint-result');
             const skipBtn = $('qz-hint-skip');
             const closeBtn = $('qz-hint-close');
-            if (!modalEl || typeof KTModal === 'undefined') return;
-            const modal = KTModal.getOrCreateInstance(modalEl);
+            if (!modalEl) return; // hints not enabled for this session — nothing to wire
 
+            let modal = null;
             let activeBtn = null;
             let cleanup = null; // current game's teardown (clears its timers/listeners)
             let settled = false; // guards against double-resolve (e.g. Skip after a game already finished)
@@ -391,24 +399,45 @@
                   .catch(() => { settled = false; });
             }
 
-            skipBtn.addEventListener('click', () => finish({outcome: 'skipped'}));
-            closeBtn.addEventListener('click', () => finish({outcome: 'skipped'}));
-
             const GAMES = ['tictactoe', 'maze', 'math', 'simon', 'colormatch'];
 
-            $$('.qz-hint-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    activeBtn = btn;
-                    settled = false;
-                    clearGame();
-                    modal.show();
-                    const pick = GAMES[Math.floor(Math.random() * GAMES.length)];
-                    const { title, description } = GAME_INFO[pick];
-                    showIntro(title, description, () => {
-                        cleanup = RENDERERS[pick](gameEl, (outcome) => finish({outcome}));
+            // KTUI's modal component must be loaded before we can create/show it. Under normal
+            // conditions it's ready immediately (core.bundle.js + ktui.min.js load before this
+            // script), but this guards against any production script-load race instead of
+            // silently leaving every hint button dead with no diagnostics.
+            function bindHintButtons() {
+                modal = KTModal.getOrCreateInstance(modalEl);
+
+                skipBtn.addEventListener('click', () => finish({outcome: 'skipped'}));
+                closeBtn.addEventListener('click', () => finish({outcome: 'skipped'}));
+
+                $$('.qz-hint-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        activeBtn = btn;
+                        settled = false;
+                        clearGame();
+                        modal.show();
+                        const pick = GAMES[Math.floor(Math.random() * GAMES.length)];
+                        const { title, description } = GAME_INFO[pick];
+                        showIntro(title, description, () => {
+                            cleanup = RENDERERS[pick](gameEl, (outcome) => finish({outcome}));
+                        });
                     });
                 });
-            });
+            }
+
+            (function waitForKTModal(attempts) {
+                if (typeof KTModal !== 'undefined') { bindHintButtons(); return; }
+                if (attempts >= 20) {
+                    console.error('[quiz] KTModal did not load — hint buttons disabled');
+                    $$('.qz-hint-btn').forEach(b => {
+                        b.disabled = true;
+                        b.title = 'Hints are temporarily unavailable — please refresh the page.';
+                    });
+                    return;
+                }
+                setTimeout(() => waitForKTModal(attempts + 1), 100);
+            })(0);
 
             const GAME_INFO = {
                 tictactoe: {

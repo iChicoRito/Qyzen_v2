@@ -68,9 +68,36 @@ class QuizGradingService
         return DB::transaction(function () use ($student, $assessment, $answers, $warnings) {
             // Reuse the in-progress row if present, else create a fresh attempt. take()/saveDraft()
             // always create this first, so drawn_quiz_ids should already be pinned here.
-            $score = Score::firstOrNew([
-                'student_id' => $student->id, 'assessment_id' => $assessment->id, 'status' => 'in_progress',
-            ]);
+            // lockForUpdate serializes concurrent submits against the same attempt row so a
+            // duplicate request (lost response + client retry, or a bfcache reload racing an
+            // in-flight submit) can't slip past the "in_progress" lookup below.
+            $score = Score::where('student_id', $student->id)
+                ->where('assessment_id', $assessment->id)
+                ->where('status', 'in_progress')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $score) {
+                // No in-progress row: either a genuinely fresh attempt (shouldn't normally
+                // happen — take()/saveDraft() always create it first) or this exact attempt
+                // was already graded by a concurrent/duplicate submit. In the latter case,
+                // return the existing result instead of creating a second graded attempt —
+                // that would silently burn a retake slot and double-notify the educator.
+                $existing = Score::where('student_id', $student->id)
+                    ->where('assessment_id', $assessment->id)
+                    ->whereIn('status', ['passed', 'failed'])
+                    ->latest('submitted_at')
+                    ->first();
+                if ($existing) {
+                    return $existing;
+                }
+
+                $score = new Score([
+                    'student_id' => $student->id,
+                    'assessment_id' => $assessment->id,
+                    'status' => 'in_progress',
+                ]);
+            }
             $drawnQuizIds = $score->drawn_quiz_ids ?: $this->pool->drawFor($assessment);
 
             // correct_answer is explicitly selected here — server side, never leaves this method.

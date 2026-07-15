@@ -37,6 +37,18 @@
 @endpush
 
 @section('content')
+    <x-modal id="qz-fullscreen-gate" title="Fullscreen mode is required" width="560px" :persistent="true" :show-close="false" :scrollable="false">
+        <div class="px-7 pt-6 pb-7 grid gap-5 text-center">
+            <div class="mx-auto size-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                <i class="ki-filled ki-screen"></i>
+            </div>
+            <p class="text-sm text-secondary-foreground">
+                This assessment uses fullscreen mode to help prevent accidental cursor exits and false cheating warnings.
+            </p>
+            <button type="button" class="kt-btn kt-btn-primary justify-center mt-1" id="qz-fullscreen-start">I Understand</button>
+        </div>
+    </x-modal>
+
     {{-- Mobile-only sticky bar: drawer toggle + compact timer + progress (always visible during a timed exam). --}}
     <div class="lg:hidden sticky top-0 z-30 bg-background border-b border-border -mx-4 px-4 py-3 mb-5 flex items-center gap-3">
         <button type="button" class="kt-btn kt-btn-sm kt-btn-outline shrink-0" data-kt-drawer-toggle="#qz-panel">
@@ -51,7 +63,7 @@
         <span class="qz-counter text-xs font-medium text-secondary-foreground shrink-0">0 / {{ $questions->count() }}</span>
     </div>
 
-    <div class="qz-quiz-grid">
+    <div class="qz-quiz-grid" id="qz-session">
         {{-- Left panel — persistent on desktop, off-canvas drawer on mobile (app-sidebar pattern). --}}
         <div id="qz-panel"
              class="kt-card hidden lg:flex flex-col [--kt-drawer-enable:true] lg:[--kt-drawer-enable:false]"
@@ -209,10 +221,136 @@
         const hasTimer = {{ $assessment->time_limit > 0 ? 'true' : 'false' }};
         let warnings = {{ (int) $warnings }};
         let submitted = false, dirty = false;
+        let quizStarted = false;
+        let authorizedFullscreenTransition = false;
+        let fullscreenGuardTimer = null;
+        let restoringFullscreen = false;
 
         const $ = (id) => document.getElementById(id);
         const $$ = (sel) => document.querySelectorAll(sel); // timer/progress/counter/warnings have desktop + mobile instances
         const form = $('qz-form');
+        const fullscreenGate = $('qz-fullscreen-gate');
+        const fullscreenStart = $('qz-fullscreen-start');
+        const session = $('qz-session');
+        let fullscreenModal = null;
+        if (session && 'inert' in session) session.inert = true;
+
+        // ---- Fullscreen gate ----
+        function fullscreenElement() {
+            return document.fullscreenElement
+                || document.webkitFullscreenElement
+                || document.mozFullScreenElement
+                || document.msFullscreenElement
+                || null;
+        }
+
+        function isFullscreenSupported() {
+            const el = document.documentElement;
+            return !!(el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen);
+        }
+
+        function markAuthorizedFullscreenTransition() {
+            authorizedFullscreenTransition = true;
+            clearTimeout(fullscreenGuardTimer);
+            fullscreenGuardTimer = setTimeout(() => {
+                authorizedFullscreenTransition = false;
+                restoreFullscreen();
+            }, 1500);
+        }
+
+        function requestQuizFullscreen() {
+            if (!isFullscreenSupported()) return Promise.resolve(false);
+
+            const el = document.documentElement;
+            const request = el.requestFullscreen
+                || el.webkitRequestFullscreen
+                || el.mozRequestFullScreen
+                || el.msRequestFullscreen;
+
+            markAuthorizedFullscreenTransition();
+
+            try {
+                const result = request.call(el);
+                return Promise.resolve(result).then(() => true).catch(() => false);
+            } catch (e) {
+                return Promise.resolve(false);
+            }
+        }
+
+        function exitQuizFullscreen() {
+            if (!fullscreenElement()) return Promise.resolve();
+
+            const exit = document.exitFullscreen
+                || document.webkitExitFullscreen
+                || document.mozCancelFullScreen
+                || document.msExitFullscreen;
+
+            if (!exit) return Promise.resolve();
+            markAuthorizedFullscreenTransition();
+
+            try {
+                return Promise.resolve(exit.call(document)).catch(() => {});
+            } catch (e) {
+                return Promise.resolve();
+            }
+        }
+
+        function unlockQuiz() {
+            quizStarted = true;
+            if (session && 'inert' in session) session.inert = false;
+            if (fullscreenModal) fullscreenModal.hide();
+            else fullscreenGate?.classList.add('qz-hide');
+        }
+
+        function keepFullscreenGateOpen() {
+            if (quizStarted || !fullscreenGate) return;
+            if (fullscreenModal) fullscreenModal.show();
+        }
+
+        function restoreFullscreen() {
+            if (!quizStarted || submitted || restoringFullscreen || !isFullscreenSupported() || fullscreenElement()) return;
+
+            restoringFullscreen = true;
+            Swal.fire({
+                icon: 'warning',
+                title: 'Return to fullscreen',
+                text: 'Fullscreen mode is required until you submit this assessment.',
+                confirmButtonText: 'Return to Fullscreen',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                confirmButtonColor: '#3475db',
+            }).then(() => requestQuizFullscreen())
+              .finally(() => { restoringFullscreen = false; });
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Escape' || quizStarted || !fullscreenGate) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            keepFullscreenGateOpen();
+        }, true);
+
+        fullscreenStart?.addEventListener('click', () => {
+            fullscreenStart.disabled = true;
+            requestQuizFullscreen().then(unlockQuiz);
+        });
+
+        ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(ev => {
+            document.addEventListener(ev, () => {
+                if (authorizedFullscreenTransition) return;
+                restoreFullscreen();
+            });
+        });
+
+        (function waitForFullscreenModal(attempts) {
+            if (!fullscreenGate) return;
+            if (typeof KTModal !== 'undefined') {
+                fullscreenModal = KTModal.getOrCreateInstance(fullscreenGate);
+                fullscreenModal.show();
+                return;
+            }
+            if (attempts < 20) setTimeout(() => waitForFullscreenModal(attempts + 1), 100);
+        })(0);
 
         // ---- Answers ----
         function collectAnswers() {
@@ -288,7 +426,9 @@
                     return data;
                 });
             }).then(function (data) {
-                window.location.href = data.redirect_url || @json(route('student.assessments.index'));
+                exitQuizFullscreen().finally(function () {
+                    window.location.href = data.redirect_url || @json(route('student.assessments.index'));
+                });
             }).catch(function (data) {
                 submitted = false;
                 Swal.fire({
@@ -850,7 +990,7 @@
         // Shared detections — run on both desktop and mobile.
         let cooldown = false;
         function violation(reason) {
-            if (submitted || cooldown) return;
+            if (!quizStarted || submitted || cooldown || authorizedFullscreenTransition) return;
             cooldown = true; setTimeout(() => { cooldown = false; }, 1000);
             bumpWarning(reason);
         }

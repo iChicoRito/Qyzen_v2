@@ -7,6 +7,9 @@
     'id',
     'title' => '',
     'width' => '560px',
+    'persistent' => false,
+    'showClose' => true,
+    'scrollable' => true,
 ])
 {{-- Flatten a fragment's own kt-card so it doesn't double the modal's border/padding. Scoped to
      this modal's body; the standalone full-page form keeps its card. --}}
@@ -24,15 +27,17 @@
          so scrolled content can't peek beneath it. --}}
     #{{ $id }} [data-modal-body] { flex: 1 1 auto; padding-bottom: 0; }
 </style>
-<div class="kt-modal kt-modal-center" data-kt-modal="true" id="{{ $id }}">
+<div class="kt-modal kt-modal-center" data-kt-modal="true" @if($persistent) data-kt-modal-persistent="true" @endif id="{{ $id }}">
     <div class="kt-modal-content top-[8%]" style="width: 100%; max-width: min(92vw, {{ $width }});">
         <div class="kt-modal-header">
             <h3 class="kt-modal-title" data-modal-title>{{ $title }}</h3>
-            <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0" data-kt-modal-dismiss="true">
-                <i class="ki-filled ki-cross"></i>
-            </button>
+            @if($showClose)
+                <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0" data-kt-modal-dismiss="true">
+                    <i class="ki-filled ki-cross"></i>
+                </button>
+            @endif
         </div>
-        <div class="kt-modal-body kt-scrollable-y" data-modal-body>
+        <div class="kt-modal-body{{ $scrollable ? ' kt-scrollable-y' : '' }}" data-modal-body>
             {{ $slot }}
         </div>
     </div>

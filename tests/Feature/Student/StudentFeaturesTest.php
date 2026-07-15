@@ -180,6 +180,14 @@ class StudentFeaturesTest extends TestCase
         $response->assertOk();
 
         $html = $response->getContent();
+        $this->assertMatchesRegularExpression('/<div[^>]+class="[^"]*kt-modal[^"]*"[^>]+data-kt-modal="true"[^>]+id="qz-fullscreen-gate"/', $html);
+        $this->assertMatchesRegularExpression('/id="qz-fullscreen-gate"[\s\S]*<div class="kt-modal-body" data-modal-body>/', $html);
+        $this->assertStringContainsString('Fullscreen mode is required', $html);
+        $this->assertStringContainsString('I Understand', $html);
+        $this->assertStringContainsString('requestQuizFullscreen', $html);
+        $this->assertStringContainsString('fullscreenchange', $html);
+        $this->assertStringContainsString('restoreFullscreen();', $html);
+        $this->assertStringContainsString("e.key !== 'Escape'", $html);
         // correct keys / identification answer must not appear as answer data.
         $this->assertStringNotContainsString('correct_answer', $html);
         $this->assertStringNotContainsString('Paris', $html, 'identification answer leaked to take-quiz page');

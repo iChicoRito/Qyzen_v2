@@ -52,6 +52,10 @@ class FortifyServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($key);
         });
 
+        RateLimiter::for('verification-codes', function (Request $request) {
+            return Limit::perMinute(5)->by((string) optional($request->route('user'))->id.'|'.$request->ip());
+        });
+
         // J3: throttle quiz writes (autosave/submit) per authenticated user — autosave is
         // debounced ~800ms client-side, so 60/min is generous headroom while capping abuse.
         RateLimiter::for('quiz-writes', function (Request $request) {

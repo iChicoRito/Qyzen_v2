@@ -13,7 +13,7 @@ class AccountCreatedNotification extends Notification
     use Queueable;
 
     public function __construct(
-        public string $temporaryPassword,
+        public string $verificationCode,
         public string $createdBy = 'Mr. Mark Adrianne Salunga',
     ) {}
 
@@ -36,7 +36,7 @@ class AccountCreatedNotification extends Notification
             ->view('emails.account-created', [
                 'user' => $notifiable,
                 'createdBy' => $this->createdBy,
-                'temporaryPassword' => $this->temporaryPassword,
+                'verificationCode' => $this->verificationCode,
                 'confirmUrl' => $confirmUrl,
             ]);
     }

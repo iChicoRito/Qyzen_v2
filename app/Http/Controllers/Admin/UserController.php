@@ -137,13 +137,13 @@ class UserController extends Controller
         if ($user->email_verified_at === null) {
             $this->onboarding->send($user);
 
-            Log::info('Admin resent account credentials', [
+            Log::info('Admin resent account verification email', [
                 'admin_id' => request()->user()?->id,
                 'user_id' => $user->id,
                 'user_email' => $user->email,
             ]);
 
-            return back()->with('status', 'Account credentials and verification link resent.');
+            return back()->with('status', 'Verification email resent.');
         }
 
         return back()->with('status', 'User is already verified.');

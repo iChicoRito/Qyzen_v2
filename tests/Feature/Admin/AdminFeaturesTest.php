@@ -60,7 +60,7 @@ class AdminFeaturesTest extends TestCase
 
     // ---- F2 / F4 users ----
 
-    public function test_admin_creates_user_with_roles_and_sends_account_credentials(): void
+    public function test_admin_creates_user_with_roles_and_sends_account_verification_code(): void
     {
         Notification::fake();
 
@@ -73,11 +73,12 @@ class AdminFeaturesTest extends TestCase
         $user = User::where('user_id', '2026-12345')->firstOrFail();
         $this->assertSame('new.student@example.com', $user->email);
         $this->assertTrue($user->hasRole('student'));
-        $this->assertNotNull($user->password);
+        $this->assertNull($user->password);
         $this->assertTrue($user->must_change_password);
         Notification::assertSentTo($user, AccountCreatedNotification::class, function (AccountCreatedNotification $notification) use ($user) {
             $this->assertSame('Mr. Mark Adrianne Salunga', $notification->createdBy);
-            $this->assertTrue(Hash::check($notification->temporaryPassword, $user->fresh()->password));
+            $this->assertMatchesRegularExpression('/^\d{6}$/', $notification->verificationCode);
+            $this->assertTrue(Hash::check($notification->verificationCode, $user->fresh()->email_verification_code));
 
             return true;
         });
@@ -224,7 +225,7 @@ class AdminFeaturesTest extends TestCase
             ->assertHeader('content-disposition');
     }
 
-    public function test_signed_account_confirm_link_marks_user_verified(): void
+    public function test_signed_account_confirm_link_requires_code_before_marking_user_verified(): void
     {
         $otherAdmin = $this->makeUser('admin', 'admin');
         $inactiveAdmin = $this->makeUser('admin', 'admin');
@@ -235,10 +236,19 @@ class AdminFeaturesTest extends TestCase
         ]);
         $user->roles()->attach(Role::where('name', 'student')->value('id'));
 
+        $code = '123456';
+        $user->forceFill([
+            'email_verification_code' => Hash::make($code),
+            'email_verification_code_expires_at' => now()->addHour(),
+        ])->save();
         $url = URL::temporarySignedRoute('account.activate', now()->addHour(), ['user' => $user]);
 
         $this->get($url)
-            ->assertRedirect(route('login'));
+            ->assertOk()
+            ->assertSee('Verify your account');
+
+        $this->post($url, ['code' => $code])
+            ->assertRedirect(route('password.force.edit'));
 
         $this->assertNotNull($user->fresh()->email_verified_at);
         foreach ([$this->admin, $otherAdmin] as $admin) {
@@ -276,7 +286,7 @@ class AdminFeaturesTest extends TestCase
         ]);
     }
 
-    public function test_admin_resend_sends_new_credentials_with_activation_link(): void
+    public function test_admin_resend_sends_new_verification_code_with_activation_link(): void
     {
         Notification::fake();
 
@@ -290,19 +300,20 @@ class AdminFeaturesTest extends TestCase
         $this->actingAs($this->admin)
             ->post(route('admin.users.resend-verification', $student))
             ->assertRedirect()
-            ->assertSessionHas('status', 'Account credentials and verification link resent.');
+            ->assertSessionHas('status', 'Verification email resent.');
 
         $student->refresh();
         $this->assertTrue($student->must_change_password);
-        $this->assertFalse(Hash::check('OldPass1!', $student->password));
+        $this->assertTrue(Hash::check('OldPass1!', $student->password));
 
         Notification::assertSentTo($student, AccountCreatedNotification::class, function (AccountCreatedNotification $notification) use ($student) {
-            $this->assertTrue(Hash::check($notification->temporaryPassword, $student->fresh()->password));
+            $this->assertMatchesRegularExpression('/^\d{6}$/', $notification->verificationCode);
+            $this->assertTrue(Hash::check($notification->verificationCode, $student->fresh()->email_verification_code));
             $mail = $notification->toMail($student);
 
             $this->assertSame('Your Qyzen account is ready', $mail->subject);
             $this->assertSame('emails.account-created', $mail->view);
-            $this->assertSame($notification->temporaryPassword, $mail->viewData['temporaryPassword']);
+            $this->assertSame($notification->verificationCode, $mail->viewData['verificationCode']);
             $this->assertStringContainsString('/account/activate/'.$student->id, $mail->viewData['confirmUrl']);
 
             return true;
@@ -332,10 +343,10 @@ class AdminFeaturesTest extends TestCase
         $this->actingAs($this->admin)
             ->post(route('admin.users.resend-verification', $student))
             ->assertRedirect()
-            ->assertSessionHas('status', 'Account credentials and verification link resent.');
+            ->assertSessionHas('status', 'Verification email resent.');
 
         Notification::assertSentTo($student, AccountCreatedNotification::class, function (AccountCreatedNotification $notification) use ($student) {
-            $this->assertTrue(Hash::check($notification->temporaryPassword, $student->fresh()->password));
+            $this->assertTrue(Hash::check($notification->verificationCode, $student->fresh()->email_verification_code));
 
             return true;
         });
@@ -352,15 +363,16 @@ class AdminFeaturesTest extends TestCase
         $html = view('emails.account-created', [
             'user' => $user,
             'createdBy' => 'Mr. Mark Adrianne Salunga',
-            'temporaryPassword' => 'TempPass123',
+            'verificationCode' => '123456',
             'confirmUrl' => 'https://example.test/account/activate/1',
         ])->render();
 
         $this->assertStringContainsString('Your account is ready.', $html);
         $this->assertStringContainsString('Mr. Mark Adrianne Salunga', $html);
         $this->assertStringContainsString('new.student@example.com', $html);
-        $this->assertStringContainsString('TempPass123', $html);
-        $this->assertStringContainsString('Confirm account', $html);
+        $this->assertStringContainsString('123456', $html);
+        $this->assertStringNotContainsString('Temporary password', $html);
+        $this->assertStringContainsString('Verify Account', $html);
     }
 
     public function test_user_id_format_is_validated_per_type(): void

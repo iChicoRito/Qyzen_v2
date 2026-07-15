@@ -20,7 +20,7 @@ class User extends Authenticatable implements CanResetPasswordContract, MustVeri
     protected $table = 'tbl_users';
 
     // password is set explicitly (registration/reset), never mass-assigned.
-    protected $hidden = ['password', 'remember_token'];
+    protected $hidden = ['password', 'remember_token', 'email_verification_code'];
 
     // user_id, email, user_type, is_active are deliberately NOT fillable —
     // self-service column lock (was a Postgres trigger; enforced in Stage B12 / Form Requests).
@@ -37,6 +37,7 @@ class User extends Authenticatable implements CanResetPasswordContract, MustVeri
             'is_active' => 'boolean',
             'password' => 'hashed',
             'email_verified_at' => 'datetime',
+            'email_verification_code_expires_at' => 'datetime',
             'must_change_password' => 'boolean',
         ];
     }

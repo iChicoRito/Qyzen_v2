@@ -17,15 +17,17 @@
       </div>
     </div>
 
-    <div class="flex flex-col gap-1">
-      <label class="kt-form-label font-normal text-mono">Temporary password</label>
-      <input type="password" name="current_password" class="kt-input" required autofocus />
-      @error('current_password')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
-    </div>
+    @if ($requiresCurrentPassword)
+      <div class="flex flex-col gap-1">
+        <label class="kt-form-label font-normal text-mono">Temporary password</label>
+        <input type="password" name="current_password" class="kt-input" required autofocus />
+        @error('current_password')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
+      </div>
+    @endif
 
     <div class="flex flex-col gap-1">
       <label class="kt-form-label font-normal text-mono">New password</label>
-      <input type="password" name="password" class="kt-input" required />
+      <input type="password" name="password" class="kt-input" required @if (! $requiresCurrentPassword) autofocus @endif />
       @error('password')<span class="text-xs text-destructive mt-1">{{ $message }}</span>@enderror
     </div>
 

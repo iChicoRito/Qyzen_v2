@@ -127,7 +127,8 @@ class UserImportJobsTest extends TestCase
         $this->assertStringStartsWith('Row 5:', $import->failed_rows[0]['error']);
         Notification::assertSentTo($user, AccountCreatedNotification::class, function (AccountCreatedNotification $notification) use ($user) {
             $this->assertSame('Mr. Mark Adrianne Salunga', $notification->createdBy);
-            $this->assertTrue(Hash::check($notification->temporaryPassword, $user->fresh()->password));
+            $this->assertMatchesRegularExpression('/^\d{6}$/', $notification->verificationCode);
+            $this->assertTrue(Hash::check($notification->verificationCode, $user->fresh()->email_verification_code));
 
             return true;
         });

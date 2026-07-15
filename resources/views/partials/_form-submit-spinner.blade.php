@@ -156,6 +156,8 @@
             var form = e.target;
             if (!isAjaxForm(form)) return;
             e.preventDefault();
+            if (form.dataset.ajaxSubmitting) return;
+            form.dataset.ajaxSubmitting = '1';
 
             var action = new URL(form.getAttribute('action') || window.location.href, window.location.href);
             var token = form.querySelector('input[name="_token"]');
@@ -180,6 +182,7 @@
                 }
                 toast((data && data.message) || 'Could not save changes.', 'destructive');
             }).finally(function () {
+                delete form.dataset.ajaxSubmitting;
                 unspin(form);
             });
         });

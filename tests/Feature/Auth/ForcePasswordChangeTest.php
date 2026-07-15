@@ -95,6 +95,30 @@ class ForcePasswordChangeTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    public function test_code_verified_user_can_set_a_password_without_a_temporary_password(): void
+    {
+        $user = $this->makeUser(mustChangePassword: true);
+
+        $this->actingAs($user)
+            ->withSession(['registration_verified_user_id' => $user->id])
+            ->get(route('password.force.edit'))
+            ->assertOk()
+            ->assertDontSee('name="current_password"', false);
+
+        $this->actingAs($user)
+            ->withSession(['registration_verified_user_id' => $user->id])
+            ->put(route('password.force.update'), [
+                'password' => 'NewPass2!',
+                'password_confirmation' => 'NewPass2!',
+            ])
+            ->assertRedirect(route('login'));
+
+        $user->refresh();
+        $this->assertFalse($user->must_change_password);
+        $this->assertTrue(Hash::check('NewPass2!', $user->password));
+        $this->assertGuest();
+    }
+
     public function test_successful_forced_password_change_clears_flag_and_logs_user_out(): void
     {
         $user = $this->makeUser(mustChangePassword: true);

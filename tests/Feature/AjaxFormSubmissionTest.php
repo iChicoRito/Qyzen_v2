@@ -115,6 +115,13 @@ class AjaxFormSubmissionTest extends TestCase
         $this->assertStringContainsString('data-ajax-fragment-swap', $html);
     }
 
+    public function test_global_ajax_submitter_ignores_duplicate_submits_while_a_request_is_in_flight(): void
+    {
+        $script = file_get_contents(resource_path('views/partials/_form-submit-spinner.blade.php'));
+
+        $this->assertStringContainsString('form.dataset.ajaxSubmitting', $script);
+    }
+
     public function test_confirm_delete_uses_submit_event_for_ajax_interception(): void
     {
         $html = $this->actingAs($this->admin)

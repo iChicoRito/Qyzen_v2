@@ -33,12 +33,12 @@
                 <tr>
                   <td style="padding:18px 40px 0;">
                     <p style="margin:0;font-size:15px;line-height:1.65;color:#52525b;">
-                      Good day, {{ $user->given_name }} {{ $user->surname }}. <strong style="color:#18181b;font-weight:600;">{{ $createdBy }}</strong> created a Qyzen account for you. Confirm it below, then sign in with these credentials.
+                      Good day, {{ $user->given_name }} {{ $user->surname }}. <strong style="color:#18181b;font-weight:600;">{{ $createdBy }}</strong> created a Qyzen account for you. Use the verification code below, then choose your password.
                     </p>
                   </td>
                 </tr>
 
-                <!-- Credentials -->
+                <!-- Verification -->
                 <tr>
                   <td style="padding:28px 40px 0;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e4e4e7;border-radius:12px;">
@@ -52,10 +52,10 @@
                         <td style="padding:0 22px;"><div style="border-top:1px solid #e4e4e7;height:1px;line-height:1px;font-size:0;">&nbsp;</div></td>
                       </tr>
                       <tr>
-                        <td style="padding:18px 22px 6px;font-family:ui-monospace,'Cascadia Code',Menlo,Consolas,monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8a8a94;">Temporary password</td>
+                        <td style="padding:18px 22px 6px;font-family:ui-monospace,'Cascadia Code',Menlo,Consolas,monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8a8a94;">Verification code</td>
                       </tr>
                       <tr>
-                        <td style="padding:0 22px 20px;font-family:ui-monospace,'Cascadia Code',Menlo,Consolas,monospace;font-size:20px;font-weight:600;color:#18181b;word-break:break-all;">{{ $temporaryPassword }}</td>
+                        <td style="padding:0 22px 20px;font-family:ui-monospace,'Cascadia Code',Menlo,Consolas,monospace;font-size:24px;font-weight:600;letter-spacing:.18em;color:#18181b;word-break:break-all;">{{ $verificationCode }}</td>
                       </tr>
                     </table>
                   </td>
@@ -65,7 +65,7 @@
                 <tr>
                   <td style="padding:28px 40px 0;">
                     <a href="{{ $confirmUrl }}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;padding:13px 28px;border-radius:9999px;font-size:14px;font-weight:600;">
-                      Confirm account
+                      Verify Account
                     </a>
                   </td>
                 </tr>
@@ -73,7 +73,7 @@
                 <tr>
                   <td style="padding:24px 40px 40px;">
                     <p style="margin:0 0 14px;font-size:13px;line-height:1.6;color:#52525b;">
-                      For security, change your password after your first sign-in.
+                      This code and link expire in seven days.
                     </p>
                     <p style="margin:0 0 6px;font-size:13px;line-height:1.6;color:#8a8a94;">
                       If the button doesn't work, paste this link into your browser:

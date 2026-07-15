@@ -16,6 +16,7 @@ use App\Models\StudentAssessmentAccess;
 use App\Models\StudentAssessmentExemption;
 use App\Models\Subject;
 use App\Models\User;
+use App\Services\QuizGradingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -253,7 +254,7 @@ class StudentFeaturesTest extends TestCase
     // that's exactly the race window the controller's availability gate can't close.
     public function test_grade_is_idempotent_when_called_twice_for_the_same_attempt(): void
     {
-        $grading = app(\App\Services\QuizGradingService::class);
+        $grading = app(QuizGradingService::class);
         $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
         $answers = [$quizzes[0]->id => 'B'];
 
@@ -262,6 +263,191 @@ class StudentFeaturesTest extends TestCase
 
         $this->assertSame($first->id, $second->id);
         $this->assertSame(1, Score::where('student_id', $this->student->id)->where('assessment_id', $this->assessment->id)->count());
+    }
+
+    public function test_warning_endpoint_persists_the_server_count(): void
+    {
+        $this->assessment->update(['cheating_attempts' => 3]);
+
+        $this->actingAs($this->student)
+            ->get(route('student.take-quiz', $this->assessment))
+            ->assertOk();
+
+        $response = $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.warning', $this->assessment), [
+                'reason' => 'Tab switched.',
+                'answers' => [],
+            ])
+            ->assertOk()
+            ->assertJson([
+                'warnings' => 1,
+                'limit' => 3,
+                'forced' => false,
+            ]);
+
+        $score = Score::where('student_id', $this->student->id)
+            ->where('assessment_id', $this->assessment->id)
+            ->firstOrFail();
+
+        $this->assertNull($response->json('redirect_url'));
+        $this->assertSame(1, $score->warning_attempts);
+        $this->assertSame('in_progress', $score->status);
+    }
+
+    public function test_final_warning_immediately_finalizes_the_attempt_with_latest_answers(): void
+    {
+        $this->assessment->update(['cheating_attempts' => 1]);
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
+        $answers = [
+            $quizzes[0]->id => 'B',
+            $quizzes[1]->id => 'A',
+            $quizzes[2]->id => 'A',
+        ];
+
+        $this->actingAs($this->student)
+            ->get(route('student.take-quiz', $this->assessment))
+            ->assertOk();
+
+        $response = $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.warning', $this->assessment), [
+                'reason' => 'Window left focus.',
+                'answers' => $answers,
+            ])
+            ->assertOk()
+            ->assertJson([
+                'warnings' => 1,
+                'limit' => 1,
+                'forced' => true,
+            ]);
+
+        $score = Score::where('student_id', $this->student->id)
+            ->where('assessment_id', $this->assessment->id)
+            ->firstOrFail();
+
+        $this->assertSame(route('student.scores.show', $score), $response->json('redirect_url'));
+        $this->assertSame(1, $score->warning_attempts);
+        $this->assertSame($answers, $score->student_answer);
+        $this->assertSame(3, $score->score);
+        $this->assertSame('passed', $score->status);
+        $this->assertNotNull($score->submitted_at);
+    }
+
+    public function test_final_warning_blocks_later_draft_changes(): void
+    {
+        $this->assessment->update(['cheating_attempts' => 1]);
+        $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
+        $answers = [$quizzes[0]->id => 'B'];
+
+        $this->actingAs($this->student)
+            ->get(route('student.take-quiz', $this->assessment))
+            ->assertOk();
+
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.warning', $this->assessment), [
+                'reason' => 'Tab switched.',
+                'answers' => $answers,
+            ])
+            ->assertOk();
+
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.draft', $this->assessment), [
+                'answers' => [$quizzes[1]->id => 'A'],
+                'warnings' => 0,
+            ])
+            ->assertStatus(422);
+
+        $score = Score::where('student_id', $this->student->id)
+            ->where('assessment_id', $this->assessment->id)
+            ->firstOrFail();
+
+        $this->assertSame($answers, $score->student_answer);
+        $this->assertSame(1, $score->warning_attempts);
+        $this->assertSame('failed', $score->status);
+    }
+
+    public function test_reopening_after_final_warning_redirects_to_the_result(): void
+    {
+        $this->assessment->update(['cheating_attempts' => 1]);
+
+        $this->actingAs($this->student)
+            ->get(route('student.take-quiz', $this->assessment))
+            ->assertOk();
+
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.warning', $this->assessment), [
+                'reason' => 'Window left focus.',
+                'answers' => [],
+            ])
+            ->assertOk();
+
+        $score = Score::where('student_id', $this->student->id)
+            ->where('assessment_id', $this->assessment->id)
+            ->firstOrFail();
+
+        $this->actingAs($this->student)
+            ->get(route('student.take-quiz', $this->assessment))
+            ->assertRedirect(route('student.scores.show', $score));
+    }
+
+    public function test_duplicate_final_warning_requests_return_the_same_finished_attempt(): void
+    {
+        $this->assessment->update(['cheating_attempts' => 1]);
+
+        $this->actingAs($this->student)
+            ->get(route('student.take-quiz', $this->assessment))
+            ->assertOk();
+
+        $first = $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.warning', $this->assessment), [
+                'reason' => 'Tab switched.',
+                'answers' => [],
+            ])
+            ->assertOk();
+
+        $second = $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.warning', $this->assessment), [
+                'reason' => 'Tab switched again.',
+                'answers' => [999 => 'late answer'],
+            ])
+            ->assertOk()
+            ->assertJson([
+                'warnings' => 1,
+                'limit' => 1,
+                'forced' => true,
+            ]);
+
+        $this->assertSame($first->json('redirect_url'), $second->json('redirect_url'));
+        $this->assertSame(1, Score::where('student_id', $this->student->id)->where('assessment_id', $this->assessment->id)->count());
+    }
+
+    public function test_client_warning_payload_cannot_reduce_persisted_warnings(): void
+    {
+        $this->assessment->update(['cheating_attempts' => 3]);
+
+        $this->actingAs($this->student)
+            ->get(route('student.take-quiz', $this->assessment))
+            ->assertOk();
+
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.warning', $this->assessment), [
+                'reason' => 'Tab switched.',
+                'answers' => [],
+            ])
+            ->assertOk();
+
+        $this->actingAs($this->student)
+            ->postJson(route('student.take-quiz.draft', $this->assessment), [
+                'answers' => [],
+                'warnings' => 0,
+            ])
+            ->assertOk();
+
+        $score = Score::where('student_id', $this->student->id)
+            ->where('assessment_id', $this->assessment->id)
+            ->firstOrFail();
+
+        $this->assertSame(1, $score->warning_attempts);
+        $this->assertSame('in_progress', $score->status);
     }
 
     public function test_expired_assessment_rejects_json_submit_without_creating_score(): void

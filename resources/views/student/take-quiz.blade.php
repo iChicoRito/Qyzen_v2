@@ -212,6 +212,7 @@
         window.addEventListener('pageshow', e => { if (e.persisted) location.reload(); });
 
         const draftUrl = @json(route('student.take-quiz.draft', $assessment));
+        const warningUrl = @json(route('student.take-quiz.warning', $assessment));
         const token = @json(csrf_token());
         const limit = {{ (int) ($assessment->cheating_attempts ?: 0) }};
         const total = {{ $questions->count() }};
@@ -221,6 +222,7 @@
         const hasTimer = {{ $assessment->time_limit > 0 ? 'true' : 'false' }};
         let warnings = {{ (int) $warnings }};
         let submitted = false, dirty = false;
+        let warningInFlight = false;
         let quizStarted = false;
         let authorizedFullscreenTransition = false;
         let fullscreenGuardTimer = null;
@@ -380,6 +382,7 @@
         let saveTimer = null;
         function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 800); }
         function save(manual) {
+            if (submitted) return;
             if (!dirty && !manual) return;
             dirty = false;
             fetch(draftUrl, {
@@ -969,7 +972,72 @@
         }
 
         // ---- Integrity ----
+        function renderWarnings(count) {
+            warnings = Number(count) || 0;
+            $('qz-warnings-input').value = warnings;
+            $$('.qz-warnings').forEach(el => { el.textContent = warnings + (limit > 0 ? ' / ' + limit : ''); });
+        }
+
+        function lockAfterForcedWarning(data, reason) {
+            submitted = true;
+            dirty = false;
+            form.querySelectorAll('input, button, textarea, select').forEach(el => { el.disabled = true; });
+            Swal.fire({
+                icon: 'error',
+                title: 'Warning limit reached',
+                text: data.message || `${reason} Your assessment has been submitted.`,
+                timer: 2600,
+                showConfirmButton: false,
+                allowOutsideClick: false,
+            }).then(function () {
+                exitQuizFullscreen().finally(function () {
+                    window.location.href = data.redirect_url || @json(route('student.assessments.index'));
+                });
+            });
+        }
+
+        function recordServerWarning(reason) {
+            if (warningInFlight || submitted) return;
+            warningInFlight = true;
+            fetch(warningUrl, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'Accept': 'application/json'},
+                body: JSON.stringify({reason, answers: collectAnswers()}),
+                credentials: 'same-origin'
+            }).then(function (r) {
+                return r.json().catch(function () { return {}; }).then(function (data) {
+                    if (!r.ok) throw data;
+                    return data;
+                });
+            }).then(function (data) {
+                renderWarnings(data.warnings);
+                dirty = false;
+                $$('.qz-warn-reason').forEach(el => { el.textContent = 'Last warning: ' + reason; el.classList.remove('hidden'); });
+                if (data.forced) {
+                    lockAfterForcedWarning(data, reason);
+                    return;
+                }
+
+                const serverLimit = Number(data.limit) || limit;
+                const left = serverLimit > 0 ? `${serverLimit - warnings} warning(s) remaining before your attempt is auto-submitted.` : 'This has been recorded.';
+                Swal.fire({ icon: 'warning', title: 'Assessment warning', html: `<b>${reason}</b><br><span style="font-size:.9em">${left}</span>`,
+                    timer: 3200, showConfirmButton: false });
+            }).catch(function (data) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Could not record warning',
+                    text: (data && data.message) || 'Please check your connection and try again.',
+                    confirmButtonColor: '#3475db'
+                });
+            }).finally(function () {
+                warningInFlight = false;
+            });
+        }
+
         function bumpWarning(reason) {
+            recordServerWarning(reason);
+            /*
+            return;
             warnings++;
             $('qz-warnings-input').value = warnings;
             $$('.qz-warnings').forEach(el => { el.textContent = warnings + (limit > 0 ? ' / ' + limit : ''); });
@@ -985,6 +1053,7 @@
                 Swal.fire({ icon: 'warning', title: 'Assessment warning', html: `<b>${reason}</b><br><span style="font-size:.9em">${left}</span>`,
                     timer: 3200, showConfirmButton: false });
             }
+            */
         }
 
         // Shared detections — run on both desktop and mobile.

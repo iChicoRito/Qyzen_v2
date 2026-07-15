@@ -164,7 +164,7 @@ class QuizController extends Controller
         $draft = Score::where('assessment_id', $assessment->id)
             ->where('student_id', Auth::id())
             ->where('status', 'in_progress')->first()
-            ?? $this->grading->saveDraft(Auth::user(), $assessment, [], 0);
+            ?? $this->grading->startAttempt(Auth::user(), $assessment);
 
         // Questions WITHOUT correct_answer (model hides it; we also select explicit columns).
         // Only the pinned drawn subset for this attempt — never the full eligible pool.
@@ -237,9 +237,57 @@ class QuizController extends Controller
             'warnings' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $this->grading->saveDraft(Auth::user(), $assessment, $data['answers'] ?? [], (int) ($data['warnings'] ?? 0));
+        $score = $this->grading->saveDraft(Auth::user(), $assessment, $data['answers'] ?? [], (int) ($data['warnings'] ?? 0));
+        if (! $score) {
+            return response()->json(['message' => 'This attempt is no longer eligible.'], 422);
+        }
 
         return response()->json(['saved' => true, 'at' => now()->toTimeString()]);
+    }
+
+    public function warning(Request $request, Assessment $assessment): JsonResponse
+    {
+        $this->authorizeQuizAccess($assessment);
+
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:255'],
+            'answers' => ['array'],
+        ]);
+
+        $summary = $this->availability->summarize($assessment, Auth::id());
+        $latest = Score::where('assessment_id', $assessment->id)
+            ->where('student_id', Auth::id())
+            ->whereIn('status', ['passed', 'failed', 'submitted'])
+            ->orderByDesc('submitted_at')
+            ->first();
+
+        if (! $summary['can_take']) {
+            if ($latest) {
+                return response()->json([
+                    'warnings' => (int) $latest->warning_attempts,
+                    'limit' => (int) $assessment->cheating_attempts,
+                    'forced' => true,
+                    'redirect_url' => route('student.scores.show', $latest),
+                    'message' => 'Warning limit reached. Your assessment has been submitted.',
+                ]);
+            }
+
+            return response()->json(['message' => 'This attempt is no longer eligible.'], 422);
+        }
+
+        $score = $this->grading->recordWarning(Auth::user(), $assessment, $data['answers'] ?? []);
+        $limit = (int) $assessment->cheating_attempts;
+        $forced = in_array($score->status, ['passed', 'failed', 'submitted'], true);
+
+        return response()->json([
+            'warnings' => (int) $score->warning_attempts,
+            'limit' => $limit,
+            'forced' => $forced,
+            'redirect_url' => $forced ? route('student.scores.show', $score) : null,
+            'message' => $forced
+                ? 'Warning limit reached. Your assessment has been submitted.'
+                : 'Warning recorded.',
+        ]);
     }
 
     // Task 02: resolve a hint mini-game attempt. `outcome` (won|lost|skipped) is client-reported

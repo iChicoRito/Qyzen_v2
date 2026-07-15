@@ -71,6 +71,8 @@ Route::middleware(['auth', 'verified', 'role:student'])
         Route::get('take-quiz/{assessment}', [StudentQuizController::class, 'take'])->name('take-quiz');
         Route::post('take-quiz/{assessment}/draft', [StudentQuizController::class, 'saveDraft'])
             ->middleware('throttle:quiz-writes')->name('take-quiz.draft');
+        Route::post('take-quiz/{assessment}/warning', [StudentQuizController::class, 'warning'])
+            ->middleware('throttle:quiz-writes')->name('take-quiz.warning');
         Route::post('take-quiz/{assessment}/submit', [StudentQuizController::class, 'submit'])
             ->middleware('throttle:quiz-writes')->name('take-quiz.submit');
         Route::post('take-quiz/{assessment}/hint', [StudentQuizController::class, 'hint'])

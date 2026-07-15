@@ -816,6 +816,56 @@ class EducatorFeaturesTest extends TestCase
         $this->assertDatabaseHas('tbl_assessments', ['subject_id' => $subjectB->id, 'section_id' => $subjectB->sections_id]);
     }
 
+    public function test_educator_can_duplicate_assessment_with_question_pool_without_touching_original(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        $quiz = Quiz::create([
+            'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+            'question' => 'Original pool question', 'quiz_type' => 'identification',
+            'correct_answer' => 'yes',
+        ]);
+        $assessment->eligibleQuizzes()->sync([$quiz->id]);
+        $assessment->update(['pool_size' => 1]);
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.assessments.duplicate', $assessment))
+            ->assertOk()
+            ->assertSee('Q1 Copy');
+
+        $payload = $this->assessmentPayload($subject, Section::find($subject->sections_id), false);
+        $payload['assessment_code'] = 'Q1 Copy';
+        $payload['time_limit'] = '45';
+
+        $this->actingAs($this->eduA)
+            ->post(route('educator.assessments.duplicate.store', $assessment), $payload)
+            ->assertRedirect(route('educator.assessments.index'));
+
+        $assessment->refresh();
+        $duplicate = Assessment::where('assessment_code', 'Q1 Copy')->firstOrFail();
+
+        $this->assertNotSame($assessment->id, $duplicate->id);
+        $this->assertSame('30', $assessment->time_limit);
+        $this->assertSame('45', $duplicate->time_limit);
+        $this->assertSame(1, $duplicate->pool_size);
+        $this->assertSame([$quiz->id], $duplicate->eligibleQuizzes()->pluck('tbl_quizzes.id')->all());
+    }
+
+    public function test_educator_cannot_duplicate_another_educators_assessment(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $subjectB = $this->subject($this->eduB);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduB)
+            ->get(route('educator.assessments.duplicate', $assessment))
+            ->assertForbidden();
+
+        $this->actingAs($this->eduB)
+            ->post(route('educator.assessments.duplicate.store', $assessment), $this->assessmentPayload($subjectB, Section::find($subjectB->sections_id), false))
+            ->assertForbidden();
+    }
+
     public function test_assessments_index_sorts_by_subject_on_the_server(): void
     {
         $alpha = Subject::create([
@@ -1205,21 +1255,38 @@ class EducatorFeaturesTest extends TestCase
         $this->assertSame(0, $xpath->query('//button[@data-kt-modal-toggle="#search_modal"]')->length);
     }
 
-    public function test_editing_assessment_can_add_extra_subjects(): void
+    public function test_editing_assessment_rejects_multiple_subjects(): void
     {
         $subjectA = $this->subject($this->eduA);
         $subjectB = $this->subject($this->eduA);
         $assessment = Assessment::create($this->assessmentModelData($subjectA));
 
-        // Edit: keep current subject (A, via hidden) + add B.
         $payload = $this->assessmentPayload($subjectA, Section::find($subjectA->sections_id), false);
         $payload['subject_ids'] = [$subjectA->id, $subjectB->id];
 
+        $this->actingAs($this->eduA)
+            ->put(route('educator.assessments.update', $assessment), $payload)
+            ->assertSessionHasErrors('subject_ids');
+
+        $this->assertSame(1, Assessment::count());
+        $this->assertSame($subjectA->id, $assessment->fresh()->subject_id);
+    }
+
+    public function test_editing_assessment_can_replace_subject_with_one_section_only(): void
+    {
+        $subjectA = $this->subject($this->eduA);
+        $subjectB = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subjectA));
+
+        $payload = $this->assessmentPayload($subjectB, Section::find($subjectB->sections_id), false);
+        $payload['subject_ids'] = [$subjectB->id];
+
         $this->actingAs($this->eduA)->put(route('educator.assessments.update', $assessment), $payload)->assertRedirect();
 
-        // A updated in place (still one row), B added as a new assessment.
-        $this->assertEquals(1, Assessment::where('subject_id', $subjectA->id)->count());
-        $this->assertDatabaseHas('tbl_assessments', ['subject_id' => $subjectB->id, 'section_id' => $subjectB->sections_id]);
+        $assessment->refresh();
+        $this->assertSame(1, Assessment::count());
+        $this->assertSame($subjectB->id, $assessment->subject_id);
+        $this->assertSame($subjectB->sections_id, $assessment->section_id);
     }
 
     // ---- G6 quizzes: correct_answer never serialized ----

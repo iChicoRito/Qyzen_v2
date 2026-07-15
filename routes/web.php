@@ -188,6 +188,8 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         Route::get('enrollment/student/{user}', [EnrollmentController::class, 'showStudent'])->name('enrollment.student');
         Route::resource('enrollment', EnrollmentController::class)->except('show')->parameters(['enrollment' => 'enrolled']);
 
+        Route::get('assessments/{assessment}/duplicate', [AssessmentController::class, 'duplicate'])->name('assessments.duplicate');
+        Route::post('assessments/{assessment}/duplicate', [AssessmentController::class, 'storeDuplicate'])->name('assessments.duplicate.store');
         Route::resource('assessments', AssessmentController::class)->except('show');
 
         // Task 51: question pool config — which bank questions are eligible + draw size N.

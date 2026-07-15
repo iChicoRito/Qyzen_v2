@@ -22,6 +22,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -138,17 +139,70 @@ class AssessmentController extends Controller
         return view('educator.assessments.edit', ['assessment' => $assessment] + $this->formData());
     }
 
+    public function duplicate(Assessment $assessment): View
+    {
+        $this->authorize('update', $assessment);
+
+        $duplicate = $assessment->replicate();
+        $duplicate->assessment_code = substr((string) $assessment->assessment_code, 0, 250).' Copy';
+
+        return view('educator.assessments.duplicate', ['assessment' => $duplicate, 'sourceAssessment' => $assessment] + $this->formData());
+    }
+
+    public function storeDuplicate(UpdateAssessmentRequest $request, Assessment $assessment): JsonResponse|RedirectResponse
+    {
+        $this->authorize('update', $assessment);
+
+        $data = $request->validated();
+        $subjectId = (int) $data['subject_ids'][0];
+        unset($data['subject_ids']);
+
+        $subject = Subject::whereKey($subjectId)->firstOrFail(['id', 'sections_id']);
+
+        $newAssessment = DB::transaction(function () use ($assessment, $data, $subject) {
+            $newAssessment = Assessment::create($data + [
+                'educator_id' => Auth::id(),
+                'subject_id' => $subject->id,
+                'section_id' => $subject->sections_id,
+                'pool_size' => $assessment->pool_size,
+            ]);
+
+            $newAssessment->eligibleQuizzes()->sync(
+                $assessment->eligibleQuizzes()->pluck('tbl_quizzes.id')
+            );
+
+            return $newAssessment;
+        });
+
+        if ($newAssessment->is_active) {
+            $this->notifyEnrolled($newAssessment, 'assessment_created', 'New assessment published');
+        }
+
+        $message = 'Assessment duplicated.';
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => $message,
+                'redirect' => route('educator.assessments.index', [], false),
+            ]);
+        }
+
+        return redirect()->route('educator.assessments.index')->with('status', $message);
+    }
+
     public function update(UpdateAssessmentRequest $request, Assessment $assessment): RedirectResponse
     {
         $this->authorize('update', $assessment);
 
         $wasActive = $assessment->is_active;
         $data = $request->validated();
-        $subjectIds = $data['subject_ids'];
+        $subjectId = (int) $data['subject_ids'][0];
         unset($data['subject_ids']);
+        $subject = Subject::whereKey($subjectId)->firstOrFail(['id', 'sections_id']);
 
-        // Update the current row against its own subject (section follows the subject).
-        $assessment->update($data + ['section_id' => $assessment->subject->sections_id]);
+        // Update the current row only; section follows the selected subject.
+        $assessment->update($data + ['subject_id' => $subject->id, 'section_id' => $subject->sections_id]);
 
         // Publish trigger: inactive → active fires assessment_created; otherwise assessment_updated.
         if (! $wasActive && $assessment->is_active) {
@@ -157,24 +211,8 @@ class AssessmentController extends Controller
             $this->notifyEnrolled($assessment, 'assessment_updated', 'Assessment updated');
         }
 
-        // Any additional selected subjects become NEW assessments (one per subject).
-        $extraIds = array_diff($subjectIds, [$assessment->subject_id]);
-        $created = Subject::whereKey($extraIds)->get(['id', 'sections_id']);
-        foreach ($created as $subject) {
-            $new = Assessment::create($data + [
-                'educator_id' => Auth::id(),
-                'subject_id' => $subject->id,
-                'section_id' => $subject->sections_id,
-            ]);
-            if ($new->is_active) {
-                $this->notifyEnrolled($new, 'assessment_created', 'New assessment published');
-            }
-        }
-
-        $extra = $created->count();
-
         return redirect()->route('educator.assessments.index')
-            ->with('status', $extra ? "Assessment updated; {$extra} added." : 'Assessment updated.');
+            ->with('status', 'Assessment updated.');
     }
 
     public function destroy(Assessment $assessment): RedirectResponse

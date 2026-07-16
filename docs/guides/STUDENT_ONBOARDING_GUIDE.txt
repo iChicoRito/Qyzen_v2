@@ -277,7 +277,7 @@ STEP 3: Select an Assessment
     • Instructions or special notes from your instructor
     • Number of questions
     • Time limit (if applicable)
-    • Passing score (usually 75%)
+    • Passing score (usually 70%)
     • Start button (or Continue button if you began it before)
 
   Read all instructions carefully before starting.

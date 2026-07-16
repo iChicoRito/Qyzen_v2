@@ -43,7 +43,7 @@ over is the *domain logic and data shapes*, which we translate from the ~35
    /enrollment scope; every route carries a Policy/middleware. A forgotten scope =
    a data leak. This is the highest-risk theme and recurs in every phase.
 2. **Preserve the security invariants exactly** — server-side grading (correct
-   answers never sent to the client, ≥75% pass), self-service column locking,
+   answers never sent to the client, ≥70% pass), self-service column locking,
    enrollment-gated access, signed/temporary file URLs.
 3. **Data fidelity** — keep integer `id` values and `tbl_users.user_id` on import
    so every relationship and historical reference survives.
@@ -299,7 +299,7 @@ gated. The quiz engine is the highest-stakes feature.
   `cheating_attempts` or timer zero. Detection client-side, **enforcement server-side**.
 - **7.5 ⚠ Server-side grading — preserve exactly.** `mode=submit` controller:
   re-validate enrollment, load `correct_answer` **server-only**, compare, compute
-  `is_passed` (**≥75%**), write `tbl_scores`, emit `quiz_submitted` to the educator.
+  `is_passed` (**≥70%**), write `tbl_scores`, emit `quiz_submitted` to the educator.
   **`correct_answer` is never serialized to the student.** This is the non-negotiable
   invariant from [MIGRATION §4](../architecture/MIGRATION_LARAVEL_MYSQL.md#4-migration-mapping-reference-port-checklist).
 - **7.6 Result / review** — score summary; per-question review showing the correct
@@ -314,7 +314,7 @@ gated. The quiz engine is the highest-stakes feature.
   change. Reproduce the self-service column lock (Phase 1 observer).
 
 **Exit:** a student takes a scheduled quiz with autosave + anti-cheat, is graded
-server-side at ≥75%, sees the gated review, and can retake when permitted. A targeted
+server-side at ≥70%, sees the gated review, and can retake when permitted. A targeted
 test confirms `correct_answer` never appears in any student-facing response.
 
 ---

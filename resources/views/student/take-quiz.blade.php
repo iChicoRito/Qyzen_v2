@@ -159,7 +159,7 @@
                                 @if ($q->quiz_type === 'multiple_choice')
                                     <div class="grid sm:grid-cols-2 gap-3">
                                         @foreach (($q->choices ?? []) as $key => $text)
-                                            @php $letter = chr(65 + $loop->index); @endphp
+                                            @php $letter = $key; @endphp
                                             <label class="qz-option flex items-center gap-4 rounded-xl border border-border p-4 cursor-pointer {{ $given === (string) $key ? 'selected' : '' }}">
                                                 <input type="radio" class="sr-only qz-answer" name="answers[{{ $q->id }}]" value="{{ $key }}" @checked($given === (string) $key)>
                                                 <span class="qz-hex flex items-center justify-center shrink-0 size-12 bg-accent text-base font-semibold text-secondary-foreground">{{ $letter }}</span>

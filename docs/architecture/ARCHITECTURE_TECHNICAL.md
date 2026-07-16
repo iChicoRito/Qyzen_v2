@@ -279,7 +279,7 @@ flowchart TD
     N --> O[POST scores mode=submit]
     L --> O
     O --> P[Server: fetchStudentQuizGradingSession<br/>re-validate enrollment, load correct answers]
-    P --> Q[Score server-side: compare answers<br/>is_passed = percentage at least 75]
+    P --> Q[Score server-side: compare answers<br/>is_passed = percentage at least 70]
     Q --> R[Update tbl_scores status passed/failed, submitted_at]
     R --> S[Insert tbl_notifications quiz_submitted to educator]
     S --> T[Redirect /take-quiz/result]

@@ -81,7 +81,7 @@
 | Anti-cheat (tab-hidden/blur/paste/context-menu) + force-submit | ✅ | vanilla detectors → `warning_attempts` → force-submit at limit/zero |
 | Hints (random-timed) | ⛔ dropped | low value, no server state; documented drop (add on request) |
 | View mode list/slideshow · manual save | ⛔ dropped | autosave covers save; single list view kept |
-| **Submit → server-side grading, pass ≥75%, notify** | ✅ **invariant** | `QuizGradingService` — `correct_answer` server-only, test-asserted |
+| **Submit → server-side grading, pass ≥70%, notify** | ✅ **invariant** | `QuizGradingService` — `correct_answer` server-only, test-asserted |
 | Result: score summary + warnings | ✅ | `ScoreController@show` |
 | Result: attempt history switcher | ✅ | `@show` |
 | Result: per-question review (gated correct-answer) | ✅ | shown only if `allow_review` OR correct |

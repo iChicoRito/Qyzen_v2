@@ -30,7 +30,7 @@ Docs are organized under `docs/` by category — **read these before migration-a
 
 The migration (Stages A–J) is **complete and hardened**: schema, auth, authorization, admin/educator/student features, and the quiz engine are all built and tested on Laravel + MySQL. Feature work has continued past the migration itself (see recent commits and `prompts/tasks/`) — bulk import, messaging, notifications, landing page, anti-cheat, and a question bank/randomized pool have since shipped. Two gates from the migration remain binding on any related work:
 - **Authorization (Stage D) gates all feature work.** Every list/read query and every route must carry a scope/Policy — there is no RLS to fall back on.
-- **Server-side grading (Stage H6)** must preserve the invariant exactly: `correct_answer` is loaded server-side only, never serialized to a student; pass mark is ≥75%, computed on the server.
+- **Server-side grading (Stage H6)** must preserve the invariant exactly: `correct_answer` is loaded server-side only, never serialized to a student; pass mark is ≥70%, computed on the server.
 
 What's genuinely unbuilt: real Supabase→MySQL data import (Stage E, blocked on a live data export) and the optional live-transport upgrade for chat/notifications (Stage I — currently request/response or polling). See `docs/roadmap/PROGRESS.md` for the authoritative, regularly-updated detail.
 

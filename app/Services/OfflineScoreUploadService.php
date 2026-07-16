@@ -84,7 +84,7 @@ class OfflineScoreUploadService
                 continue;
             }
 
-            $passed = (((int) $data['score'] / $totalQuestions) * 100) >= 75;
+            $passed = ((int) $data['score'] / $totalQuestions) >= QuizGradingService::PASS_THRESHOLD;
             $now = Carbon::now();
 
             $clean[] = [

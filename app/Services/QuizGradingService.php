@@ -12,11 +12,11 @@ use Illuminate\Support\Facades\DB;
 // H6: THE CORE INVARIANT. Grading happens here, server-side only:
 //  - correct_answer is loaded from the DB inside this service and NEVER returned to the caller
 //    or serialized to the client. The Quiz model also marks it $hidden as a second guard.
-//  - pass mark is >= 75%, computed on the server from the freshly loaded correct answers.
+//  - pass mark is >= 70%, computed on the server from the freshly loaded correct answers.
 // The student's submitted answers come in; only an authoritative Score row goes back.
 class QuizGradingService
 {
-    public const PASS_THRESHOLD = 0.75;
+    public const PASS_THRESHOLD = 0.70;
 
     private const TERMINAL_STATUSES = ['submitted', 'passed', 'failed'];
 

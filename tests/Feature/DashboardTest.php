@@ -177,7 +177,7 @@ class DashboardTest extends TestCase
             'student_id' => $student->id, 'educator_id' => $educator->id, 'assessment_id' => $a->id,
             'subject_id' => $subject->id, 'section_id' => $section->id,
             'score' => $pct, 'total_questions' => 100, 'student_answer' => [],
-            'status' => 'submitted', 'is_passed' => $pct >= 75, 'taken_at' => now(),
+            'status' => 'submitted', 'is_passed' => $pct >= 70, 'taken_at' => now(),
         ]);
     }
 }

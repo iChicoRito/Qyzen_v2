@@ -180,7 +180,7 @@ Read-only. Summary cards (total/pending/completed assessments, average score), p
 | Hints | If `allow_hint`: up to `hint_count` random-timed toast hints (not student-requested). |
 | View mode | List vs slideshow. |
 | Manual save | Optional (autosave covers it). |
-| Submit | Confirms unanswered count → `mode=submit`; **server-side grading** (correct answers never sent to client); pass ≥75%; redirect to result. |
+| Submit | Confirms unanswered count → `mode=submit`; **server-side grading** (correct answers never sent to client); pass ≥70%; redirect to result. |
 
 ### Result / Review — `assessment/take-quiz/result` · `student-quiz.ts`
 | Action | Notes |

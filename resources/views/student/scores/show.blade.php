@@ -80,7 +80,7 @@
                         ['Percentage', $pct.'%'],
                         ['Best score', $bestScore.'/'.$bestTotal.' ('.$bestPct.'%)'],
                         ['Educator', optional($a->educator)->name ?? '—'],
-                        ['Passing requirement', '≥ 75%'],
+                        ['Passing requirement', '≥ 70%'],
                     ];
                 @endphp
                 <div class="grid gap-2 rounded-lg border border-border p-3.5 text-sm">
@@ -142,9 +142,9 @@
                 {{-- Plain-language result message --}}
                 <div class="rounded-lg p-3.5 text-sm" style="{{ $score->is_passed ? 'background:rgba(34,197,94,.1);color:#15803d;' : 'background:rgba(239,68,68,.1);color:#b91c1c;' }}">
                     @if ($score->is_passed)
-                        Nice work — you passed with {{ $pct }}%, meeting the ≥ 75% requirement.
+                        Nice work — you passed with {{ $pct }}%, meeting the ≥ 70% requirement.
                     @else
-                        You scored {{ $pct }}%, which is below the ≥ 75% passing requirement.
+                        You scored {{ $pct }}%, which is below the ≥ 70% passing requirement.
                         {{ $remaining > 0 ? 'You still have attempts left — you can try again.' : 'No attempts remain for this assessment.' }}
                     @endif
                 </div>
@@ -222,7 +222,7 @@
                                 <div class="grid gap-2">
                                     @foreach (($r['choices'] ?? []) as $key => $text)
                                         @php
-                                            $letter = chr(65 + $loop->index);
+                                            $letter = $key;
                                             $isGiven = $r['given'] !== null && ((string) $key === (string) $r['given'] || $norm($text) === $norm($r['given']));
                                             $isKey = ! is_null($r['correct_answer']) && ((string) $key === (string) $r['correct_answer'] || $norm($text) === $norm($r['correct_answer']));
                                             // Inline colours (bundle lacks border-success / bg-success/10 opacity variants).

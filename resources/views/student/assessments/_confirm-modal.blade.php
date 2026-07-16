@@ -78,7 +78,7 @@
                 </ul>
                 <div class="rounded-lg border border-border bg-accent p-3 text-sm">
                     <span class="font-medium text-primary">Tip:</span>
-                    <span class="text-secondary-foreground">You need ≥75% to pass. Read each question carefully and answer everything — blanks count as wrong.</span>
+                    <span class="text-secondary-foreground">You need ≥70% to pass. Read each question carefully and answer everything — blanks count as wrong.</span>
                 </div>
                 <div class="rounded-lg border border-border bg-accent p-3 text-sm">
                     <span class="font-medium text-destructive">Warning:</span>

@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 // Stage H: student feature tests. The headline assertion is the H6 INVARIANT — correct_answer
-// never reaches the client — plus server-side grading (>=75%), enrollment gating, and the
+// never reaches the client — plus server-side grading (>=70%), enrollment gating, and the
 // review-display gate.
 class StudentFeaturesTest extends TestCase
 {
@@ -194,15 +194,41 @@ class StudentFeaturesTest extends TestCase
         $this->assertStringNotContainsString('Paris', $html, 'identification answer leaked to take-quiz page');
     }
 
+    // Task 23: the choice badge letter is the stable choice key, not the loop position — so a
+    // question with a gap in its keys (e.g. A, C, D from a bulk import that dropped a blank B)
+    // labels each option by key. Positional labelling would have mislabelled key C as "Choice B".
+    public function test_take_quiz_labels_choices_by_key_not_position(): void
+    {
+        $subject = Subject::findOrFail($this->assessment->subject_id);
+        $assessment = Assessment::create([
+            'educator_id' => $this->educator->id, 'subject_id' => $subject->id, 'section_id' => $this->assessment->section_id,
+            'assessment_code' => 'GAP', 'time_limit' => '30', 'term' => $this->assessment->term, 'is_active' => true,
+            'start_date' => now()->subDay()->toDateString(), 'end_date' => now()->addDay()->toDateString(),
+            'start_time' => '00:00', 'end_time' => '23:59', 'allow_review' => false,
+        ]);
+        $quiz = Quiz::create([
+            'subject_id' => $subject->id, 'educator_id' => $this->educator->id,
+            'question' => 'gap keys', 'quiz_type' => 'multiple_choice',
+            'choices' => ['A' => 'alpha', 'C' => 'gamma', 'D' => 'delta'], 'correct_answer' => 'A',
+        ]);
+        $assessment->eligibleQuizzes()->sync([$quiz->id]);
+        $assessment->update(['pool_size' => 1]);
+
+        $html = $this->actingAs($this->student)->get(route('student.take-quiz', $assessment))->assertOk()->getContent();
+        $this->assertStringContainsString('Choice C', $html);
+        $this->assertStringContainsString('Choice D', $html);
+        $this->assertStringNotContainsString('Choice B', $html); // no B key exists — positional labelling would have shown it
+    }
+
     public function test_quiz_model_hides_correct_answer_in_json(): void
     {
         $quiz = $this->assessment->eligibleQuizzes()->first();
         $this->assertArrayNotHasKey('correct_answer', $quiz->toArray());
     }
 
-    // ---- H6: server-side grading >= 75% ----
+    // ---- H6: server-side grading >= 70% ----
 
-    public function test_submit_grades_server_side_and_passes_at_75_percent(): void
+    public function test_submit_grades_server_side_and_passes_above_threshold(): void
     {
         $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
         // answer 3 of 4 correctly = 75% → pass.
@@ -220,7 +246,7 @@ class StudentFeaturesTest extends TestCase
         $score = Score::where('student_id', $this->student->id)->where('assessment_id', $this->assessment->id)->first();
         $this->assertSame(3, $score->score);
         $this->assertSame(4, $score->total_questions);
-        $this->assertTrue($score->is_passed); // 3/4 = 75%
+        $this->assertTrue($score->is_passed); // 3/4 = 75% >= 70%
         $this->assertSame('passed', $score->status);
     }
 
@@ -467,10 +493,10 @@ class StudentFeaturesTest extends TestCase
         Carbon::setTestNow();
     }
 
-    public function test_submit_below_75_percent_fails(): void
+    public function test_submit_below_threshold_fails(): void
     {
         $quizzes = $this->assessment->eligibleQuizzes()->orderBy('tbl_quizzes.id')->get();
-        $answers = [$quizzes[0]->id => 'B', $quizzes[1]->id => 'B', $quizzes[2]->id => 'B', $quizzes[3]->id => 'x']; // 1/4
+        $answers = [$quizzes[0]->id => 'B', $quizzes[1]->id => 'B', $quizzes[2]->id => 'B', $quizzes[3]->id => 'x']; // 1/4 = 25%
 
         $this->actingAs($this->student)
             ->post(route('student.take-quiz.submit', $this->assessment), ['answers' => $answers])
@@ -479,6 +505,61 @@ class StudentFeaturesTest extends TestCase
         $score = Score::where('student_id', $this->student->id)->first();
         $this->assertFalse($score->is_passed);
         $this->assertSame('failed', $score->status);
+    }
+
+    // Boundary: exactly 70% passes, 60% fails (threshold lowered from 75% to 70%, Task 23).
+    public function test_seventy_percent_passes_and_sixty_percent_fails(): void
+    {
+        $pass = $this->makeMcAssessment('B1', 10); // 7 correct = 70%
+        $passAnswers = [];
+        foreach ($pass->eligibleQuizzes()->get() as $i => $q) {
+            $passAnswers[$q->id] = $i < 7 ? 'A' : 'B'; // 'A' is correct
+        }
+        $this->actingAs($this->student)
+            ->post(route('student.take-quiz.submit', $pass), ['answers' => $passAnswers])
+            ->assertRedirect();
+        $passScore = Score::where('student_id', $this->student->id)->where('assessment_id', $pass->id)->first();
+        $this->assertSame(7, $passScore->score);
+        $this->assertTrue($passScore->is_passed);
+        $this->assertSame('passed', $passScore->status);
+
+        $fail = $this->makeMcAssessment('B2', 10); // 6 correct = 60%
+        $failAnswers = [];
+        foreach ($fail->eligibleQuizzes()->get() as $i => $q) {
+            $failAnswers[$q->id] = $i < 6 ? 'A' : 'B';
+        }
+        $this->actingAs($this->student)
+            ->post(route('student.take-quiz.submit', $fail), ['answers' => $failAnswers])
+            ->assertRedirect();
+        $failScore = Score::where('student_id', $this->student->id)->where('assessment_id', $fail->id)->first();
+        $this->assertSame(6, $failScore->score);
+        $this->assertFalse($failScore->is_passed);
+        $this->assertSame('failed', $failScore->status);
+    }
+
+    // Build an open N-question all-MC assessment on the student's already-enrolled subject/section.
+    private function makeMcAssessment(string $code, int $count): Assessment
+    {
+        $subject = Subject::findOrFail($this->assessment->subject_id);
+        $assessment = Assessment::create([
+            'educator_id' => $this->educator->id, 'subject_id' => $subject->id, 'section_id' => $this->assessment->section_id,
+            'assessment_code' => $code, 'time_limit' => '30', 'term' => $this->assessment->term, 'is_active' => true,
+            'start_date' => now()->subDay()->toDateString(), 'end_date' => now()->addDay()->toDateString(),
+            'start_time' => '00:00', 'end_time' => '23:59', 'allow_review' => false,
+        ]);
+
+        $quizIds = [];
+        for ($i = 0; $i < $count; $i++) {
+            $quizIds[] = Quiz::create([
+                'subject_id' => $subject->id, 'educator_id' => $this->educator->id,
+                'question' => "Q{$code}-{$i}", 'quiz_type' => 'multiple_choice',
+                'choices' => ['A' => 'right', 'B' => 'wrong'], 'correct_answer' => 'A',
+            ])->id;
+        }
+        $assessment->eligibleQuizzes()->sync($quizIds);
+        $assessment->update(['pool_size' => $count]);
+
+        return $assessment;
     }
 
     public function test_submit_notifies_the_educator(): void

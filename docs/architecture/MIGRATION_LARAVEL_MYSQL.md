@@ -104,7 +104,7 @@ Every table has Row-Level Security enabled; policies are written `TO authenticat
 
 **Data layer.** The ~35 `src/lib/supabase/*.ts` modules → Eloquent models + repository/service methods. Note the access pattern per module: **most rely on RLS** (must gain explicit scopes), **group chat uses RPC** (`get_group_chat_list/messages` — reimplement as a query/service), a few use explicit filters already.
 
-**Quiz scoring guarantee — preserve exactly.** Grading happens server-side in `/api/student/assessment/scores/[assessmentId]/route.ts`; **correct answers never reach the client**. The Laravel controller must keep this: load correct answers server-side only, compare, compute `is_passed` (≥75%), write `tbl_scores`, notify the educator. Never serialize `correct_answer` to the student.
+**Quiz scoring guarantee — preserve exactly.** Grading happens server-side in `/api/student/assessment/scores/[assessmentId]/route.ts`; **correct answers never reach the client**. The Laravel controller must keep this: load correct answers server-side only, compare, compute `is_passed` (≥70%), write `tbl_scores`, notify the educator. Never serialize `correct_answer` to the student.
 
 **Spreadsheet export.** ExcelJS/JSZip (`scores/utils/workbook-utils.ts`, `src/lib/spreadsheets/xlsx-reader.ts`) → PhpSpreadsheet / Laravel Excel. Reproduce the formatting: merged title row, summary block, data from row 8, frozen panes at row 8, alternating row colors, and the bulk `TERM/SUBJECT/SECTION.xlsx` zip folder structure.
 

@@ -385,7 +385,7 @@ class RealDummySeeder extends Seeder
     {
         $total = count($quizzes);
         $correctCount = max(1, ($studentPosition - 1) % ($total + 1));
-        $isPassed = ($correctCount / $total) >= 0.75;
+        $isPassed = ($correctCount / $total) >= 0.70;
         $startDate = $assessment->start_date->copy();
         $windowDays = max(1, $assessment->start_date->diffInDays($assessment->end_date) + 1);
         $dayOffset = ($studentPosition - 1) % $windowDays;
@@ -427,7 +427,7 @@ class RealDummySeeder extends Seeder
         foreach ($quizzes as $index => $quiz) {
             $retakeAnswers[$quiz->id] = $index < $retakeCorrectCount ? $quiz->correct_answer : 'wrong';
         }
-        $isPassed = ($retakeCorrectCount / $total) >= 0.75;
+        $isPassed = ($retakeCorrectCount / $total) >= 0.70;
 
         Score::updateOrCreate(
             [

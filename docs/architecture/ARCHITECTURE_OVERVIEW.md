@@ -38,7 +38,7 @@ The app keeps each group's tools and data separate, so a student only ever sees 
 ### Student
 - See the classes they're enrolled in.
 - Take available quizzes within the scheduled window.
-- See their results and whether they passed (pass mark is 75%).
+- See their results and whether they passed (pass mark is 70%).
 - Read class materials and join class chats.
 
 ---
@@ -56,7 +56,7 @@ flowchart TD
     C -->|No| D[Shown the reason or their last result]
     C -->|Yes| E[Answers questions, timer running<br/>work saved automatically]
     E --> F[Submits, or time runs out]
-    F --> G[System grades it instantly<br/>pass mark is 75 percent]
+    F --> G[System grades it instantly<br/>pass mark is 70 percent]
     G --> H[Score saved + teacher notified]
     H --> I[Student sees their result]
 ```

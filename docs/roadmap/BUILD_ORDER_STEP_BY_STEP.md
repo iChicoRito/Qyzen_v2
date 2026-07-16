@@ -153,7 +153,7 @@
 - [ ] **H5. Anti-cheat** — client detectors → `warning_attempts` + autosave; force
   submit at limit / timer zero.
 - [ ] **H6. ⚠ Server-side grading** (`mode=submit`) — load `correct_answer`
-  server-only, compare, `is_passed` ≥75%, write score, notify educator.
+  server-only, compare, `is_passed` ≥70%, write score, notify educator.
   **`correct_answer` never reaches the client.**
 - [ ] **H7. Result / review** — gated correct-answer display (`allow_review` OR correct).
 - [ ] **H8. Scores history** — filter/sort/paginate (own only).

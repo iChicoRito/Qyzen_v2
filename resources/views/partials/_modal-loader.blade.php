@@ -251,15 +251,24 @@
                 var action = data.action || '';
                 var isAccess = action === 'grant' || action === 'revoke';
                 var activeIds = (data.active_student_ids || []).map(String);
+                var deadlines = data.access_deadlines || {};
 
                 form.querySelectorAll('[data-exempt-checkbox]').forEach(function (box) {
                     var active = activeIds.indexOf(String(box.value)) !== -1;
                     box.checked = active;
                     var status = box.closest('[data-exempt-row]') && box.closest('[data-exempt-row]').querySelector('[data-exempt-status]');
                     if (!status) return;
-                    status.innerHTML = active
-                        ? '<span class="kt-badge kt-badge-sm kt-badge-outline ' + (isAccess ? 'kt-badge-info' : 'kt-badge-warning') + '">' + (isAccess ? 'Special Access' : 'Exempted') + '</span>'
-                        : '<span class="text-xs text-secondary-foreground">' + (isAccess ? 'Default' : 'Active') + '</span>';
+                    if (!active) {
+                        status.innerHTML = '<span class="text-xs text-secondary-foreground">' + (isAccess ? 'Default' : 'Active') + '</span>';
+                        return;
+                    }
+                    var html = '<span class="kt-badge kt-badge-sm kt-badge-outline ' + (isAccess ? 'kt-badge-info' : 'kt-badge-warning') + '">' + (isAccess ? 'Special Access' : 'Exempted') + '</span>';
+                    {{-- Task 24: keep the expiry visible after an AJAX save, not just on reload. --}}
+                    var until = deadlines[box.value];
+                    if (isAccess && until) {
+                        html += '<span class="block text-xs text-secondary-foreground mt-1">Until ' + until + '</span>';
+                    }
+                    status.innerHTML = html;
                 });
 
                 var note = form.querySelector('[data-assessment-modal-message]');

@@ -30,6 +30,14 @@ use Illuminate\View\View;
 // G5: educator assessments. status inactive→active is the publish trigger → notify enrolled students.
 class AssessmentController extends Controller
 {
+    // Task 24: selectable special-access durations, in hours. 0 = no expiry (the pre-Task-24
+    // behavior, where a grant lived until it was used). Deliberately hour-based, not "end of
+    // day" — APP_TIMEZONE is UTC and this app renders raw UTC, so a civil-day rule would expire
+    // at 8am local.
+    private const ACCESS_DURATIONS = [0, 1, 6, 24, 48, 72];
+
+    private const ACCESS_DURATION_DEFAULT = 24;
+
     public function __construct(
         private NotificationService $notifications,
         private ConversationService $conversations,
@@ -249,10 +257,34 @@ class AssessmentController extends Controller
     {
         $this->authorize('update', $assessment);
 
+        // Only students actually enrolled in this assessment's subject can be exempted — a
+        // stray/forged id in the bulk payload is silently dropped, not a hard error.
+        $requestedAction = $request->input('action');
+        $isFinalState = $requestedAction === null;
+        $action = in_array($requestedAction, ['exempt', 'unexempt'], true) ? $requestedAction : 'exempt';
+        $eligibleStudentIds = Enrolled::where('educator_id', Auth::id())
+            ->where('subject_id', $assessment->subject_id)
+            ->pluck('student_id');
+        $selectedStudentIds = collect($request->input('student_ids', []))
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id);
+
+        // The modal pre-checks already-exempted students, so a save that only unchecks someone
+        // still re-submits the others. Diffing against what's already active is what separates
+        // "a new exemption is being created" from "nothing changed for this student" — the
+        // latter must not demand a reason, re-notify, or overwrite the original reason.
+        $alreadyExemptIds = StudentAssessmentExemption::where('assessment_id', $assessment->id)
+            ->where('is_active', true)
+            ->pluck('student_id');
+        $newlyExemptedIds = $selectedStudentIds
+            ->intersect($eligibleStudentIds)
+            ->diff($alreadyExemptIds)
+            ->values();
+
         $validator = Validator::make($request->all(), [
             'student_ids' => ['nullable', 'array'],
             'student_ids.*' => ['integer'],
-            'reason' => ['nullable', 'string', 'max:255', Rule::requiredIf(fn () => ($request->input('action', 'exempt') === 'exempt') && count($request->input('student_ids', [])) > 0)],
+            'reason' => ['nullable', 'string', 'max:255', Rule::requiredIf(fn () => $action === 'exempt' && $newlyExemptedIds->isNotEmpty())],
         ]);
         if ($validator->fails()) {
             if ($request->ajax() || $request->expectsJson()) {
@@ -267,24 +299,20 @@ class AssessmentController extends Controller
         }
         $data = $validator->validated();
 
-        // Only students actually enrolled in this assessment's subject can be exempted — a
-        // stray/forged id in the bulk payload is silently dropped, not a hard error.
-        $requestedAction = $request->input('action');
-        $isFinalState = $requestedAction === null;
-        $action = in_array($requestedAction, ['exempt', 'unexempt'], true) ? $requestedAction : 'exempt';
-        $eligibleStudentIds = Enrolled::where('educator_id', Auth::id())
-            ->where('subject_id', $assessment->subject_id)
-            ->pluck('student_id');
-        $selectedStudentIds = collect($data['student_ids'] ?? [])->map(fn ($id) => (int) $id);
         $studentIds = $isFinalState
             ? $eligibleStudentIds
             : $eligibleStudentIds->intersect($selectedStudentIds)->values();
 
         foreach ($studentIds as $studentId) {
             if ($action === 'exempt') {
+                $attributes = ['is_active' => $isFinalState ? $selectedStudentIds->contains($studentId) : true];
+                // Only a new exemption carries a reason — re-saving must leave an existing one alone.
+                if ($newlyExemptedIds->contains($studentId)) {
+                    $attributes['reason'] = $data['reason'] ?? null;
+                }
                 StudentAssessmentExemption::updateOrCreate([
                     'educator_id' => Auth::id(), 'student_id' => $studentId, 'assessment_id' => $assessment->id,
-                ], ['is_active' => $isFinalState ? $selectedStudentIds->contains($studentId) : true, 'reason' => $data['reason'] ?? null]);
+                ], $attributes);
             } elseif (! $isFinalState || $selectedStudentIds->contains($studentId)) {
                 StudentAssessmentExemption::where([
                     'educator_id' => Auth::id(), 'student_id' => $studentId, 'assessment_id' => $assessment->id,
@@ -292,14 +320,10 @@ class AssessmentController extends Controller
             }
         }
 
-        $activeStudentIds = $isFinalState
-            ? $selectedStudentIds->intersect($eligibleStudentIds)->values()
-            : $studentIds;
-
-        if ($action === 'exempt' && $activeStudentIds->isNotEmpty()) {
+        if ($action === 'exempt' && $newlyExemptedIds->isNotEmpty()) {
             $exemptionMessage = 'You have been exempted from assessment '.$assessment->assessment_code.'. Reason: '.$data['reason'];
 
-            $this->notifications->emitToMany(Auth::user(), 'assessment_exempted', $activeStudentIds->all(), [
+            $this->notifications->emitToMany(Auth::user(), 'assessment_exempted', $newlyExemptedIds->all(), [
                 'subject_id' => $assessment->subject_id,
                 'assessment_id' => $assessment->id,
                 'section_id' => $assessment->section_id,
@@ -309,7 +333,7 @@ class AssessmentController extends Controller
                 'metadata' => ['reason' => $data['reason']],
             ]);
 
-            foreach ($activeStudentIds as $studentId) {
+            foreach ($newlyExemptedIds as $studentId) {
                 $conversation = $this->conversations->findOrCreateConversation(
                     Auth::user(),
                     User::findOrFail($studentId),
@@ -319,8 +343,16 @@ class AssessmentController extends Controller
             }
         }
 
+        $activeStudentIds = $action === 'exempt'
+            ? $newlyExemptedIds
+            : $studentIds;
+
+        // A final-state save mixes new exemptions and un-exemptions in one submit, so a count of
+        // either alone would misreport it ("0 student(s) exempted." for a pure uncheck).
         $verb = $action === 'exempt' ? 'exempted' : 'un-exempted';
-        $message = $activeStudentIds->count().' student(s) '.$verb.'.';
+        $message = $isFinalState
+            ? 'Exemptions updated.'
+            : $activeStudentIds->count().' student(s) '.$verb.'.';
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -349,11 +381,16 @@ class AssessmentController extends Controller
             ->with('student:id,given_name,surname,user_id')
             ->get();
 
-        $accessStudentIds = StudentAssessmentAccess::where('assessment_id', $assessment->id)
+        $accessGrants = StudentAssessmentAccess::where('assessment_id', $assessment->id)
             ->where('is_active', true)
-            ->pluck('student_id')->all();
+            ->get()->keyBy('student_id');
+        $accessStudentIds = $accessGrants->keys()->all();
+        $accessDurations = self::ACCESS_DURATIONS;
+        $accessDurationDefault = self::ACCESS_DURATION_DEFAULT;
 
-        return view('educator.assessments.access', compact('assessment', 'students', 'accessStudentIds'));
+        return view('educator.assessments.access', compact(
+            'assessment', 'students', 'accessStudentIds', 'accessGrants', 'accessDurations', 'accessDurationDefault',
+        ));
     }
 
     public function toggleAccess(Request $request, Assessment $assessment): JsonResponse|RedirectResponse
@@ -363,6 +400,7 @@ class AssessmentController extends Controller
         $validator = Validator::make($request->all(), [
             'student_ids' => ['nullable', 'array'],
             'student_ids.*' => ['integer'],
+            'duration_hours' => ['nullable', 'integer', Rule::in(self::ACCESS_DURATIONS)],
         ]);
         if ($validator->fails()) {
             if ($request->ajax() || $request->expectsJson()) {
@@ -376,6 +414,12 @@ class AssessmentController extends Controller
             $validator->validate();
         }
         $data = $validator->validated();
+
+        // Re-saving an already-granted student re-arms their attempt (see
+        // AssessmentAvailabilityService) — resetting the clock on the same save is consistent
+        // with that: a re-grant restarts both the attempt and the countdown.
+        $durationHours = (int) ($data['duration_hours'] ?? self::ACCESS_DURATION_DEFAULT);
+        $expiresAt = $durationHours > 0 ? now()->addHours($durationHours) : null;
 
         $requestedAction = $request->input('action');
         $isFinalState = $requestedAction === null;
@@ -392,7 +436,7 @@ class AssessmentController extends Controller
             if ($action === 'grant') {
                 StudentAssessmentAccess::updateOrCreate([
                     'educator_id' => Auth::id(), 'student_id' => $studentId, 'assessment_id' => $assessment->id,
-                ], ['is_active' => $isFinalState ? $selectedStudentIds->contains($studentId) : true]);
+                ], ['is_active' => $isFinalState ? $selectedStudentIds->contains($studentId) : true, 'expires_at' => $expiresAt]);
             } elseif (! $isFinalState || $selectedStudentIds->contains($studentId)) {
                 StudentAssessmentAccess::where([
                     'educator_id' => Auth::id(), 'student_id' => $studentId, 'assessment_id' => $assessment->id,
@@ -405,7 +449,8 @@ class AssessmentController extends Controller
             : $studentIds;
 
         if ($action === 'grant' && $activeStudentIds->isNotEmpty()) {
-            $accessMessage = 'You have been granted special access to assessment '.$assessment->assessment_code.'.';
+            $accessMessage = 'You have been granted special access to assessment '.$assessment->assessment_code.'.'
+                .($expiresAt ? ' This access expires on '.$expiresAt->format('M j, Y g:i A').'.' : '');
 
             $this->notifications->emitToMany(Auth::user(), 'assessment_access_granted', $activeStudentIds->all(), [
                 'subject_id' => $assessment->subject_id,
@@ -430,12 +475,22 @@ class AssessmentController extends Controller
         $message = $activeStudentIds->count().' student(s) '.$verb.'.';
 
         if ($request->expectsJson()) {
+            $liveGrants = StudentAssessmentAccess::where('assessment_id', $assessment->id)
+                ->whereIn('student_id', $eligibleStudentIds)
+                ->where('is_active', true)
+                ->get();
+
             return response()->json([
                 'status' => 'success',
                 'message' => $message,
                 'action' => $action,
                 'affected_student_ids' => $activeStudentIds->all(),
-                'active_student_ids' => StudentAssessmentAccess::where('assessment_id', $assessment->id)->whereIn('student_id', $eligibleStudentIds)->where('is_active', true)->pluck('student_id')->all(),
+                'active_student_ids' => $liveGrants->pluck('student_id')->all(),
+                // The modal re-renders each status cell from this response, so it needs the
+                // deadlines too — otherwise the expiry the educator just set vanishes until reload.
+                'access_deadlines' => $liveGrants->filter(fn ($g) => $g->expires_at !== null)
+                    ->mapWithKeys(fn ($g) => [$g->student_id => $g->expires_at->format('M j, g:i A')])
+                    ->all(),
             ]);
         }
 

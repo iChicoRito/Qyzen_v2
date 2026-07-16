@@ -79,10 +79,17 @@ class AssessmentAvailabilityService
             ->where('submitted_at', '>=', $accessGrant->updated_at)
             ->exists();
 
+        // Task 24: a grant with expires_at set goes dead at that instant, used or not. Null means
+        // no expiry, which is how every grant behaved before the duration was configurable.
+        $grantExpired = $accessGrant
+            && $accessGrant->expires_at !== null
+            && $now->gte($accessGrant->expires_at);
+
         $hasSpecialAccess = ! $windowOpen
             && $scheduleValid
             && $now->gte($end)
             && $accessGrant !== null
+            && ! $grantExpired
             && ! $usedSinceGrant;
         $canTake = ($windowOpen && ($firstAttempt || ($effective > 0 && $remaining > 0))) || $hasSpecialAccess;
 

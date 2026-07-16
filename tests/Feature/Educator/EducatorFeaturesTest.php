@@ -16,6 +16,7 @@ use App\Models\StudentAssessmentAccess;
 use App\Models\StudentAssessmentExemption;
 use App\Models\Subject;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Testing\File;
 use Illuminate\Support\Facades\Hash;
@@ -723,6 +724,97 @@ class EducatorFeaturesTest extends TestCase
         ])->exists());
     }
 
+    // Task 24: special access used to last forever until used. The duration is now picked per grant.
+    public function test_granting_special_access_stamps_the_selected_duration(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-16 09:00:00'));
+        $subject = $this->subject($this->eduA);
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)
+            ->post(route('educator.assessments.access.toggle', $assessment), [
+                'student_ids' => [$this->student->id], 'action' => 'grant', 'duration_hours' => 24,
+            ])
+            ->assertRedirect();
+
+        $grant = StudentAssessmentAccess::where('assessment_id', $assessment->id)
+            ->where('student_id', $this->student->id)->firstOrFail();
+        $this->assertTrue(now()->addHours(24)->equalTo($grant->expires_at));
+
+        Carbon::setTestNow();
+    }
+
+    public function test_granting_special_access_with_no_expiry_leaves_expires_at_null(): void
+    {
+        $subject = $this->subject($this->eduA);
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)
+            ->post(route('educator.assessments.access.toggle', $assessment), [
+                'student_ids' => [$this->student->id], 'action' => 'grant', 'duration_hours' => 0,
+            ])
+            ->assertRedirect();
+
+        $this->assertNull(StudentAssessmentAccess::where('assessment_id', $assessment->id)
+            ->where('student_id', $this->student->id)->value('expires_at'));
+    }
+
+    public function test_special_access_modal_renders_the_duration_select(): void
+    {
+        $subject = $this->subject($this->eduA);
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.assessments.access', ['assessment' => $assessment, 'modal' => 1]))
+            ->assertOk()
+            ->assertSee('name="duration_hours"', false)
+            ->assertSee('How long should this access last?', false)
+            ->assertSee('No expiry — until used', false);
+    }
+
+    // The modal rebuilds each status cell from this response, so the deadline has to travel with it.
+    public function test_special_access_json_carries_the_deadline_for_the_modal_resync(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-16 09:00:00'));
+        $subject = $this->subject($this->eduA);
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)
+            ->postJson(route('educator.assessments.access.toggle', $assessment), [
+                'student_ids' => [$this->student->id], 'action' => 'grant', 'duration_hours' => 24,
+            ])
+            ->assertOk()
+            ->assertJsonPath('access_deadlines.'.$this->student->id, 'Jul 17, 9:00 AM');
+
+        // A no-expiry grant contributes no deadline entry.
+        $this->actingAs($this->eduA)
+            ->postJson(route('educator.assessments.access.toggle', $assessment), [
+                'student_ids' => [$this->student->id], 'action' => 'grant', 'duration_hours' => 0,
+            ])
+            ->assertOk()
+            ->assertJsonPath('access_deadlines', []);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_special_access_rejects_an_unsupported_duration(): void
+    {
+        $subject = $this->subject($this->eduA);
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)
+            ->postJson(route('educator.assessments.access.toggle', $assessment), [
+                'student_ids' => [$this->student->id], 'action' => 'grant', 'duration_hours' => 9999,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('duration_hours');
+    }
+
     public function test_granting_special_access_notifies_and_messages_the_student(): void
     {
         $subject = $this->subject($this->eduA);
@@ -733,9 +825,11 @@ class EducatorFeaturesTest extends TestCase
             ->post(route('educator.assessments.access.toggle', $assessment), [
                 'student_ids' => [$this->student->id],
                 'action' => 'grant',
+                'duration_hours' => 0,
             ])
             ->assertRedirect();
 
+        // duration_hours=0 is the no-expiry grant, so the message carries no deadline.
         $message = 'You have been granted special access to assessment MIDTERM.';
         $this->assertDatabaseHas('tbl_notifications', [
             'recipient_user_id' => $this->student->id,
@@ -976,6 +1070,104 @@ class EducatorFeaturesTest extends TestCase
             ->postJson(route('educator.assessments.exemptions.toggle', $assessment), [])
             ->assertOk()
             ->assertJsonPath('affected_student_ids', []);
+    }
+
+    // Task 24: the modal pre-checks exempted students, so unchecking one still re-submits the
+    // others. That creates no new exemption, so it must not demand a reason.
+    public function test_unchecking_a_student_needs_no_reason_and_leaves_the_others_untouched(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $stays = $this->student;
+        $removed = $this->makeUser('student', 'student');
+        foreach ([$stays, $removed] as $student) {
+            Enrolled::create(['student_id' => $student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        }
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        StudentAssessmentExemption::create([
+            'educator_id' => $this->eduA->id, 'student_id' => $stays->id,
+            'assessment_id' => $assessment->id, 'reason' => 'Medical absence', 'is_active' => true,
+        ]);
+        StudentAssessmentExemption::create([
+            'educator_id' => $this->eduA->id, 'student_id' => $removed->id,
+            'assessment_id' => $assessment->id, 'reason' => 'Family emergency', 'is_active' => true,
+        ]);
+
+        // Final-state save: $removed unchecked, $stays still checked, reason box left empty.
+        $this->actingAs($this->eduA)
+            ->postJson(route('educator.assessments.exemptions.toggle', $assessment), [
+                'student_ids' => [$stays->id], 'reason' => '',
+            ])
+            ->assertOk()
+            ->assertJsonPath('affected_student_ids', [])
+            ->assertJsonPath('active_student_ids', [$stays->id]);
+
+        $this->assertDatabaseHas('tbl_student_assessment_exemptions', [
+            'assessment_id' => $assessment->id, 'student_id' => $removed->id, 'is_active' => 0,
+            'reason' => 'Family emergency',
+        ]);
+        // The still-checked student keeps their original reason — not overwritten by the empty box.
+        $this->assertDatabaseHas('tbl_student_assessment_exemptions', [
+            'assessment_id' => $assessment->id, 'student_id' => $stays->id, 'is_active' => 1,
+            'reason' => 'Medical absence',
+        ]);
+        // Nobody was newly exempted, so nobody gets notified or messaged.
+        $this->assertDatabaseCount('tbl_notifications', 0);
+        $this->assertDatabaseCount('tbl_conversation_messages', 0);
+    }
+
+    // Task 24: re-saving an unchanged set must not re-notify students who were already exempt.
+    public function test_resaving_an_unchanged_exemption_set_does_not_duplicate_notifications(): void
+    {
+        $subject = $this->subject($this->eduA);
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+
+        $this->actingAs($this->eduA)
+            ->postJson(route('educator.assessments.exemptions.toggle', $assessment), [
+                'student_ids' => [$this->student->id], 'reason' => 'Medical absence',
+            ])->assertOk();
+
+        $this->assertDatabaseCount('tbl_notifications', 1);
+        $this->assertDatabaseCount('tbl_conversation_messages', 1);
+
+        // Same save again — the student is already exempt, so nothing new happens.
+        $this->actingAs($this->eduA)
+            ->postJson(route('educator.assessments.exemptions.toggle', $assessment), [
+                'student_ids' => [$this->student->id], 'reason' => 'Medical absence',
+            ])
+            ->assertOk()
+            ->assertJsonPath('affected_student_ids', []);
+
+        $this->assertDatabaseCount('tbl_notifications', 1);
+        $this->assertDatabaseCount('tbl_conversation_messages', 1);
+    }
+
+    // Task 24 constraint: the reason stays required for a genuinely new exemption.
+    public function test_reason_is_still_required_when_a_new_student_is_checked(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $alreadyExempt = $this->student;
+        $newlyChecked = $this->makeUser('student', 'student');
+        foreach ([$alreadyExempt, $newlyChecked] as $student) {
+            Enrolled::create(['student_id' => $student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+        }
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        StudentAssessmentExemption::create([
+            'educator_id' => $this->eduA->id, 'student_id' => $alreadyExempt->id,
+            'assessment_id' => $assessment->id, 'reason' => 'Medical absence', 'is_active' => true,
+        ]);
+
+        $this->actingAs($this->eduA)
+            ->postJson(route('educator.assessments.exemptions.toggle', $assessment), [
+                'student_ids' => [$alreadyExempt->id, $newlyChecked->id], 'reason' => '',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('status', 'error')
+            ->assertJsonValidationErrors('reason');
+
+        $this->assertDatabaseMissing('tbl_student_assessment_exemptions', [
+            'assessment_id' => $assessment->id, 'student_id' => $newlyChecked->id,
+        ]);
     }
 
     public function test_access_modal_uses_save_changes_and_access_save_applies_unchecked_state(): void

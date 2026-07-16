@@ -236,4 +236,60 @@ class AssessmentAvailabilityServiceTest extends TestCase
         $this->assertTrue($summary['can_take']);
         $this->assertSame(1, $summary['remaining']);
     }
+
+    // Task 24: a grant can now carry an expires_at. Past it, the grant is dead even though the
+    // student never used it.
+    public function test_special_access_with_a_past_expiry_does_not_reopen_expired_assessment(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 17:00:00', 'Asia/Manila'));
+        StudentAssessmentAccess::create([
+            'educator_id' => $this->educator->id,
+            'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id,
+            'is_active' => true,
+            'expires_at' => now()->copy()->subMinute(),
+        ]);
+
+        $summary = $this->service->summarize($this->assessment, $this->student->id);
+
+        $this->assertSame('Expired', $summary['badge']);
+        $this->assertFalse($summary['can_take']);
+    }
+
+    public function test_special_access_with_a_future_expiry_is_takeable(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 17:00:00', 'Asia/Manila'));
+        StudentAssessmentAccess::create([
+            'educator_id' => $this->educator->id,
+            'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id,
+            'is_active' => true,
+            'expires_at' => now()->copy()->addHours(24),
+        ]);
+
+        $summary = $this->service->summarize($this->assessment, $this->student->id);
+
+        $this->assertSame('Special Access', $summary['badge']);
+        $this->assertTrue($summary['can_take']);
+    }
+
+    // Regression guard for every grant issued before the duration was configurable.
+    public function test_special_access_with_a_null_expiry_never_times_out(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 17:00:00', 'Asia/Manila'));
+        StudentAssessmentAccess::create([
+            'educator_id' => $this->educator->id,
+            'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id,
+            'is_active' => true,
+            'expires_at' => null,
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2027-07-10 17:00:00', 'Asia/Manila'));
+
+        $summary = $this->service->summarize($this->assessment, $this->student->id);
+
+        $this->assertSame('Special Access', $summary['badge']);
+        $this->assertTrue($summary['can_take']);
+    }
 }

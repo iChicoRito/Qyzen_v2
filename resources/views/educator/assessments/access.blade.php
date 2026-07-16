@@ -20,6 +20,24 @@
 
                 <form method="POST" action="{{ route('educator.assessments.access.toggle', $assessment, false) }}" class="flex flex-col gap-4" data-assessment-modal-form data-no-spinner>
                     @csrf
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-sm font-medium text-mono">How long should this access last?</span>
+                        <select name="duration_hours" class="kt-select">
+                            @foreach ($accessDurations as $hours)
+                                <option value="{{ $hours }}" @selected($hours === $accessDurationDefault)>
+                                    @if ($hours === 0)
+                                        No expiry — until used
+                                    @elseif ($hours === 1)
+                                        1 hour
+                                    @else
+                                        {{ $hours }} hours
+                                    @endif
+                                </option>
+                            @endforeach
+                        </select>
+                        <span class="text-xs text-secondary-foreground">Counts from now, and applies to the students you grant access to on this save.</span>
+                    </label>
+
                     <div class="kt-scrollable-x-auto max-h-[24rem] overflow-y-auto kt-scrollable-y rounded-lg border border-border">
                         <table class="kt-table table-auto kt-table-border">
                             <thead>
@@ -48,7 +66,11 @@
                                         <td class="align-middle text-secondary-foreground">{{ optional($e->student)->user_id }}</td>
                                         <td class="align-middle" data-exempt-status>
                                             @if ($granted)
+                                                @php($expiresAt = optional($accessGrants->get($e->student_id))->expires_at)
                                                 <span class="kt-badge kt-badge-sm kt-badge-outline kt-badge-info">Special Access</span>
+                                                @if ($expiresAt)
+                                                    <span class="block text-xs text-secondary-foreground mt-1">Until {{ $expiresAt->format('M j, g:i A') }}</span>
+                                                @endif
                                             @else
                                                 <span class="text-xs text-secondary-foreground">Default</span>
                                             @endif

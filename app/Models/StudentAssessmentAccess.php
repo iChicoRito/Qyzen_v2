@@ -9,9 +9,10 @@ class StudentAssessmentAccess extends Model
 {
     protected $table = 'tbl_student_assessment_access';
 
-    protected $fillable = ['educator_id', 'student_id', 'assessment_id', 'is_active'];
+    protected $fillable = ['educator_id', 'student_id', 'assessment_id', 'is_active', 'expires_at'];
 
-    protected $casts = ['is_active' => 'boolean'];
+    // expires_at null = the grant never times out (the pre-Task-24 behavior).
+    protected $casts = ['is_active' => 'boolean', 'expires_at' => 'datetime'];
 
     public function assessment(): BelongsTo
     {

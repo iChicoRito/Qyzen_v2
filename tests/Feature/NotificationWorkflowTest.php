@@ -175,6 +175,15 @@ class NotificationWorkflowTest extends TestCase
         $response->assertSee(route('notifications.destroy-all'), false);
     }
 
+    public function test_notification_bulk_actions_reset_loading_state_after_fetch_finishes(): void
+    {
+        $script = file_get_contents(resource_path('views/layouts/partials/_demo1_topbar_icons.blade.php'));
+
+        $this->assertSame(2, substr_count($script, '.finally(function ()'));
+        $this->assertStringContainsString('stopLoading(form);', $script);
+        $this->assertStringContainsString('stopLoading(deleteForm);', $script);
+    }
+
     public function test_bell_shows_unread_count_indicator(): void
     {
         // No unread → no indicator element rendered (the id="" attribute, not the JS string ref).

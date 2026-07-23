@@ -66,7 +66,7 @@ class EducatorFeaturesTest extends TestCase
         }
     }
 
-    public function test_educator_can_delete_own_score_after_password_confirmation(): void
+    public function test_educator_can_soft_delete_own_score_without_password_confirmation(): void
     {
         $this->eduA->forceFill(['password' => Hash::make('password')])->save();
         $subject = $this->subject($this->eduA);
@@ -79,15 +79,17 @@ class EducatorFeaturesTest extends TestCase
         ]);
 
         $this->actingAs($this->eduA)
-            ->delete(route('educator.scores.destroy', $score), ['password' => 'password'])
-            ->assertRedirect(route('educator.scores.index'));
+            ->deleteJson(route('educator.scores.destroy', $score))
+            ->assertOk()
+            ->assertJsonPath('status', 'success');
 
-        $this->assertDatabaseMissing('tbl_scores', ['id' => $score->id]);
+        $this->assertNotNull($score->fresh()->deleted_at);
+        $this->assertNull(Score::find($score->id));
+        $this->assertNotNull(Score::withTrashed()->find($score->id));
     }
 
-    public function test_score_delete_rejects_invalid_password_and_cross_owner(): void
+    public function test_score_delete_rejects_cross_owner(): void
     {
-        $this->eduA->forceFill(['password' => Hash::make('password')])->save();
         $subject = $this->subject($this->eduA);
         $assessment = Assessment::create($this->assessmentModelData($subject));
         $score = Score::create([
@@ -98,13 +100,96 @@ class EducatorFeaturesTest extends TestCase
         ]);
 
         $this->actingAs($this->eduA)
-            ->delete(route('educator.scores.destroy', $score), ['password' => 'wrong'])
-            ->assertSessionHasErrors('password');
-        $this->assertDatabaseHas('tbl_scores', ['id' => $score->id]);
+            ->deleteJson(route('educator.scores.destroy', $score))
+            ->assertOk()
+            ->assertJsonPath('status', 'success');
+
+        $this->assertNotNull($score->fresh()->deleted_at);
 
         $this->actingAs($this->eduB)
-            ->delete(route('educator.scores.destroy', $score), ['password' => 'password'])
+            ->deleteJson(route('educator.scores.destroy', $score))
             ->assertForbidden();
+    }
+
+    public function test_deleted_scores_are_owner_scoped_and_restorable(): void
+    {
+        $subjectA = $this->subject($this->eduA);
+        $assessmentA = Assessment::create($this->assessmentModelData($subjectA));
+        $scoreA = Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id,
+            'assessment_id' => $assessmentA->id, 'subject_id' => $subjectA->id,
+            'section_id' => $subjectA->sections_id, 'score' => 4, 'total_questions' => 5,
+            'status' => 'failed', 'is_passed' => false, 'student_answer' => [],
+        ]);
+
+        $subjectB = $this->subject($this->eduB);
+        $assessmentB = Assessment::create(array_merge($this->assessmentModelData($subjectB), ['assessment_code' => 'Q2']));
+        $scoreB = Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduB->id,
+            'assessment_id' => $assessmentB->id, 'subject_id' => $subjectB->id,
+            'section_id' => $subjectB->sections_id, 'score' => 3, 'total_questions' => 5,
+            'status' => 'failed', 'is_passed' => false, 'student_answer' => [],
+        ]);
+        $scoreA->delete();
+        $scoreB->delete();
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.scores.deleted'))
+            ->assertOk()
+            ->assertSee('Q1')
+            ->assertDontSee('Q2');
+
+        $this->actingAs($this->eduA)
+            ->patchJson(route('educator.scores.restore', $scoreA))
+            ->assertOk()
+            ->assertJsonPath('status', 'success');
+
+        $this->assertNull($scoreA->fresh()->deleted_at);
+        $this->assertNotNull($scoreB->fresh()->deleted_at);
+        $this->actingAs($this->eduA)->get(route('educator.scores.index'))->assertSee('Q1');
+    }
+
+    public function test_scores_sidebar_marks_only_the_current_child_active(): void
+    {
+        foreach ([
+            'educator.scores.index' => 'Scores',
+            'educator.scores.deleted' => 'Deleted Scores',
+        ] as $route => $activeChild) {
+            $html = $this->actingAs($this->eduA)->get(route($route))->assertOk()->getContent();
+
+            $this->assertSame(1, substr_count($html, 'class="kt-menu-item active"'));
+            $this->assertSame(1, substr_count($html, 'class="kt-menu-item show"'));
+            $this->assertStringContainsString('>'.$activeChild.'</span>', $html);
+        }
+    }
+
+    public function test_deleting_newest_attempt_keeps_older_active_attempt_and_counts(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        $older = Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id,
+            'assessment_id' => $assessment->id, 'subject_id' => $subject->id,
+            'section_id' => $subject->sections_id, 'score' => 2, 'total_questions' => 5,
+            'status' => 'failed', 'is_passed' => false, 'student_answer' => [],
+            'submitted_at' => now()->subHour(),
+        ]);
+        $newer = Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id,
+            'assessment_id' => $assessment->id, 'subject_id' => $subject->id,
+            'section_id' => $subject->sections_id, 'score' => 5, 'total_questions' => 5,
+            'status' => 'passed', 'is_passed' => true, 'student_answer' => [],
+            'submitted_at' => now(),
+        ]);
+        $newer->delete();
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.scores.index'))
+            ->assertSee('Best: 2/5')
+            ->assertSee('1 attempt')
+            ->assertDontSee('Best: 5/5');
+
+        $this->assertNotNull($older->fresh());
     }
 
     // Task 13: deleting a bank question must never remove a recorded score, and the historical

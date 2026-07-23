@@ -61,6 +61,30 @@ class ScoreExportTest extends TestCase
         ]);
     }
 
+    public function test_download_grades_starts_with_section_and_disables_subject(): void
+    {
+        $this->assessmentWithRoster();
+
+        $html = $this->actingAs($this->eduA)->get(route('educator.scores.index'))->assertOk()->getContent();
+
+        $this->assertLessThan(strpos($html, 'id="export_subject"'), strpos($html, 'id="export_section"'));
+        $this->assertStringContainsString('id="export_subject" class="kt-select" disabled', $html);
+        $this->assertStringContainsString("fillSelect(sectionSel, unique(options, 'sectionId')", $html);
+    }
+
+    public function test_score_delete_and_restore_actions_use_ajax_without_reload(): void
+    {
+        $deleteScript = file_get_contents(resource_path('views/educator/scores/index.blade.php'));
+        $restoreScript = file_get_contents(resource_path('views/educator/scores/deleted.blade.php'));
+
+        $this->assertStringContainsString("method: 'DELETE'", $deleteScript);
+        $this->assertStringContainsString("method: 'PATCH'", $deleteScript);
+        $this->assertStringNotContainsString('window.location.reload()', $deleteScript);
+        $this->assertStringContainsString('data-score-restore', $restoreScript);
+        $this->assertStringContainsString("method: 'PATCH'", $restoreScript);
+        $this->assertStringContainsString('credentials: \'same-origin\'', $restoreScript);
+    }
+
     public function test_single_export_downloads_a_styled_xlsx(): void
     {
         [$assessment] = $this->assessmentWithRoster();

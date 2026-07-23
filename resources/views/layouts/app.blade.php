@@ -3,7 +3,8 @@
      public/metronic-tailwind-html-demos/dist/html/demo1/index.html. The header mega-menu +
      topbar (search/notifications/chat/apps) are in layouts/partials/_demo1_*.blade.php exactly
      as shipped (demo links/content retained). Only the sidebar menu items are app-driven ($navItems).
-     $navItems: [['label','url','active'(bool),'icon'(ki-filled name, optional)]] or ['heading'=>'...']. --}}
+     $navItems: [['label','url','active'(bool),'icon'(ki-filled name, optional)]] or
+     ['label','active','icon','children'=>[['label','url','active']]] or ['heading'=>'...']. --}}
 <html class="h-full" data-kt-theme="true" data-kt-theme-mode="light" dir="ltr" lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8" />
@@ -61,11 +62,34 @@
                  data-kt-scrollable-height="auto" data-kt-scrollable-offset="0px"
                  data-kt-scrollable-wrappers="#sidebar_content" id="sidebar_scrollable">
                 <!-- Sidebar Menu -->
-                <div class="kt-menu flex flex-col grow gap-1" data-kt-menu="true" id="sidebar_menu">
+                <div class="kt-menu flex flex-col grow gap-1" data-kt-menu="true" data-kt-menu-accordion-expand-all="false" id="sidebar_menu">
                     @foreach ($navItems ?? [] as $item)
                         @if (($item['heading'] ?? false))
                             <div class="kt-menu-item pt-2.25 pb-px">
                                 <span class="kt-menu-heading uppercase text-xs font-medium text-muted-foreground ps-[10px] pe-[10px]">{{ $item['heading'] }}</span>
+                            </div>
+                        @elseif (!empty($item['children']))
+                            <div class="kt-menu-item {{ ($item['active'] ?? false) ? 'show' : '' }}" data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
+                                <div class="kt-menu-link flex items-center grow cursor-pointer border border-transparent gap-[10px] ps-[10px] pe-[10px] py-[6px]" tabindex="0">
+                                    <span class="kt-menu-icon items-start text-muted-foreground w-[20px]">
+                                        <i class="ki-filled ki-{{ $item['icon'] ?? 'abstract-8' }} text-lg"></i>
+                                    </span>
+                                    <span class="kt-menu-title text-sm font-medium text-foreground kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary">{{ $item['label'] }}</span>
+                                    <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
+                                        <span class="inline-flex kt-menu-item-show:hidden"><i class="ki-filled ki-down text-[11px]"></i></span>
+                                        <span class="hidden kt-menu-item-show:inline-flex"><i class="ki-filled ki-up text-[11px]"></i></span>
+                                    </span>
+                                </div>
+                                <div class="kt-menu-accordion gap-1 ps-[10px] relative before:absolute before:start-[20px] before:top-0 before:bottom-0 before:border-s before:border-border">
+                                    @foreach ($item['children'] as $child)
+                                        <div class="kt-menu-item {{ ($child['active'] ?? false) ? 'active' : '' }}">
+                                            <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 kt-menu-item-active:rounded-lg hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]" href="{{ $child['url'] }}" tabindex="0">
+                                                <span class="kt-menu-bullet flex w-[6px] -start-[3px] relative before:absolute before:top-0 before:size-[6px] before:rounded-full before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
+                                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">{{ $child['label'] }}</span>
+                                            </a>
+                                        </div>
+                                    @endforeach
+                                </div>
                             </div>
                         @else
                             <div class="kt-menu-item {{ ($item['active'] ?? false) ? 'active' : '' }}">

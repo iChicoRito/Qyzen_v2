@@ -5,11 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class Score extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'tbl_scores';
 
     // Dashboard "quiz activity" trend: submitted-count per ISO week, grouped in PHP so it works on

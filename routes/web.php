@@ -219,8 +219,9 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         Route::get('scores/export-bulk/run', [ScoreController::class, 'exportBulk'])->name('scores.export-bulk');
         Route::get('scores/upload/template', [ScoreController::class, 'uploadTemplate'])->name('scores.upload.template');
         Route::post('scores/upload', [ScoreController::class, 'upload'])->name('scores.upload');
-        Route::get('scores/{score}/delete', [ScoreController::class, 'confirmDelete'])->name('scores.delete');
-        Route::delete('scores/{score}', [ScoreController::class, 'destroy'])->name('scores.destroy');
+        Route::get('scores/deleted', [ScoreController::class, 'deleted'])->name('scores.deleted');
+        Route::patch('scores/{score}/restore', [ScoreController::class, 'restore'])->withTrashed()->name('scores.restore');
+        Route::delete('scores/{score}', [ScoreController::class, 'destroy'])->withTrashed()->name('scores.destroy');
         Route::get('scores/{score}', [ScoreController::class, 'show'])->name('scores.show');
         Route::post('scores/retake', [ScoreController::class, 'grantRetake'])->name('scores.grant-retake');
 

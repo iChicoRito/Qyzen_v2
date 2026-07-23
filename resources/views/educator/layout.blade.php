@@ -11,7 +11,15 @@
         ['heading' => 'Assessment'],
         ['label' => 'Assessments', 'url' => route('educator.assessments.index'), 'active' => request()->routeIs('educator.assessments.*'),                                'icon' => 'questionnaire-tablet'],
         ['label' => 'Question Bank', 'url' => route('educator.quizzes.index'),   'active' => request()->routeIs('educator.quizzes.*'),                                    'icon' => 'note-2'],
-        ['label' => 'Scores',      'url' => route('educator.scores.index'),      'active' => request()->routeIs('educator.scores.*'),                                     'icon' => 'chart-simple'],
+        [
+            'label' => 'Scores',
+            'active' => request()->routeIs('educator.scores.*'),
+            'icon' => 'chart-simple',
+            'children' => [
+                ['label' => 'Scores', 'url' => route('educator.scores.index'), 'active' => request()->routeIs('educator.scores.index', 'educator.scores.show')],
+                ['label' => 'Deleted Scores', 'url' => route('educator.scores.deleted'), 'active' => request()->routeIs('educator.scores.deleted')],
+            ],
+        ],
         ['heading' => 'Resources'],
         ['label' => 'Materials',   'url' => route('educator.materials.index'),   'active' => request()->routeIs('educator.materials.*'),                                  'icon' => 'folder'],
         ['label' => 'Announcements', 'url' => route('educator.announcements.index'), 'active' => request()->routeIs('educator.announcements.*'), 'icon' => 'notification-status'],

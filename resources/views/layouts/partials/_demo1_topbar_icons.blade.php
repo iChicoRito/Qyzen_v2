@@ -209,6 +209,16 @@
             dot.textContent = count > 9 ? '9+' : String(count);
            }
 
+           function stopLoading(form) {
+            form.querySelectorAll('button[data-spinning]').forEach(function (button) {
+             button.disabled = false;
+             button.removeAttribute('aria-busy');
+             delete button.dataset.spinning;
+             var icon = button.querySelector('i.ki-loading');
+             if (icon) icon.remove();
+            });
+           }
+
            if (form) {
             form.addEventListener('submit', function (e) {
              e.preventDefault();
@@ -223,7 +233,8 @@
                });
                window.qyzenUnread.notif = 0; window.qyzenRenderBell(); renderTabDots();
               })
-              .catch(function () { form.submit(); });
+              .catch(function () { form.submit(); })
+              .finally(function () { stopLoading(form); });
             });
            }
 
@@ -237,7 +248,8 @@
                if (list && typeof data.html === 'string') { list.innerHTML = data.html; }
                window.qyzenUnread.notif = 0; window.qyzenRenderBell(); renderTabDots();
               })
-              .catch(function () { deleteForm.submit(); });
+              .catch(function () { deleteForm.submit(); })
+              .finally(function () { stopLoading(deleteForm); });
             });
            }
 

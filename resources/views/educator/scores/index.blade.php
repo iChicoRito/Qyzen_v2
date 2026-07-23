@@ -56,7 +56,7 @@
         </x-slot:head>
         @forelse ($scores as $s)
             @php $st = $s->student; $initial = strtoupper(mb_substr($st?->surname ?: ($st?->given_name ?: '?'), 0, 1)); @endphp
-            <tr>
+            <tr data-score-row="{{ $s->uuid }}">
                 <td>
                     <div class="flex items-center gap-2.5">
                         @if ($st?->profile_picture)
@@ -89,10 +89,10 @@
                 <td class="text-center">
                     <x-table-actions :view-modal="route('educator.scores.show', $s)" view-modal-title="Attempt detail">
                         <div class="kt-menu-item">
-                            <a class="kt-menu-link" href="#" data-modal-url="{{ route('educator.scores.delete', $s) }}" data-modal-target="#form_modal" data-modal-title="Delete score">
+                            <button type="button" class="kt-menu-link w-full text-start" data-score-delete data-score-delete-url="{{ route('educator.scores.destroy', $s) }}">
                                 <span class="kt-menu-icon"><i class="ki-filled ki-trash"></i></span>
                                 <span class="kt-menu-title">Delete Score</span>
-                            </a>
+                            </button>
                         </div>
                     </x-table-actions>
                 </td>
@@ -175,6 +175,118 @@
     </div>
 
     @push('scripts')
+    <script nonce="{{ $cspNonce ?? '' }}" data-ajax-rerun>
+    (function () {
+        if (window.qyzenScoreDeleteBound) return;
+        window.qyzenScoreDeleteBound = true;
+
+        var token = @json(csrf_token());
+
+        function parseResponse(response) {
+            return response.text().then(function (text) {
+                var data = {};
+                try { data = text ? JSON.parse(text) : {}; } catch (_) { data = {}; }
+                if (!response.ok) throw data;
+                return data;
+            });
+        }
+
+        function showError(data) {
+            if (window.KTToast) {
+                KTToast.show({
+                    message: (data && data.message) || 'Could not delete the score.',
+                    variant: 'destructive',
+                    appearance: 'outline',
+                    dismiss: true,
+                });
+            }
+        }
+
+        function restoreScore(data, row, rowParent, rowNext) {
+            return fetch(data.restore_url, {
+                method: 'PATCH',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json',
+                },
+                credentials: 'same-origin',
+            }).then(parseResponse).then(function (result) {
+                if (row && rowParent) {
+                    rowParent.insertBefore(row, rowNext && rowNext.parentNode === rowParent ? rowNext : null);
+                }
+                if (window.KTToast) {
+                    KTToast.show({
+                        message: (result && result.message) || 'Score restored.',
+                        variant: 'success',
+                        appearance: 'outline',
+                        dismiss: true,
+                    });
+                }
+            }).catch(showError);
+        }
+
+        function deleteScore(button) {
+            if (button.disabled) return;
+            button.disabled = true;
+
+            var row = button.closest('[data-score-row]');
+            var rowParent = row && row.parentNode;
+            var rowNext = row && row.nextElementSibling;
+            fetch(button.dataset.scoreDeleteUrl, {
+                method: 'DELETE',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json',
+                },
+                credentials: 'same-origin',
+            }).then(parseResponse).then(function (data) {
+                if (row) row.remove();
+                if (!window.KTToast) return;
+
+                var remaining = 5;
+                var toast = null;
+                var countdown = window.setInterval(function () {
+                    remaining -= 1;
+                    var action = toast && toast.element.querySelector('[data-kt-toast-action]');
+                    if (action) action.textContent = 'Undo (' + Math.max(remaining, 0) + ')';
+                    if (remaining <= 0) window.clearInterval(countdown);
+                }, 1000);
+
+                toast = KTToast.show({
+                    message: data.message || 'Score moved to Deleted Scores.',
+                    variant: 'success',
+                    appearance: 'outline',
+                    dismiss: true,
+                    duration: 5000,
+                    progress: true,
+                    pauseOnHover: false,
+                    action: {
+                        label: 'Undo (5)',
+                        className: 'kt-btn kt-btn-sm kt-btn-outline',
+                        onClick: function () {
+                            window.clearInterval(countdown);
+                            return restoreScore(data, row, rowParent, rowNext);
+                        },
+                    },
+                    onAutoClose: function () {
+                        window.clearInterval(countdown);
+                    },
+                });
+            }).catch(showError).finally(function () {
+                button.disabled = false;
+            });
+        }
+
+        document.addEventListener('click', function (event) {
+            var button = event.target.closest('[data-score-delete]');
+            if (!button) return;
+            event.preventDefault();
+            deleteScore(button);
+        });
+    })();
+    </script>
     <script nonce="{{ $cspNonce ?? '' }}" data-ajax-rerun>
     (function () {
         var opts = window.__exportOptions || [];

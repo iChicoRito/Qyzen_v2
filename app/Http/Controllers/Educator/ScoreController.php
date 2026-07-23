@@ -52,6 +52,7 @@ class ScoreController extends Controller
                     ->whereColumn('newer.educator_id', 'tbl_scores.educator_id')
                     ->whereColumn('newer.student_id', 'tbl_scores.student_id')
                     ->whereColumn('newer.assessment_id', 'tbl_scores.assessment_id')
+                    ->whereNull('newer.deleted_at')
                     ->whereIn('newer.status', ['submitted', 'passed', 'failed'])
                     ->where(function ($newer) {
                         $newer->whereColumn('newer.submitted_at', '>', 'tbl_scores.submitted_at')
@@ -94,10 +95,10 @@ class ScoreController extends Controller
         ]);
         // One latest submitted row per student/assessment, while correlated aggregates retain the
         // full attempt history needed by the concise table and existing detail route.
-        $query->selectRaw("(select count(*) from tbl_scores as attempts where attempts.educator_id = tbl_scores.educator_id and attempts.student_id = tbl_scores.student_id and attempts.assessment_id = tbl_scores.assessment_id and attempts.status in ('submitted', 'passed', 'failed')) as attempts_count")
-            ->selectRaw("(select best.score from tbl_scores as best where best.educator_id = tbl_scores.educator_id and best.student_id = tbl_scores.student_id and best.assessment_id = tbl_scores.assessment_id and best.status in ('submitted', 'passed', 'failed') order by case when best.total_questions > 0 then best.score * 1.0 / best.total_questions else 0 end desc, best.id desc limit 1) as best_score")
-            ->selectRaw("(select best.total_questions from tbl_scores as best where best.educator_id = tbl_scores.educator_id and best.student_id = tbl_scores.student_id and best.assessment_id = tbl_scores.assessment_id and best.status in ('submitted', 'passed', 'failed') order by case when best.total_questions > 0 then best.score * 1.0 / best.total_questions else 0 end desc, best.id desc limit 1) as best_total_questions")
-            ->selectRaw("(select case when best.total_questions > 0 then best.score * 100.0 / best.total_questions else 0 end from tbl_scores as best where best.educator_id = tbl_scores.educator_id and best.student_id = tbl_scores.student_id and best.assessment_id = tbl_scores.assessment_id and best.status in ('submitted', 'passed', 'failed') order by case when best.total_questions > 0 then best.score * 1.0 / best.total_questions else 0 end desc, best.id desc limit 1) as best_percentage");
+        $query->selectRaw("(select count(*) from tbl_scores as attempts where attempts.educator_id = tbl_scores.educator_id and attempts.student_id = tbl_scores.student_id and attempts.assessment_id = tbl_scores.assessment_id and attempts.deleted_at is null and attempts.status in ('submitted', 'passed', 'failed')) as attempts_count")
+            ->selectRaw("(select best.score from tbl_scores as best where best.educator_id = tbl_scores.educator_id and best.student_id = tbl_scores.student_id and best.assessment_id = tbl_scores.assessment_id and best.deleted_at is null and best.status in ('submitted', 'passed', 'failed') order by case when best.total_questions > 0 then best.score * 1.0 / best.total_questions else 0 end desc, best.id desc limit 1) as best_score")
+            ->selectRaw("(select best.total_questions from tbl_scores as best where best.educator_id = tbl_scores.educator_id and best.student_id = tbl_scores.student_id and best.assessment_id = tbl_scores.assessment_id and best.deleted_at is null and best.status in ('submitted', 'passed', 'failed') order by case when best.total_questions > 0 then best.score * 1.0 / best.total_questions else 0 end desc, best.id desc limit 1) as best_total_questions")
+            ->selectRaw("(select case when best.total_questions > 0 then best.score * 100.0 / best.total_questions else 0 end from tbl_scores as best where best.educator_id = tbl_scores.educator_id and best.student_id = tbl_scores.student_id and best.assessment_id = tbl_scores.assessment_id and best.deleted_at is null and best.status in ('submitted', 'passed', 'failed') order by case when best.total_questions > 0 then best.score * 1.0 / best.total_questions else 0 end desc, best.id desc limit 1) as best_percentage");
         TableQuery::sort($query, $request, [
             'student' => function (Builder $q, string $direction): void {
                 $q->orderBy('sort_students.surname', $direction)
@@ -161,21 +162,56 @@ class ScoreController extends Controller
         return view('educator.scores.index', compact('scores', 'exportOptions', 'filterAssessments', 'filterSubjects', 'filterSections', 'filterTerms'));
     }
 
-    public function confirmDelete(Score $score): View
+    public function destroy(Request $request, Score $score): JsonResponse|RedirectResponse
     {
         $this->authorize('delete', $score);
-
-        return view('educator.scores.delete', compact('score'));
-    }
-
-    public function destroy(Request $request, Score $score): RedirectResponse
-    {
-        $this->authorize('delete', $score);
-
-        $request->validate(['password' => ['required', 'current_password:web']]);
+        abort_unless(! $score->trashed(), 404);
         $score->delete();
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Score moved to Deleted Scores.',
+                'restore_url' => route('educator.scores.restore', $score, false),
+            ]);
+        }
+
         return redirect()->route('educator.scores.index')->with('status', 'Score deleted.');
+    }
+
+    public function deleted(Request $request): View
+    {
+        $this->authorize('viewAny', Score::class);
+
+        $scores = Score::onlyTrashed()
+            ->where('educator_id', Auth::id())
+            ->with([
+                'student:id,given_name,surname,user_id',
+                'assessment:id,assessment_code',
+                'subject:id,subject_code,subject_name',
+                'section:id,section_name',
+            ])
+            ->latest('deleted_at')
+            ->paginate(TableQuery::perPage($request))
+            ->withQueryString();
+
+        return view('educator.scores.deleted', compact('scores'));
+    }
+
+    public function restore(Request $request, Score $score): JsonResponse|RedirectResponse
+    {
+        abort_unless($score->trashed(), 404);
+        $this->authorize('restore', $score);
+        $score->restore();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Score restored.',
+            ]);
+        }
+
+        return redirect()->route('educator.scores.deleted')->with('status', 'Score restored.');
     }
 
     public function show(Score $score): View

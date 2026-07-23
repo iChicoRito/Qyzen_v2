@@ -1,4 +1,4 @@
-{{-- Task 27: Download Grades modal — Single (cascading Subject → Section → Assessment, with a
+{{-- Task 27: Download Grades modal — Single (cascading Section → Subject → Assessment, with a
      debounced preview) and Multiple (All / By Term / By Semester) tabs. $exportOptions is this
      educator's own assessments, flattened + inlined below so the cascading selects need no
      fetch to populate. --}}
@@ -25,15 +25,15 @@
 
         <div id="export_single" class="flex flex-col gap-3 pb-5">
             <div class="flex flex-col gap-1">
-                <label class="kt-form-label">Subject</label>
-                <select id="export_subject" class="kt-select" data-kt-select="true" data-kt-select-enable-search="true" data-kt-select-search-placeholder="Search subjects...">
-                    <option value="">Select subject</option>
+                <label class="kt-form-label">Section</label>
+                <select id="export_section" class="kt-select" data-kt-select="true" data-kt-select-enable-search="true" data-kt-select-search-placeholder="Search sections...">
+                    <option value="">Select section</option>
                 </select>
             </div>
             <div class="flex flex-col gap-1">
-                <label class="kt-form-label">Section</label>
-                <select id="export_section" class="kt-select" disabled data-kt-select="true" data-kt-select-enable-search="true" data-kt-select-search-placeholder="Search sections...">
-                    <option value="">Select section</option>
+                <label class="kt-form-label">Subject</label>
+                <select id="export_subject" class="kt-select" disabled data-kt-select="true" data-kt-select-enable-search="true" data-kt-select-search-placeholder="Search subjects...">
+                    <option value="">Select subject</option>
                 </select>
             </div>
             <div class="flex flex-col gap-1">
@@ -158,25 +158,25 @@
     }
 
     function resetFrom(level) {
-        if (level <= 1) { sectionSel.innerHTML = '<option value="">Select section</option>'; sectionSel.disabled = true; }
+        if (level <= 1) { subjectSel.innerHTML = '<option value="">Select subject</option>'; subjectSel.disabled = true; }
         if (level <= 2) { assessmentSel.innerHTML = '<option value="">Select assessment</option>'; assessmentSel.disabled = true; }
         termInput.value = '';
         resetPreview();
     }
 
-    fillSelect(subjectSel, unique(options, 'subjectId'), 'subjectId', 'subjectLabel', 'Select subject');
-
-    subjectSel.addEventListener('change', function () {
-        resetFrom(1);
-        if (!subjectSel.value) return;
-        var matches = options.filter(function (o) { return String(o.subjectId) === subjectSel.value; });
-        fillSelect(sectionSel, unique(matches, 'sectionId'), 'sectionId', 'sectionLabel', 'Select section');
-        sectionSel.disabled = false;
-    });
+    fillSelect(sectionSel, unique(options, 'sectionId'), 'sectionId', 'sectionLabel', 'Select section');
 
     sectionSel.addEventListener('change', function () {
-        resetFrom(2);
+        resetFrom(1);
         if (!sectionSel.value) return;
+        var matches = options.filter(function (o) { return String(o.sectionId) === sectionSel.value; });
+        fillSelect(subjectSel, unique(matches, 'subjectId'), 'subjectId', 'subjectLabel', 'Select subject');
+        subjectSel.disabled = false;
+    });
+
+    subjectSel.addEventListener('change', function () {
+        resetFrom(2);
+        if (!subjectSel.value) return;
         var matches = options.filter(function (o) {
             return String(o.subjectId) === subjectSel.value && String(o.sectionId) === sectionSel.value;
         });

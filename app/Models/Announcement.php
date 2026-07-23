@@ -35,23 +35,32 @@ class Announcement extends Model
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->hasRole('educator')) {
-            return $query->where('educator_id', $user->id);
+            return $query->where($this->qualifyColumn('educator_id'), $user->id)
+                ->where(function (Builder $q): void {
+                    $q->whereNull('subject_id')
+                        ->orWhereHas('subject.section.academicTerm', fn ($term) => $term->where('is_active', true));
+                });
         }
 
         if (! $user->hasRole('student')) {
             return $query->whereRaw('1 = 0');
         }
 
-        return $query->where('is_active', true)->where(function (Builder $q) use ($user): void {
+        return $query->where($this->qualifyColumn('is_active'), true)->where(function (Builder $q) use ($user): void {
             $q->where(function (Builder $global) use ($user): void {
                 $global->where('is_global', true)
                     ->whereExists(fn ($enrolled) => $enrolled->selectRaw('1')
                         ->from('tbl_enrolled')
+                        ->join('tbl_subjects', 'tbl_subjects.id', '=', 'tbl_enrolled.subject_id')
+                        ->join('tbl_sections', 'tbl_sections.id', '=', 'tbl_subjects.sections_id')
+                        ->join('tbl_academic_term', 'tbl_academic_term.id', '=', 'tbl_sections.academic_term_id')
                         ->whereColumn('tbl_enrolled.educator_id', 'tbl_announcements.educator_id')
                         ->where('tbl_enrolled.student_id', $user->id)
-                        ->where('tbl_enrolled.is_active', true));
+                        ->where('tbl_enrolled.is_active', true)
+                        ->where('tbl_academic_term.is_active', true));
             })->orWhere(function (Builder $subject) use ($user): void {
                 $subject->where('is_global', false)
+                    ->whereHas('subject.section.academicTerm', fn ($term) => $term->where('is_active', true))
                     ->whereExists(fn ($enrolled) => $enrolled->selectRaw('1')
                         ->from('tbl_enrolled')
                         ->whereColumn('tbl_enrolled.educator_id', 'tbl_announcements.educator_id')

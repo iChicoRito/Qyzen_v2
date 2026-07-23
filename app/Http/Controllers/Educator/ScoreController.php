@@ -44,8 +44,7 @@ class ScoreController extends Controller
 
         // Task 46: eager-load the visible score rows, then apply GET-backed search, filters,
         // sorting, and pagination before the shared table renders.
-        $query = Score::query()
-            ->where('tbl_scores.educator_id', Auth::id())
+        $query = Score::visibleTo(Auth::user())
             ->whereIn('tbl_scores.status', ['submitted', 'passed', 'failed'])
             ->whereNotExists(function ($q) {
                 $q->selectRaw('1')->from('tbl_scores as newer')
@@ -157,7 +156,7 @@ class ScoreController extends Controller
             ->when($selectedSection, fn ($q) => $q->where('sections_id', $selectedSection))
             ->orderBy('subject_code')->get(['id', 'subject_code', 'subject_name']);
         $filterSections = Section::visibleTo(Auth::user())->orderBy('section_name')->get(['id', 'section_name']);
-        $filterTerms = AcademicTerm::orderBy('term_name')->get(['id', 'term_name']);
+        $filterTerms = AcademicTerm::where('is_active', true)->orderBy('term_name')->get(['id', 'term_name']);
 
         return view('educator.scores.index', compact('scores', 'exportOptions', 'filterAssessments', 'filterSubjects', 'filterSections', 'filterTerms'));
     }
@@ -171,12 +170,12 @@ class ScoreController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'status' => 'success',
-                'message' => 'Score moved to Deleted Scores.',
+                'message' => 'Score moved to Archived Scores.',
                 'restore_url' => route('educator.scores.restore', $score, false),
             ]);
         }
 
-        return redirect()->route('educator.scores.index')->with('status', 'Score deleted.');
+        return redirect()->route('educator.scores.index')->with('status', 'Score archived.');
     }
 
     public function deleted(Request $request): View
@@ -184,7 +183,7 @@ class ScoreController extends Controller
         $this->authorize('viewAny', Score::class);
 
         $scores = Score::onlyTrashed()
-            ->where('educator_id', Auth::id())
+            ->visibleTo(Auth::user())
             ->with([
                 'student:id,given_name,surname,user_id',
                 'assessment:id,assessment_code',

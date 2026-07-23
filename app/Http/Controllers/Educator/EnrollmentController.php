@@ -36,8 +36,7 @@ class EnrollmentController extends Controller
         $this->authorize('viewAny', Enrolled::class);
 
         // One row per subject/section (grouped), not per enrollment. Students live on the detail page.
-        $query = Subject::query()
-            ->where('tbl_subjects.educator_id', Auth::id())
+        $query = Subject::visibleTo(Auth::user())
             ->has('enrollments')
             ->with('section:id,section_name')
             ->withCount([
@@ -74,9 +73,8 @@ class EnrollmentController extends Controller
         abort_unless(Subject::visibleTo(Auth::user())->whereKey($subject->getKey())->exists(), 403);
 
         $subject->load('section:id,section_name');
-        $query = Enrolled::query()
+        $query = Enrolled::visibleTo(Auth::user())
             ->where('tbl_enrolled.subject_id', $subject->id)
-            ->where('tbl_enrolled.educator_id', Auth::id())
             ->with('student:id,given_name,surname,user_id,profile_picture');
         TableQuery::search($query, $request->query('search'), [
             fn (Builder $q, string $term) => $q->orWhereHas('student', fn ($s) => $s
@@ -116,7 +114,7 @@ class EnrollmentController extends Controller
         $this->authorize('viewAny', Enrolled::class);
         abort_unless(Subject::visibleTo(Auth::user())->whereKey($subject->getKey())->exists(), 403);
 
-        $rows = Enrolled::where('educator_id', Auth::id())->where('subject_id', $subject->id)->get();
+        $rows = Enrolled::visibleTo(Auth::user())->where('subject_id', $subject->id)->get();
         $studentIds = $rows->pluck('student_id')->all();
         Enrolled::whereKey($rows->pluck('id'))->delete();
 

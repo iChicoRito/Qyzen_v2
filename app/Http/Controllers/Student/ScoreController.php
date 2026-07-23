@@ -24,8 +24,7 @@ class ScoreController extends Controller
     // H8 / Task 23 + Task 46: one latest summary row per assessment, own only.
     public function index(Request $request): View
     {
-        $query = Score::query()
-            ->where('tbl_scores.student_id', Auth::id())
+        $query = Score::visibleTo(Auth::user())
             ->whereIn('status', ['passed', 'failed', 'submitted'])
             ->whereNotExists(function ($q) {
                 $q->selectRaw('1')->from('tbl_scores as newer')
@@ -83,7 +82,7 @@ class ScoreController extends Controller
 
         // Per-assessment best score is still shown per row; attempts now come from the query
         // alias so the displayed count and the sort key stay in sync.
-        $base = Score::where('student_id', Auth::id())->whereIn('status', ['passed', 'failed', 'submitted']);
+        $base = Score::visibleTo(Auth::user())->where('student_id', Auth::id())->whereIn('status', ['passed', 'failed', 'submitted']);
         // Task 51: best by PERCENTAGE, not raw score — pool_size can change over an assessment's
         // life, so different attempts can have different total_questions; grouped in PHP (not SQL
         // MAX) since the "best" row also needs its own total_questions for the ratio, and integer
@@ -93,9 +92,9 @@ class ScoreController extends Controller
             ->map(fn ($rows) => $rows->sortByDesc(fn ($r) => $r->total_questions > 0 ? $r->score / $r->total_questions : 0)->first());
 
         $studentAssessmentIds = (clone $base)->pluck('assessment_id')->unique();
-        $fAssessments = Assessment::whereIn('id', $studentAssessmentIds)->orderBy('assessment_code')->get(['id', 'assessment_code']);
-        $fSubjects = Subject::whereIn('id', Assessment::whereIn('id', $studentAssessmentIds)->pluck('subject_id')->unique())->orderBy('subject_name')->get(['id', 'subject_name']);
-        $fTerms = AcademicTerm::whereIn('id', Assessment::whereIn('id', $studentAssessmentIds)->pluck('term')->unique()->filter())->orderBy('term_name')->get(['id', 'term_name']);
+        $fAssessments = Assessment::visibleTo(Auth::user())->whereIn('id', $studentAssessmentIds)->orderBy('assessment_code')->get(['id', 'assessment_code']);
+        $fSubjects = Subject::visibleTo(Auth::user())->whereIn('id', Assessment::visibleTo(Auth::user())->whereIn('id', $studentAssessmentIds)->pluck('subject_id')->unique())->orderBy('subject_name')->get(['id', 'subject_name']);
+        $fTerms = AcademicTerm::where('is_active', true)->whereIn('id', Assessment::visibleTo(Auth::user())->whereIn('id', $studentAssessmentIds)->pluck('term')->unique()->filter())->orderBy('term_name')->get(['id', 'term_name']);
 
         return view('student.scores.index', compact('scores', 'bestByAssessment', 'fAssessments', 'fSubjects', 'fTerms'));
     }
@@ -105,6 +104,7 @@ class ScoreController extends Controller
     {
         // 404 (not 403) for non-owned OR unfinished attempts: same "Result not found" outcome, and no
         // row-existence leak. Unfinished attempts must never open on the results screen (spec Phase 1).
+        abort_unless(Score::visibleTo(Auth::user())->whereKey($score->id)->exists(), 404);
         abort_unless($score->student_id === Auth::id(), 404);
         abort_unless(in_array($score->status, ['submitted', 'passed', 'failed'], true), 404);
 

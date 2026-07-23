@@ -9,6 +9,11 @@ use App\Models\User;
 // student own (view + create/update of own attempt). Educators cannot edit scores.
 class ScorePolicy
 {
+    private function visibleTo(User $user, Score $score): bool
+    {
+        return Score::withTrashed()->visibleTo($user)->whereKey($score->getKey())->exists();
+    }
+
     public function viewAny(User $user): bool
     {
         return $user->hasRole('admin') || $user->hasRole('educator') || $user->hasRole('student');
@@ -21,10 +26,10 @@ class ScorePolicy
         }
 
         if ($user->hasRole('educator')) {
-            return $score->educator_id === $user->id;
+            return $this->visibleTo($user, $score);
         }
 
-        return $score->student_id === $user->id;
+        return $this->visibleTo($user, $score);
     }
 
     public function create(User $user): bool
@@ -46,11 +51,11 @@ class ScorePolicy
 
     public function delete(User $user, Score $score): bool
     {
-        return $user->hasRole('admin') || ($user->hasRole('educator') && $score->educator_id === $user->id);
+        return $user->hasRole('admin') || ($user->hasRole('educator') && $this->visibleTo($user, $score));
     }
 
     public function restore(User $user, Score $score): bool
     {
-        return $user->hasRole('admin') || ($user->hasRole('educator') && $score->educator_id === $user->id);
+        return $user->hasRole('admin') || ($user->hasRole('educator') && $this->visibleTo($user, $score));
     }
 }

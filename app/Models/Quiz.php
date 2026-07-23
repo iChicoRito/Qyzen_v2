@@ -21,8 +21,10 @@ class Quiz extends Model
     // in source (questions are never browsed by admin); admins still excluded here.
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
+        $query->whereHas('subject.section.academicTerm', fn ($term) => $term->where('is_active', true));
+
         if ($user->hasRole('educator')) {
-            return $query->where('educator_id', $user->id);
+            return $query->where($this->qualifyColumn('educator_id'), $user->id);
         }
 
         if ($user->hasRole('student')) {

@@ -7,6 +7,7 @@ use App\Models\AcademicYear;
 use App\Models\Assessment;
 use App\Models\Conversation;
 use App\Models\Enrolled;
+use App\Models\Notification;
 use App\Models\Permission;
 use App\Models\Quiz;
 use App\Models\Role;
@@ -153,7 +154,7 @@ class EducatorFeaturesTest extends TestCase
     {
         foreach ([
             'educator.scores.index' => 'Scores',
-            'educator.scores.deleted' => 'Deleted Scores',
+            'educator.scores.deleted' => 'Archived Scores',
         ] as $route => $activeChild) {
             $html = $this->actingAs($this->eduA)->get(route($route))->assertOk()->getContent();
 
@@ -161,6 +162,56 @@ class EducatorFeaturesTest extends TestCase
             $this->assertSame(1, substr_count($html, 'class="kt-menu-item show"'));
             $this->assertStringContainsString('>'.$activeChild.'</span>', $html);
         }
+    }
+
+    public function test_educator_can_archive_and_restore_question_batches(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $batch = 'Upload: batch-a.xlsx · Jul 23, 2026 10:00 AM';
+        $first = Quiz::create([
+            'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+            'question' => 'Batch A - 1', 'quiz_type' => 'identification',
+            'correct_answer' => 'one', 'batch_label' => $batch,
+        ]);
+        $second = Quiz::create([
+            'subject_id' => $subject->id, 'educator_id' => $this->eduA->id,
+            'question' => 'Batch A - 2', 'quiz_type' => 'identification',
+            'correct_answer' => 'two', 'batch_label' => $batch,
+        ]);
+
+        $foreignSubject = $this->subject($this->eduB);
+        $foreign = Quiz::create([
+            'subject_id' => $foreignSubject->id, 'educator_id' => $this->eduB->id,
+            'question' => 'Foreign batch row', 'quiz_type' => 'identification',
+            'correct_answer' => 'three', 'batch_label' => $batch,
+        ]);
+
+        $this->actingAs($this->eduA)
+            ->delete('/educator/quizzes/archive', ['quiz_ids' => [$first->id]])
+            ->assertRedirect(route('educator.quizzes.index'));
+
+        $this->assertNull(Quiz::find($first->id));
+        $this->assertNull(Quiz::find($second->id));
+        $this->assertNotNull(Quiz::find($foreign->id));
+
+        $this->actingAs($this->eduA)
+            ->get('/educator/quizzes/archived')
+            ->assertOk()
+            ->assertSee('Archived Questions')
+            ->assertSee('Restore selected', false)
+            ->assertSee('data-filter="section"', false)
+            ->assertSee('data-filter="subject"', false)
+            ->assertSee('data-filter="batch"', false)
+            ->assertSee($batch)
+            ->assertSee('2');
+
+        $this->actingAs($this->eduA)
+            ->patch('/educator/quizzes/archived/restore', ['batch_labels' => [$batch]])
+            ->assertRedirect('/educator/quizzes/archived');
+
+        $this->assertNotNull(Quiz::find($first->id));
+        $this->assertNotNull(Quiz::find($second->id));
+        $this->assertNotNull(Quiz::find($foreign->id));
     }
 
     public function test_deleting_newest_attempt_keeps_older_active_attempt_and_counts(): void
@@ -190,6 +241,24 @@ class EducatorFeaturesTest extends TestCase
             ->assertDontSee('Best: 5/5');
 
         $this->assertNotNull($older->fresh());
+    }
+
+    public function test_inactive_term_blocks_educator_score_detail_route(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $assessment = Assessment::create($this->assessmentModelData($subject));
+        $score = Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id,
+            'assessment_id' => $assessment->id, 'subject_id' => $subject->id,
+            'section_id' => $subject->sections_id, 'score' => 4, 'total_questions' => 5,
+            'status' => 'failed', 'is_passed' => false, 'student_answer' => [],
+        ]);
+
+        $this->term->update(['is_active' => false]);
+
+        $this->actingAs($this->eduA)
+            ->get(route('educator.scores.show', $score))
+            ->assertForbidden();
     }
 
     // Task 13: deleting a bank question must never remove a recorded score, and the historical
@@ -502,6 +571,27 @@ class EducatorFeaturesTest extends TestCase
         $this->assertDatabaseHas('tbl_notifications', [
             'recipient_user_id' => $this->student->id, 'event_type' => 'assessment_created',
         ]);
+    }
+
+    public function test_assessment_can_be_published_without_notifying_students(): void
+    {
+        $subject = $this->subject($this->eduA);
+        $section = Section::findOrFail($subject->sections_id);
+        Enrolled::create(['student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'subject_id' => $subject->id, 'is_active' => true]);
+
+        $payload = $this->assessmentPayload($subject, $section, false);
+        unset($payload['is_active']);
+        $payload['publish_mode'] = 'active_silent';
+
+        $this->actingAs($this->eduA)
+            ->post(route('educator.assessments.store'), $payload)
+            ->assertRedirect(route('educator.assessments.index'));
+
+        $assessment = Assessment::where('subject_id', $subject->id)->latest('id')->firstOrFail();
+        $this->assertTrue($assessment->is_active);
+        $this->assertSame(0, Notification::where('recipient_user_id', $this->student->id)
+            ->where('event_type', 'assessment_created')
+            ->count());
     }
 
     // Task 01: bulk exempt/un-exempt students from an assessment (e.g. absent). Ownership is
@@ -1443,7 +1533,10 @@ class EducatorFeaturesTest extends TestCase
             ->assertSee('data-quiz-select-all', false)
             ->assertSee('data-quiz-select', false)
             ->assertSee(route('educator.quizzes.bulk'), false)
-            ->assertSee('Bulk delete', false);
+            ->assertSee('Bulk delete', false)
+            ->assertSee('data-kt-modal-toggle="#kt_quiz_archive"', false)
+            ->assertSee('name="batch_labels[]"', false)
+            ->assertSee('Archive selected batches', false);
     }
 
     public function test_pool_page_shows_questions_from_other_subjects(): void

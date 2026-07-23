@@ -135,9 +135,16 @@
 <div class="grid grid-cols-1 gap-5">
     <div class="flex flex-col gap-1">
         <label class="kt-form-label">Status</label>
-        <select name="is_active" class="kt-select">
-            <option value="0" @selected(old('is_active', $a?->is_active ?? false)==0)>Inactive (draft)</option>
-            <option value="1" @selected(old('is_active', $a?->is_active ?? false)==1)>Active (publish + notify)</option>
+        <select name="publish_mode" class="kt-select">
+            @php
+                $defaultPublishMode = old('publish_mode');
+                if ($defaultPublishMode === null) {
+                    $defaultPublishMode = old('is_active', $a?->is_active ?? false) ? 'active_notify' : 'inactive';
+                }
+            @endphp
+            <option value="inactive" @selected($defaultPublishMode === 'inactive')>Inactive (draft)</option>
+            <option value="active_notify" @selected($defaultPublishMode === 'active_notify')>Active (publish + notify)</option>
+            <option value="active_silent" @selected($defaultPublishMode === 'active_silent')>Active (publish only - no notification)</option>
         </select>
     </div>
 </div>

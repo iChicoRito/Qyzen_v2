@@ -33,8 +33,7 @@ class MaterialController extends Controller
     {
         $this->authorize('viewAny', LearningMaterial::class);
 
-        $query = LearningMaterial::query()
-            ->where('tbl_learning_materials.educator_id', Auth::id())
+        $query = LearningMaterial::visibleTo(Auth::user())
             ->with(['subject:id,subject_code,subject_name', 'section:id,section_name']);
         TableQuery::search($query, $request->query('search'), ['file_name', 'file_extension']);
         TableQuery::filters($query, $request, ['subject' => 'subject_id', 'section' => 'section_id', 'status' => 'is_active']);
@@ -82,7 +81,7 @@ class MaterialController extends Controller
         $this->authorize('create', LearningMaterial::class);
 
         $data = $request->validated();
-        $subjects = Subject::whereKey($data['subject_ids'])->get();
+        $subjects = Subject::visibleTo(Auth::user())->whereKey($data['subject_ids'])->get();
 
         $files = $request->file('files');
         foreach ($files as $file) {

@@ -13,7 +13,7 @@ class SubjectController extends Controller
 {
     public function index(Request $request): View
     {
-        $query = Enrolled::query()
+        $query = Enrolled::visibleTo($request->user())
             ->where('tbl_enrolled.student_id', $request->user()->id)
             ->where('tbl_enrolled.is_active', true)
             ->with([

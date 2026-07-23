@@ -255,7 +255,7 @@
                 }, 1000);
 
                 toast = KTToast.show({
-                    message: data.message || 'Score moved to Deleted Scores.',
+                    message: data.message || 'Score moved to Archived Scores.',
                     variant: 'success',
                     appearance: 'outline',
                     dismiss: true,

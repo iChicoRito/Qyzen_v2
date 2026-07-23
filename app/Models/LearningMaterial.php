@@ -17,12 +17,14 @@ class LearningMaterial extends Model
     // policy in source. Admins excluded.
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
+        $query->whereHas('subject.section.academicTerm', fn ($term) => $term->where('is_active', true));
+
         if ($user->hasRole('educator')) {
-            return $query->where('educator_id', $user->id);
+            return $query->where($this->qualifyColumn('educator_id'), $user->id);
         }
 
         if ($user->hasRole('student')) {
-            return $query->where('is_active', true)
+            return $query->where($this->qualifyColumn('is_active'), true)
                 ->whereExists(fn ($q) => $q->selectRaw('1')
                     ->from('tbl_enrolled')
                     ->whereColumn('tbl_enrolled.educator_id', 'tbl_learning_materials.educator_id')

@@ -1,6 +1,6 @@
 @extends('educator.layout')
-@section('title', 'Deleted Scores')
-@section('heading', 'Deleted Scores')
+@section('title', 'Archived Scores')
+@section('heading', 'Archived Scores')
 @section('content')
     @include('admin._status')
 
@@ -49,7 +49,7 @@
                 </td>
             </tr>
         @empty
-            <tr><td colspan="7" class="text-center text-secondary-foreground py-5">No deleted scores.</td></tr>
+            <tr><td colspan="7" class="text-center text-secondary-foreground py-5">No archived scores.</td></tr>
         @endforelse
     </x-data-table>
 @endsection

@@ -10,14 +10,22 @@
         ['label' => 'Enrollment',  'url' => route('educator.enrollment.index'),  'active' => request()->routeIs('educator.enrollment.*'),                                 'icon' => 'people'],
         ['heading' => 'Assessment'],
         ['label' => 'Assessments', 'url' => route('educator.assessments.index'), 'active' => request()->routeIs('educator.assessments.*'),                                'icon' => 'questionnaire-tablet'],
-        ['label' => 'Question Bank', 'url' => route('educator.quizzes.index'),   'active' => request()->routeIs('educator.quizzes.*'),                                    'icon' => 'note-2'],
+        [
+            'label' => 'Question Bank',
+            'active' => request()->routeIs('educator.quizzes.*'),
+            'icon' => 'note-2',
+            'children' => [
+                ['label' => 'Question Bank', 'url' => route('educator.quizzes.index'), 'active' => request()->routeIs('educator.quizzes.index', 'educator.quizzes.create', 'educator.quizzes.store', 'educator.quizzes.edit', 'educator.quizzes.update', 'educator.quizzes.destroy', 'educator.quizzes.bulk', 'educator.quizzes.upload', 'educator.quizzes.upload.template', 'educator.quizzes.archive')],
+                ['label' => 'Archived Questions', 'url' => route('educator.quizzes.archived'), 'active' => request()->routeIs('educator.quizzes.archived', 'educator.quizzes.archived.restore')],
+            ],
+        ],
         [
             'label' => 'Scores',
             'active' => request()->routeIs('educator.scores.*'),
             'icon' => 'chart-simple',
             'children' => [
                 ['label' => 'Scores', 'url' => route('educator.scores.index'), 'active' => request()->routeIs('educator.scores.index', 'educator.scores.show')],
-                ['label' => 'Deleted Scores', 'url' => route('educator.scores.deleted'), 'active' => request()->routeIs('educator.scores.deleted')],
+                ['label' => 'Archived Scores', 'url' => route('educator.scores.deleted'), 'active' => request()->routeIs('educator.scores.deleted')],
             ],
         ],
         ['heading' => 'Resources'],

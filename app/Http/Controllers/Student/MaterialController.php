@@ -22,14 +22,7 @@ class MaterialController extends Controller
     {
         $this->authorize('viewAny', LearningMaterial::class);
 
-        $query = LearningMaterial::query()
-            ->where('tbl_learning_materials.is_active', true)
-            ->whereExists(fn ($q) => $q->selectRaw('1')
-                ->from('tbl_enrolled')
-                ->whereColumn('tbl_enrolled.educator_id', 'tbl_learning_materials.educator_id')
-                ->whereColumn('tbl_enrolled.subject_id', 'tbl_learning_materials.subject_id')
-                ->where('tbl_enrolled.student_id', Auth::id())
-                ->where('tbl_enrolled.is_active', true))
+        $query = LearningMaterial::visibleTo(Auth::user())
             ->select('tbl_learning_materials.*')
             ->leftJoin('tbl_subjects as sort_subjects', 'sort_subjects.id', '=', 'tbl_learning_materials.subject_id')
             ->leftJoin('tbl_sections as sort_sections', 'sort_sections.id', '=', 'tbl_learning_materials.section_id')
@@ -52,10 +45,10 @@ class MaterialController extends Controller
         $materials = $query->paginate(TableQuery::perPage($request))->withQueryString();
         $groups = $materials->getCollection()->groupBy(fn ($m) => $m->subject_id.'::'.$m->section_id);
 
-        $enrolledSubjectIds = Enrolled::where('student_id', Auth::id())->where('is_active', true)->pluck('subject_id')->unique();
-        $filterSubjects = Subject::whereIn('id', $enrolledSubjectIds)->orderBy('subject_name')->get(['id', 'subject_code', 'subject_name']);
-        $enrolledSectionIds = Subject::whereIn('id', $enrolledSubjectIds)->pluck('sections_id')->unique()->filter();
-        $filterSections = Section::whereIn('id', $enrolledSectionIds)->orderBy('section_name')->get(['id', 'section_name']);
+        $enrolledSubjectIds = Enrolled::visibleTo(Auth::user())->where('student_id', Auth::id())->where('is_active', true)->pluck('subject_id')->unique();
+        $filterSubjects = Subject::visibleTo(Auth::user())->whereIn('id', $enrolledSubjectIds)->orderBy('subject_name')->get(['id', 'subject_code', 'subject_name']);
+        $enrolledSectionIds = Subject::visibleTo(Auth::user())->whereIn('id', $enrolledSubjectIds)->pluck('sections_id')->unique()->filter();
+        $filterSections = Section::visibleTo(Auth::user())->whereIn('id', $enrolledSectionIds)->orderBy('section_name')->get(['id', 'section_name']);
 
         return view('student.materials.index', compact('groups', 'materials', 'filterSubjects', 'filterSections'));
     }

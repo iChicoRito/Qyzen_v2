@@ -206,6 +206,9 @@ Route::middleware(['auth', 'verified', 'role:educator'])
         // G6 quizzes (now the question bank): bulk upload.
         Route::get('quizzes/upload/template', [QuizController::class, 'uploadTemplate'])->name('quizzes.upload.template');
         Route::post('quizzes/upload', [QuizController::class, 'upload'])->name('quizzes.upload');
+        Route::delete('quizzes/archive', [QuizController::class, 'archive'])->name('quizzes.archive');
+        Route::get('quizzes/archived', [QuizController::class, 'archived'])->name('quizzes.archived');
+        Route::patch('quizzes/archived/restore', [QuizController::class, 'restoreArchived'])->name('quizzes.archived.restore');
         Route::get('quizzes/form', [QuizController::class, 'create'])->name('quizzes.create');
         Route::delete('quizzes/bulk', [QuizController::class, 'bulkDelete'])->name('quizzes.bulk');
         Route::resource('quizzes', QuizController::class)->except(['show', 'create'])->whereNumber('quiz');

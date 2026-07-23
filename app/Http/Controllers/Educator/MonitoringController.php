@@ -24,15 +24,14 @@ class MonitoringController extends Controller
         $user = Auth::user();
         $onlineThreshold = now()->subSeconds(60); // 60s-stale = offline (matches source heuristic)
 
-        $query = Assessment::query()
-            ->where('tbl_assessments.educator_id', $user->id)
+        $query = Assessment::visibleTo($user)
             ->where('tbl_assessments.is_active', true)
             ->select('tbl_assessments.*')
             ->leftJoin('tbl_subjects as sort_subjects', 'sort_subjects.id', '=', 'tbl_assessments.subject_id')
             ->leftJoin('tbl_sections as sort_sections', 'sort_sections.id', '=', 'tbl_assessments.section_id')
             ->with(['subject:id,subject_code', 'section:id,section_name', 'academicTerm:id,term_name'])
             ->selectSub(
-                Enrolled::query()
+                Enrolled::visibleTo($user)
                     ->selectRaw('count(*)')
                     ->whereColumn('tbl_enrolled.educator_id', 'tbl_assessments.educator_id')
                     ->whereColumn('tbl_enrolled.subject_id', 'tbl_assessments.subject_id')
@@ -50,7 +49,7 @@ class MonitoringController extends Controller
                 'online_count'
             )
             ->selectSub(
-                Score::query()
+                Score::visibleTo($user)
                     ->selectRaw('count(*)')
                     ->join('tbl_enrolled as sort_enrolled', 'sort_enrolled.student_id', '=', 'tbl_scores.student_id')
                     ->whereColumn('sort_enrolled.educator_id', 'tbl_assessments.educator_id')
@@ -61,7 +60,7 @@ class MonitoringController extends Controller
                 'answering_count'
             )
             ->selectSub(
-                Score::query()
+                Score::visibleTo($user)
                     ->selectRaw('count(*)')
                     ->join('tbl_enrolled as sort_enrolled', 'sort_enrolled.student_id', '=', 'tbl_scores.student_id')
                     ->whereColumn('sort_enrolled.educator_id', 'tbl_assessments.educator_id')

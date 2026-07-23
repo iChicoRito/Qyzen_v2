@@ -22,8 +22,7 @@ class SubjectController extends Controller
     {
         $this->authorize('viewAny', Subject::class);
 
-        $query = Subject::query()
-            ->where('tbl_subjects.educator_id', Auth::id())
+        $query = Subject::visibleTo(Auth::user())
             ->with('section:id,section_name');
         TableQuery::search($query, $request->query('search'), ['subject_code', 'subject_name']);
         TableQuery::filters($query, $request, ['status' => 'is_active']);
@@ -80,7 +79,7 @@ class SubjectController extends Controller
         $this->authorize('update', $subject);
 
         // Load the whole group (same code+name for this educator) so edit replaces all of it.
-        $group = Subject::where('educator_id', Auth::id())
+        $group = Subject::visibleTo(Auth::user())
             ->where('subject_code', $subject->subject_code)
             ->where('subject_name', $subject->subject_name)
             ->get();
@@ -103,7 +102,7 @@ class SubjectController extends Controller
             // tbl_subjects.id, so a section that stays in the group must keep its existing row
             // (and id) rather than being deleted and recreated — see
             // docs/audits/SUBJECT_RENAME_CASCADE_AUDIT.md.
-            $rows = Subject::where('educator_id', Auth::id())->whereIn('id', $data['row_ids'])->get();
+            $rows = Subject::visibleTo(Auth::user())->whereIn('id', $data['row_ids'])->get();
 
             // row_ids must all belong to one group (unique sections_id each) — the UI only ever
             // submits one group's rows, so two rows sharing a sections_id means a forged request
@@ -146,7 +145,7 @@ class SubjectController extends Controller
         $this->authorize('delete', $subject);
 
         // Delete the whole code+name group, ownership-checked.
-        Subject::where('educator_id', Auth::id())
+        Subject::visibleTo(Auth::user())
             ->where('subject_code', $subject->subject_code)
             ->where('subject_name', $subject->subject_name)
             ->delete();

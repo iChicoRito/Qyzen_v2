@@ -49,8 +49,7 @@ class AssessmentController extends Controller
 
         $selectedSubject = $request->query('subject');
         $selectedSection = $request->query('section');
-        $query = Assessment::query()
-            ->where('tbl_assessments.educator_id', Auth::id())
+        $query = Assessment::visibleTo(Auth::user())
             ->with(['subject:id,subject_code,subject_name', 'section:id,section_name', 'academicTerm:id,term_name']);
         TableQuery::search($query, $request->query('search'), [
             'assessment_code',
@@ -116,11 +115,12 @@ class AssessmentController extends Controller
         $this->authorize('create', Assessment::class);
 
         $data = $request->validated();
+        $shouldNotifyStudents = $request->shouldNotifyStudents();
         $subjectIds = $data['subject_ids'];
         unset($data['subject_ids']);
 
         // One assessment per selected subject; section_id derived from each subject's own section.
-        $subjects = Subject::whereKey($subjectIds)->get(['id', 'sections_id']);
+        $subjects = Subject::visibleTo(Auth::user())->whereKey($subjectIds)->get(['id', 'sections_id']);
         foreach ($subjects as $subject) {
             $assessment = Assessment::create($data + [
                 'educator_id' => Auth::id(),
@@ -129,7 +129,7 @@ class AssessmentController extends Controller
             ]);
 
             // Publish-on-create: if created already active, notify enrolled students.
-            if ($assessment->is_active) {
+            if ($assessment->is_active && $shouldNotifyStudents) {
                 $this->notifyEnrolled($assessment, 'assessment_created', 'New assessment published');
             }
         }
@@ -162,10 +162,11 @@ class AssessmentController extends Controller
         $this->authorize('update', $assessment);
 
         $data = $request->validated();
+        $shouldNotifyStudents = $request->shouldNotifyStudents();
         $subjectId = (int) $data['subject_ids'][0];
         unset($data['subject_ids']);
 
-        $subject = Subject::whereKey($subjectId)->firstOrFail(['id', 'sections_id']);
+        $subject = Subject::visibleTo(Auth::user())->whereKey($subjectId)->firstOrFail(['id', 'sections_id']);
 
         $newAssessment = DB::transaction(function () use ($assessment, $data, $subject) {
             $newAssessment = Assessment::create($data + [
@@ -182,7 +183,7 @@ class AssessmentController extends Controller
             return $newAssessment;
         });
 
-        if ($newAssessment->is_active) {
+        if ($newAssessment->is_active && $shouldNotifyStudents) {
             $this->notifyEnrolled($newAssessment, 'assessment_created', 'New assessment published');
         }
 
@@ -205,17 +206,18 @@ class AssessmentController extends Controller
 
         $wasActive = $assessment->is_active;
         $data = $request->validated();
+        $shouldNotifyStudents = $request->shouldNotifyStudents();
         $subjectId = (int) $data['subject_ids'][0];
         unset($data['subject_ids']);
-        $subject = Subject::whereKey($subjectId)->firstOrFail(['id', 'sections_id']);
+        $subject = Subject::visibleTo(Auth::user())->whereKey($subjectId)->firstOrFail(['id', 'sections_id']);
 
         // Update the current row only; section follows the selected subject.
         $assessment->update($data + ['subject_id' => $subject->id, 'section_id' => $subject->sections_id]);
 
         // Publish trigger: inactive → active fires assessment_created; otherwise assessment_updated.
-        if (! $wasActive && $assessment->is_active) {
+        if (! $wasActive && $assessment->is_active && $shouldNotifyStudents) {
             $this->notifyEnrolled($assessment, 'assessment_created', 'New assessment published');
-        } else {
+        } elseif ($shouldNotifyStudents) {
             $this->notifyEnrolled($assessment, 'assessment_updated', 'Assessment updated');
         }
 
@@ -517,7 +519,7 @@ class AssessmentController extends Controller
         return [
             'subjects' => Subject::visibleTo(Auth::user())->with('section:id,section_name')->orderBy('subject_code')->get(),
             'sections' => Section::visibleTo(Auth::user())->orderBy('section_name')->get(),
-            'terms' => AcademicTerm::with('year')->get(),
+            'terms' => AcademicTerm::with('year')->where('is_active', true)->get(),
         ];
     }
 }

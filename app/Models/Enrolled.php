@@ -17,11 +17,13 @@ class Enrolled extends Model
             return $query;
         }
 
+        $query->whereHas('subject.section.academicTerm', fn ($term) => $term->where('is_active', true));
+
         if ($user->hasRole('educator')) {
-            return $query->where('educator_id', $user->id);
+            return $query->where($this->qualifyColumn('educator_id'), $user->id);
         }
 
-        return $query->where('student_id', $user->id);
+        return $query->where($this->qualifyColumn('student_id'), $user->id);
     }
 
     protected $fillable = ['student_id', 'educator_id', 'subject_id', 'is_active'];

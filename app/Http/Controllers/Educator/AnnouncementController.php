@@ -23,7 +23,7 @@ class AnnouncementController extends Controller
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Announcement::class);
-        $query = Announcement::query()->where('tbl_announcements.educator_id', Auth::id())->with('subject:id,subject_code,subject_name,sections_id');
+        $query = Announcement::visibleTo(Auth::user())->with('subject:id,subject_code,subject_name,sections_id');
         TableQuery::search($query, $request->query('search'), ['title', 'description']);
         TableQuery::sort($query, $request, [
             'title' => 'title', 'subject' => fn ($q, $direction) => $q
@@ -122,7 +122,7 @@ class AnnouncementController extends Controller
 
     private function notifyStudents(Announcement $announcement): void
     {
-        $query = Enrolled::query()->where('educator_id', $announcement->educator_id)->where('is_active', true);
+        $query = Enrolled::visibleTo(Auth::user())->where('educator_id', $announcement->educator_id)->where('is_active', true);
         if (! $announcement->is_global) {
             $query->where('subject_id', $announcement->subject_id);
         }

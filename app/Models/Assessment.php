@@ -33,8 +33,10 @@ class Assessment extends Model
             return $query;
         }
 
+        $query->whereHas('academicTerm', fn ($term) => $term->where('is_active', true));
+
         if ($user->hasRole('educator')) {
-            return $query->where('educator_id', $user->id);
+            return $query->where($this->qualifyColumn('educator_id'), $user->id);
         }
 
         return $query->whereExists(fn ($q) => $q->selectRaw('1')

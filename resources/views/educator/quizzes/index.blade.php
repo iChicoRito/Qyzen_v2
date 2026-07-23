@@ -10,6 +10,9 @@
             Bulk delete <span data-quiz-bulk-count>0</span>
         </button>
     </form>
+    <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" data-kt-modal-toggle="#kt_quiz_archive" @disabled($batches->isEmpty())>
+        Archive batches
+    </button>
     <button type="button" class="kt-btn kt-btn-sm kt-btn-secondary" data-kt-modal-toggle="#kt_quiz_upload">
         <i class="ki-filled ki-cloud-upload"></i> Upload File
     </button>
@@ -34,7 +37,7 @@
             </select>
             <select data-filter="batch" class="kt-select w-56">
                 <option value="">All batches</option>
-                @foreach ($batches as $b)<option value="{{ $b }}">{{ $b }}</option>@endforeach
+                @foreach ($batches as $batch)<option value="{{ $batch->batch_label }}">{{ $batch->batch_label }}</option>@endforeach
             </select>
         </x-slot:filters>
         <x-slot:head>
@@ -92,6 +95,54 @@
     </x-data-table>
 
     <x-modal id="form_modal" width="640px" />
+
+    <x-modal id="kt_quiz_archive" title="Archive Question Batches" width="960px">
+        <form method="POST" action="{{ route('educator.quizzes.archive') }}" class="flex flex-col gap-4">
+            @csrf @method('DELETE')
+
+            <div class="flex flex-col gap-1">
+                <label class="kt-form-label">Question batches</label>
+                <label class="kt-input">
+                    <i class="ki-filled ki-magnifier"></i>
+                    <input type="text" placeholder="Search batches..." data-archive-batch-search @disabled($batches->isEmpty())>
+                </label>
+                <div class="flex items-center justify-between gap-3 text-xs text-secondary-foreground mt-1">
+                    <span>Select one or more uploaded batches.</span>
+                    <button type="button" class="kt-btn kt-btn-xs kt-btn-outline" data-archive-batch-select-all @disabled($batches->isEmpty())>
+                        Select visible
+                    </button>
+                </div>
+                <div class="border border-border rounded-xl overflow-hidden bg-background" style="max-height: 52vh;">
+                    <div class="kt-scrollable-y" style="max-height: 52vh;" data-archive-batch-list>
+                        @forelse ($batches as $batch)
+                            <label class="flex items-start gap-3 px-4 py-3 border-b border-border last:border-b-0 cursor-pointer" data-archive-batch-option>
+                                <input type="checkbox" class="kt-checkbox kt-checkbox-sm mt-1 shrink-0" name="batch_labels[]" value="{{ $batch->batch_label }}" @checked(in_array($batch->batch_label, old('batch_labels', []), true))>
+                                <span class="flex flex-col gap-1 min-w-0">
+                                    <span class="font-medium break-words">{{ $batch->batch_label }}</span>
+                                    <span class="text-xs text-secondary-foreground">{{ $batch->question_count }} question{{ $batch->question_count === 1 ? '' : 's' }}</span>
+                                </span>
+                            </label>
+                        @empty
+                            <div class="px-4 py-6 text-sm text-secondary-foreground">No active batches are available to archive.</div>
+                        @endforelse
+                    </div>
+                </div>
+                <p class="text-sm text-secondary-foreground hidden" data-archive-batch-empty>No matching batches.</p>
+                <p class="text-xs text-secondary-foreground">
+                    Select one or more uploaded batches. Archiving moves every question in those batches to Archived Questions.
+                </p>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-1 sticky bottom-0 bg-background border-t border-border py-3">
+                <button type="button" class="kt-btn kt-btn-outline" data-kt-modal-dismiss="true">Cancel</button>
+                <button type="submit" class="kt-btn kt-btn-primary" data-archive-batch-submit
+                        data-confirm="Archive the selected batches? Every question in the same batch will move to Archived Questions."
+                        data-confirm-title="Archive selected batches?" @disabled($batches->isEmpty())>
+                    Archive selected batches <span data-archive-batch-count>0</span>
+                </button>
+            </div>
+        </form>
+    </x-modal>
 
     {{-- Bulk upload: static form in the x-modal slot (same pattern as admin permissions' perm_add_modal). --}}
     <x-modal id="kt_quiz_upload" title="Upload Quiz Files" width="640px">
@@ -162,6 +213,55 @@
     document.getElementById('quiz_bulk_form').addEventListener('submit', function (event) {
         if (!document.querySelector('[name="quiz_ids[]"]:checked')) event.preventDefault();
     });
+
+    function syncArchiveBatchModal() {
+        var modal = document.getElementById('kt_quiz_archive');
+        if (!modal) return;
+        var search = modal.querySelector('[data-archive-batch-search]');
+        var rows = Array.from(modal.querySelectorAll('[data-archive-batch-option]'));
+        var query = search ? search.value.trim().toLowerCase() : '';
+        var visible = 0;
+
+        rows.forEach(function (row) {
+            var text = row.textContent.toLowerCase();
+            var match = query === '' || text.indexOf(query) !== -1;
+            row.classList.toggle('hidden', !match);
+            if (match) visible += 1;
+        });
+
+        var empty = modal.querySelector('[data-archive-batch-empty]');
+        if (empty) empty.classList.toggle('hidden', visible !== 0);
+
+        var selected = modal.querySelectorAll('input[name="batch_labels[]"]:checked').length;
+        var submit = modal.querySelector('[data-archive-batch-submit]');
+        var count = modal.querySelector('[data-archive-batch-count]');
+        if (submit) submit.disabled = selected === 0;
+        if (count) count.textContent = selected;
+    }
+
+    document.addEventListener('input', function (event) {
+        if (event.target.matches('[data-archive-batch-search]')) syncArchiveBatchModal();
+    });
+
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest('[data-archive-batch-select-all]');
+        if (!button) return;
+        var modal = document.getElementById('kt_quiz_archive');
+        if (!modal) return;
+        modal.querySelectorAll('[data-archive-batch-option]').forEach(function (row) {
+            if (!row.classList.contains('hidden')) {
+                var checkbox = row.querySelector('input[name="batch_labels[]"]');
+                if (checkbox) checkbox.checked = true;
+            }
+        });
+        syncArchiveBatchModal();
+    });
+
+    document.addEventListener('change', function (event) {
+        if (event.target.matches('#kt_quiz_archive input[name="batch_labels[]"]')) syncArchiveBatchModal();
+    });
+
+    syncArchiveBatchModal();
 })();
 </script>
 @endpush

@@ -21,8 +21,7 @@ class SectionController extends Controller
     {
         $this->authorize('viewAny', Section::class);
 
-        $query = Section::query()
-            ->where('tbl_sections.educator_id', Auth::id())
+        $query = Section::visibleTo(Auth::user())
             ->with('terms:id,term_name,semester')
             ->withCount('terms');
         TableQuery::search($query, $request->query('search'), ['section_name']);
@@ -38,7 +37,7 @@ class SectionController extends Controller
     {
         $this->authorize('create', Section::class);
 
-        return view('educator.sections.create', ['terms' => AcademicTerm::with('year')->get()]);
+        return view('educator.sections.create', ['terms' => AcademicTerm::with('year')->where('is_active', true)->get()]);
     }
 
     public function store(StoreSectionRequest $request): RedirectResponse
@@ -67,7 +66,7 @@ class SectionController extends Controller
 
         return view('educator.sections.edit', [
             'section' => $section,
-            'terms' => AcademicTerm::with('year')->get(),
+            'terms' => AcademicTerm::with('year')->where('is_active', true)->get(),
         ]);
     }
 

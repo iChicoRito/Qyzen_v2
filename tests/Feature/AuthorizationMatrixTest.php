@@ -170,6 +170,41 @@ class AuthorizationMatrixTest extends TestCase
         $this->assertFalse(LearningMaterial::visibleTo($this->otherStudent)->whereKey($mat->id)->exists());
     }
 
+    public function test_inactive_term_hides_related_resources_from_educators_and_students(): void
+    {
+        $quiz = Quiz::create([
+            'subject_id' => $this->subjectA->id, 'educator_id' => $this->eduA->id,
+            'question' => '2+2', 'quiz_type' => 'multiple_choice',
+            'choices' => ['A' => '3', 'B' => '4'], 'correct_answer' => 'B',
+        ]);
+        $score = Score::create([
+            'student_id' => $this->student->id, 'educator_id' => $this->eduA->id, 'assessment_id' => $this->assessmentA->id,
+            'subject_id' => $this->subjectA->id, 'section_id' => $this->sectionA->id, 'student_answer' => [],
+        ]);
+        $material = LearningMaterial::create([
+            'educator_id' => $this->eduA->id, 'subject_id' => $this->subjectA->id, 'section_id' => $this->sectionA->id,
+            'storage_path' => 'x/y.pdf', 'file_name' => 'y.pdf', 'file_extension' => 'pdf', 'mime_type' => 'application/pdf', 'is_active' => true,
+        ]);
+
+        $this->sectionA->academicTerm->update(['is_active' => false]);
+
+        $this->assertFalse(Section::visibleTo($this->eduA)->whereKey($this->sectionA->id)->exists());
+        $this->assertFalse(Section::visibleTo($this->student)->whereKey($this->sectionA->id)->exists());
+        $this->assertFalse(Subject::visibleTo($this->eduA)->whereKey($this->subjectA->id)->exists());
+        $this->assertFalse(Subject::visibleTo($this->student)->whereKey($this->subjectA->id)->exists());
+        $this->assertFalse(Assessment::visibleTo($this->eduA)->whereKey($this->assessmentA->id)->exists());
+        $this->assertFalse(Assessment::visibleTo($this->student)->whereKey($this->assessmentA->id)->exists());
+        $this->assertFalse(Quiz::visibleTo($this->eduA)->whereKey($quiz->id)->exists());
+        $this->assertFalse(Quiz::visibleTo($this->student)->whereKey($quiz->id)->exists());
+        $this->assertFalse(Score::visibleTo($this->eduA)->whereKey($score->id)->exists());
+        $this->assertFalse(Score::visibleTo($this->student)->whereKey($score->id)->exists());
+        $this->assertFalse(LearningMaterial::visibleTo($this->eduA)->whereKey($material->id)->exists());
+        $this->assertFalse(LearningMaterial::visibleTo($this->student)->whereKey($material->id)->exists());
+
+        $this->assertTrue(Assessment::visibleTo($this->admin)->whereKey($this->assessmentA->id)->exists());
+        $this->assertTrue(Score::visibleTo($this->admin)->whereKey($score->id)->exists());
+    }
+
     // ---- helpers ----
 
     private function makeUser(string $type, string $roleName): User

@@ -9,6 +9,11 @@ use App\Models\User;
 // reach quiz CRUD; admins don't browse questions. correct_answer stays hidden on the model.
 class QuizPolicy
 {
+    private function visibleTo(User $user, Quiz $quiz): bool
+    {
+        return Quiz::withTrashed()->visibleTo($user)->whereKey($quiz->getKey())->exists();
+    }
+
     public function viewAny(User $user): bool
     {
         return $user->hasRole('educator');
@@ -16,7 +21,7 @@ class QuizPolicy
 
     public function view(User $user, Quiz $quiz): bool
     {
-        return $user->hasRole('educator') && $quiz->educator_id === $user->id;
+        return $user->hasRole('educator') && $this->visibleTo($user, $quiz);
     }
 
     public function create(User $user): bool
@@ -26,10 +31,15 @@ class QuizPolicy
 
     public function update(User $user, Quiz $quiz): bool
     {
-        return $user->hasRole('educator') && $quiz->educator_id === $user->id;
+        return $user->hasRole('educator') && $this->visibleTo($user, $quiz);
     }
 
     public function delete(User $user, Quiz $quiz): bool
+    {
+        return $this->update($user, $quiz);
+    }
+
+    public function restore(User $user, Quiz $quiz): bool
     {
         return $this->update($user, $quiz);
     }
